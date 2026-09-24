@@ -141,6 +141,7 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
             {
                 _logService.AppendLog(tunnel.Id, "stdout", e.Data);
                 ParseStats(state, e.Data);
+                DetectConnectionStatus(tunnel, e.Data);
             }
         };
 
@@ -150,6 +151,7 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
             {
                 _logService.AppendLog(tunnel.Id, "stderr", e.Data);
                 ParseStats(state, e.Data);
+                DetectConnectionStatus(tunnel, e.Data);
             }
         };
 
@@ -490,5 +492,23 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
             }
         }
         catch { }
+    }
+
+    private static void DetectConnectionStatus(Tunnel tunnel, string line)
+    {
+        if (line.Contains("showcaptchafast", StringComparison.OrdinalIgnoreCase))
+        {
+            tunnel.ErrorMessage = "Яндекс требует капчу (showcaptchafast). Документ заблокирован.";
+        }
+        else if (line.Contains("looks like a login page", StringComparison.OrdinalIgnoreCase) || 
+                 line.Contains("doc not public", StringComparison.OrdinalIgnoreCase))
+        {
+            tunnel.ErrorMessage = "Документ недоступен или требует авторизации.";
+        }
+        else if (line.Contains("WebSocket connected", StringComparison.OrdinalIgnoreCase) ||
+                 line.Contains("Auth OK", StringComparison.OrdinalIgnoreCase))
+        {
+            tunnel.ErrorMessage = null;
+        }
     }
 }

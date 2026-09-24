@@ -53,10 +53,11 @@ public sealed class SystemStatsService : ISystemStatsService
         var totalDownload = tunnels.Sum(t => t.DownloadBytes);
 
         var (tunnelUpRate, tunnelDownRate) = CalculateNetworkRates(totalUpload, totalDownload);
-        var (hostUpRate, hostDownRate) = GetHostNetworkRates();
+        var tunnelSumUpRate = tunnels.Sum(t => t.UploadRateBytesPerSec);
+        var tunnelSumDownRate = tunnels.Sum(t => t.DownloadRateBytesPerSec);
 
-        var uploadRate = Math.Max(tunnelUpRate, hostUpRate);
-        var downloadRate = Math.Max(tunnelDownRate, hostDownRate);
+        var uploadRate = Math.Max(tunnelSumUpRate, tunnelUpRate);
+        var downloadRate = Math.Max(tunnelSumDownRate, tunnelDownRate);
 
         var cpuUsage = CalculateCpuUsage();
         var (memUsed, memTotal) = GetMemoryUsage();

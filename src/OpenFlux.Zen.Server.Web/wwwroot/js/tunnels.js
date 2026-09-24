@@ -48,6 +48,25 @@ function updateTunnelsInPlace(list) {
       downloadEl.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>${fmtBytes(t.downloadBytes)}${downRateStr}`;
     }
 
+    const statusEl = document.getElementById('tunnel-status-' + t.id);
+    if (statusEl) {
+      let badgeHtml = '<span class="badge badge-status badge-stopped">Остановлен</span>';
+      if (t.status === 2) {
+        if (t.errorMessage) {
+          badgeHtml = `<span class="badge badge-status badge-failed" title="${escapeHtml(t.errorMessage)}"><span class="pulse" style="background:#ef4444;"></span>Ошибка связи</span>`;
+        } else {
+          badgeHtml = '<span class="badge badge-status badge-running"><span class="pulse"></span>Активен</span>';
+        }
+      } else if (t.status === 1) {
+        badgeHtml = '<span class="badge badge-status badge-starting">Запуск...</span>';
+      } else if (t.status === 4) {
+        badgeHtml = `<span class="badge badge-status badge-failed" title="${escapeHtml(t.errorMessage || '')}">Ошибка</span>`;
+      }
+      if (statusEl.innerHTML !== badgeHtml) {
+        statusEl.innerHTML = badgeHtml;
+      }
+    }
+
     if (t.trafficLimitBytes > 0) {
       const totalBytes = (t.uploadBytes || 0) + (t.downloadBytes || 0);
       const trafficPct = Math.min(100, Math.round(totalBytes / t.trafficLimitBytes * 100));
@@ -80,7 +99,11 @@ function renderTunnels(list) {
   container.innerHTML = list.map(t => {
     let statusBadge = '<span class="badge badge-status badge-stopped">Остановлен</span>';
     if (t.status === 2) {
-      statusBadge = '<span class="badge badge-status badge-running"><span class="pulse"></span>Активен</span>';
+      if (t.errorMessage) {
+        statusBadge = `<span class="badge badge-status badge-failed" title="${escapeHtml(t.errorMessage)}"><span class="pulse" style="background:#ef4444;"></span>Ошибка связи</span>`;
+      } else {
+        statusBadge = '<span class="badge badge-status badge-running"><span class="pulse"></span>Активен</span>';
+      }
     } else if (t.status === 1) {
       statusBadge = '<span class="badge badge-status badge-starting">Запуск...</span>';
     } else if (t.status === 4) {
