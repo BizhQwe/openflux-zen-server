@@ -83,14 +83,20 @@ fi
 
 # 6. Publish Application
 echo -e "${BLUE}[4/8] Building and publishing OpenFlux Zen Server (Web & CLI)...${NC}"
+
+# Stop any running instances/tunnels to prevent "Text file busy" (ETXTBSY)
+systemctl stop openflux-zen-server.service 2>/dev/null || true
+pkill -9 -f openflux-linux 2>/dev/null || true
+
 cd "$PREFIX"
 dotnet publish src/OpenFlux.Zen.Server.Web/OpenFlux.Zen.Server.Web.csproj -c Release -o "$PREFIX/app" >/dev/null
 dotnet publish src/OpenFlux.Zen.Server.Cli/OpenFlux.Zen.Server.Cli.csproj -c Release -o "$PREFIX/app" >/dev/null
 chmod +x "$PREFIX/app/OpenFluxZenServer" || true
 
-# Copy runtimes and set permissions
+# Copy runtimes and set permissions (remove destination first to unlink busy inodes)
 mkdir -p "$PREFIX/app/runtimes"
-cp -r "$PREFIX/runtimes/"* "$PREFIX/app/runtimes/"
+rm -f "$PREFIX/app/runtimes/"* 2>/dev/null || true
+cp -f -r "$PREFIX/runtimes/"* "$PREFIX/app/runtimes/"
 chmod +x "$PREFIX/app/runtimes/"* || true
 
 # 7. Generate Security Credentials

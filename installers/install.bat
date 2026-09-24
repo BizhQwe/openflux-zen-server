@@ -24,9 +24,12 @@ if not exist "%ProgramFiles%" set "INSTALL_DIR=%LOCALAPPDATA%\OpenFluxZenServer"
 
 echo [1/6] Preparing installation directory: "%INSTALL_DIR%"...
 if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
-if not exist "%INSTALL_DIR%\runtimes" mkdir "%INSTALL_DIR%\runtimes"
-
 echo [2/6] Building and publishing application binaries (Web & CLI)...
+taskkill /f /im OpenFlux.Zen.Server.Web.exe >nul 2>&1
+taskkill /f /im OpenFlux.Zen.Server.exe >nul 2>&1
+taskkill /f /im OpenFluxZenServer.exe >nul 2>&1
+taskkill /f /im openflux-windows-amd64.exe >nul 2>&1
+taskkill /f /im openflux-windows-arm64.exe >nul 2>&1
 dotnet publish "%REPO_ROOT%\src\OpenFlux.Zen.Server.Web\OpenFlux.Zen.Server.Web.csproj" -c Release -o "%INSTALL_DIR%" >nul
 dotnet publish "%REPO_ROOT%\src\OpenFlux.Zen.Server.Cli\OpenFlux.Zen.Server.Cli.csproj" -c Release -o "%INSTALL_DIR%" >nul
 
