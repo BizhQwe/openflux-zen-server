@@ -183,6 +183,8 @@
     .toolbar .form-control,
     .form-control-sm,
     .form-control.form-control-sm {
+      width: auto !important;
+      max-width: 320px;
       min-height: 36px !important;
       height: 36px !important;
       padding: 0 28px 0 12px;
