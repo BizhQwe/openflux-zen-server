@@ -52,7 +52,15 @@ app.UseMiddleware<SecretPathMiddleware>();
 // 6. Routing & Static Files
 app.UseRouting();
 app.UseDefaultFiles();
-app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = ctx =>
+    {
+        ctx.Context.Response.Headers.Append("Cache-Control", "no-cache, no-store, must-revalidate");
+        ctx.Context.Response.Headers.Append("Pragma", "no-cache");
+        ctx.Context.Response.Headers.Append("Expires", "0");
+    }
+});
 
 // 7. Modular Endpoints (SOLID - Single Responsibility & Separation of Concerns)
 app.MapAuthEndpoints();

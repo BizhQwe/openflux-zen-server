@@ -6,6 +6,8 @@ public sealed class SystemStats
     public int ActiveTunnels { get; set; }
     public long TotalUploadBytes { get; set; }
     public long TotalDownloadBytes { get; set; }
+    public long UploadRateBytesPerSec { get; set; }
+    public long DownloadRateBytesPerSec { get; set; }
     public double CpuUsagePercent { get; set; }
     public long MemoryUsedBytes { get; set; }
     public long MemoryTotalBytes { get; set; }

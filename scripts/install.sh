@@ -68,13 +68,13 @@ if [ "$DETECTED_LANG" = "ru" ]; then
     TXT_WAIT_HEALTH="Ожидание готовности службы OpenFlux Zen Server"
     TXT_HEALTH_OK="Готово!"
     TXT_HEALTH_INIT="(служба ещё инициализируется)"
-    TXT_SUCCESS_TITLE="      OpenFlux Zen Server УСПЕШНО УСТАНОВЛЕН И ЗАПУЩЕН!          "
+    TXT_SUCCESS_TITLE="OpenFlux Zen Server — УСПЕШНО УСТАНОВЛЕН И ЗАПУЩЕН!"
     TXT_LBL_SECRET_URL="Панель управления (Секретная ссылка):"
-    TXT_LBL_LOCAL_URL="Локальный адрес:"
-    TXT_LBL_USER="Логин:"
-    TXT_LBL_PASS="Пароль:"
-    TXT_LBL_SECRET="Секретный путь:"
-    TXT_LBL_CLI="CLI-команда доступна из любого каталога:  OpenFluxZenServer <command>"
+    TXT_LBL_LOCAL_URL="Локальный адрес:                     "
+    TXT_LBL_USER="Логин:                               "
+    TXT_LBL_PASS="Пароль:                              "
+    TXT_LBL_SECRET="Секретный путь:                      "
+    TXT_LBL_CLI="Управление сервером через команду: OpenFluxZenServer <command>"
     TXT_CLI_START="запуск службы сервера"
     TXT_CLI_STOP="остановка службы сервера"
     TXT_CLI_RESTART="перезапуск службы сервера"
@@ -118,13 +118,13 @@ else
     TXT_WAIT_HEALTH="Waiting for OpenFlux Zen Server service readiness"
     TXT_HEALTH_OK="Done!"
     TXT_HEALTH_INIT="(service is still initializing)"
-    TXT_SUCCESS_TITLE="   OpenFlux Zen Server HAS BEEN SUCCESSFULLY INSTALLED & STARTED! "
-    TXT_LBL_SECRET_URL="Web Dashboard URL (Secret link):"
-    TXT_LBL_LOCAL_URL="Local Access URL:"
-    TXT_LBL_USER="Username:"
-    TXT_LBL_PASS="Password:"
-    TXT_LBL_SECRET="Secret Path:"
-    TXT_LBL_CLI="CLI command available from any directory:  OpenFluxZenServer <command>"
+    TXT_SUCCESS_TITLE="OpenFlux Zen Server — SUCCESSFULLY INSTALLED & STARTED!"
+    TXT_LBL_SECRET_URL="Web Dashboard URL (Secret link):     "
+    TXT_LBL_LOCAL_URL="Local Access URL:                    "
+    TXT_LBL_USER="Username:                            "
+    TXT_LBL_PASS="Password:                            "
+    TXT_LBL_SECRET="Secret Path:                         "
+    TXT_LBL_CLI="CLI command available anywhere: OpenFluxZenServer <command>"
     TXT_CLI_START="start server service"
     TXT_CLI_STOP="stop server service"
     TXT_CLI_RESTART="restart server service"
@@ -138,11 +138,15 @@ else
 fi
 
 # Print Header Banner
-echo -e "${CYAN}${BOLD}"
-echo "┌──────────────────────────────────────────────────────────────────┐"
-echo "│$TXT_TITLE│"
-echo "│$TXT_SUBTITLE│"
-echo "└──────────────────────────────────────────────────────────────────┘"
+echo -e "${CYAN}${BOLD}=================================================================="
+if [ "$DETECTED_LANG" = "ru" ]; then
+    echo -e "   OpenFlux Zen Server — Установка и настройка"
+    echo -e "   Универсальная серверная платформа туннелей"
+else
+    echo -e "   OpenFlux Zen Server — Installer & Setup"
+    echo -e "   Universal High-Performance Tunnel Platform"
+fi
+echo -e "==================================================================${NC}"
 echo -e "${GRAY}Language: [${DETECTED_LANG^^}] (override with --lang=ru or --lang=en)${NC}\n"
 
 # 1. Root check
@@ -340,7 +344,7 @@ EOF
 
         # Check or download zrok
         if ! command -v zrok >/dev/null 2>&1; then
-            echo "${TXT_ZROK_DOWNLOAD} v2.0.4 ($ZROK_ARCH)..."
+            echo -e "${CYAN}${TXT_ZROK_DOWNLOAD} v2.0.4 ($ZROK_ARCH)...${NC}"
             ZROK_URL="https://github.com/openziti/zrok/releases/download/v2.0.4/zrok_2.0.4_linux_${ZROK_ARCH}.tar.gz"
             curl -sSL "$ZROK_URL" -o /tmp/zrok.tar.gz
             mkdir -p /tmp/zrok_ext
@@ -355,7 +359,7 @@ EOF
             rm -rf /tmp/zrok.tar.gz /tmp/zrok_ext
         fi
 
-        echo "$TXT_ZROK_ENABLE"
+        echo -e "${CYAN}${TXT_ZROK_ENABLE}${NC}"
         export HOME=/root
         zrok enable "$ZROK_TOKEN" >/dev/null 2>&1 || true
 
@@ -464,16 +468,16 @@ if [ "$HEALTH_OK" -eq 0 ]; then
 fi
 
 # Print Final Summary Card
-echo -e "\n${GREEN}${BOLD}┌──────────────────────────────────────────────────────────────────┐"
-echo "│$TXT_SUCCESS_TITLE│"
-echo "├──────────────────────────────────────────────────────────────────┤${NC}"
+echo -e "\n${GREEN}${BOLD}=================================================================="
+echo -e "  $TXT_SUCCESS_TITLE"
+echo -e "==================================================================${NC}"
 echo -e "${CYAN}  ${TXT_LBL_SECRET_URL}${NC} ${BOLD}$FINAL_URL${NC}"
-echo -e "${CYAN}  ${TXT_LBL_LOCAL_URL}${NC}      ${BOLD}$LOCAL_URL${NC}"
-echo -e "${CYAN}  ${TXT_LBL_USER}${NC}                ${BOLD}$ADMIN_USER${NC}"
-echo -e "${CYAN}  ${TXT_LBL_PASS}${NC}               ${BOLD}$ADMIN_PASS${NC}"
-echo -e "${CYAN}  ${TXT_LBL_SECRET}${NC}       ${BOLD}/$SECRET_PATH/${NC}"
-echo -e "${GREEN}${BOLD}├──────────────────────────────────────────────────────────────────┤${NC}"
-echo -e "${YELLOW}  ${TXT_LBL_CLI}${NC}"
+echo -e "${CYAN}  ${TXT_LBL_LOCAL_URL}${NC} ${BOLD}$LOCAL_URL${NC}"
+echo -e "${CYAN}  ${TXT_LBL_USER}${NC} ${BOLD}$ADMIN_USER${NC}"
+echo -e "${CYAN}  ${TXT_LBL_PASS}${NC} ${BOLD}$ADMIN_PASS${NC}"
+echo -e "${CYAN}  ${TXT_LBL_SECRET}${NC} ${BOLD}/$SECRET_PATH/${NC}"
+echo -e "${GREEN}${BOLD}------------------------------------------------------------------${NC}"
+echo -e "${YELLOW}  ${TXT_LBL_CLI}${NC}\n"
 echo -e "    ${BOLD}OpenFluxZenServer start${NC}        — ${TXT_CLI_START}"
 echo -e "    ${BOLD}OpenFluxZenServer stop${NC}         — ${TXT_CLI_STOP}"
 echo -e "    ${BOLD}OpenFluxZenServer restart${NC}      — ${TXT_CLI_RESTART}"
@@ -482,12 +486,12 @@ echo -e "    ${BOLD}OpenFluxZenServer autostart${NC}    — ${TXT_CLI_AUTOSTART}
 echo -e "    ${BOLD}OpenFluxZenServer credentials${NC}  — ${TXT_CLI_CREDS}"
 echo -e "    ${BOLD}OpenFluxZenServer help${NC}         — ${TXT_CLI_HELP}"
 echo -e "    ${BOLD}OpenFluxZenServer uninstall${NC}    — ${TXT_CLI_UNINSTALL}"
-echo -e "${GREEN}${BOLD}└──────────────────────────────────────────────────────────────────┘${NC}"
+echo -e "${GREEN}${BOLD}==================================================================${NC}\n"
 
 if [ "$HEALTH_OK" -eq 1 ]; then
-    echo -e "${GREEN}${TXT_SRV_ACTIVE}${NC}"
+    echo -e "${GREEN}${TXT_SRV_ACTIVE}${NC}\n"
 else
-    echo -e "${YELLOW}${TXT_SRV_STARTING}${NC}"
+    echo -e "${YELLOW}${TXT_SRV_STARTING}${NC}\n"
 fi
 
 exit 0

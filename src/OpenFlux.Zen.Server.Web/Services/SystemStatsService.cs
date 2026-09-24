@@ -13,10 +13,22 @@ public sealed class SystemStatsService : ISystemStatsService
 {
     private readonly ITunnelManager _tunnelManager;
     private readonly DateTime _panelStartedAt = DateTime.UtcNow;
+
+    // CPU Tracking
     private TimeSpan _lastCpuTime;
     private DateTime _lastCpuCheck = DateTime.UtcNow;
     private double _lastCpuUsage;
+    private long _lastHostCpuTotal;
+    private long _lastHostCpuIdle;
     private readonly object _cpuLock = new();
+
+    // Traffic / Network Rate Tracking
+    private long _lastUploadBytes;
+    private long _lastDownloadBytes;
+    private DateTime _lastTrafficCheck = DateTime.UtcNow;
+    private long _lastUploadRate;
+    private long _lastDownloadRate;
+    private readonly object _trafficLock = new();
 
     public SystemStatsService(ITunnelManager tunnelManager)
     {
@@ -32,11 +44,9 @@ public sealed class SystemStatsService : ISystemStatsService
         var totalUpload = tunnels.Sum(t => t.UploadBytes);
         var totalDownload = tunnels.Sum(t => t.DownloadBytes);
 
+        var (uploadRate, downloadRate) = CalculateNetworkRates(totalUpload, totalDownload);
         var cpuUsage = CalculateCpuUsage();
-        var memInfo = GC.GetGCMemoryInfo();
-        var currentProc = Process.GetCurrentProcess();
-        var memUsed = currentProc.WorkingSet64;
-        var memTotal = memInfo.TotalAvailableMemoryBytes > 0 ? memInfo.TotalAvailableMemoryBytes : 1024L * 1024 * 1024 * 4;
+        var (memUsed, memTotal) = GetMemoryUsage();
 
         var panelUptime = DateTime.UtcNow - _panelStartedAt;
         var systemUptime = TimeSpan.FromMilliseconds(Environment.TickCount64);
@@ -47,6 +57,8 @@ public sealed class SystemStatsService : ISystemStatsService
             ActiveTunnels = activeTunnels,
             TotalUploadBytes = totalUpload,
             TotalDownloadBytes = totalDownload,
+            UploadRateBytesPerSec = uploadRate,
+            DownloadRateBytesPerSec = downloadRate,
             CpuUsagePercent = cpuUsage,
             MemoryUsedBytes = memUsed,
             MemoryTotalBytes = memTotal,
@@ -56,6 +68,83 @@ public sealed class SystemStatsService : ISystemStatsService
             Architecture = RuntimeInformation.ProcessArchitecture.ToString(),
             DotNetVersion = RuntimeInformation.FrameworkDescription
         };
+    }
+
+    private (long uploadRate, long downloadRate) CalculateNetworkRates(long currentUpload, long currentDownload)
+    {
+        lock (_trafficLock)
+        {
+            var now = DateTime.UtcNow;
+            var elapsedSec = (now - _lastTrafficCheck).TotalSeconds;
+            if (elapsedSec >= 0.5)
+            {
+                if (elapsedSec > 0 && (_lastUploadBytes > 0 || _lastDownloadBytes > 0))
+                {
+                    _lastUploadRate = (long)Math.Max(0, (currentUpload - _lastUploadBytes) / elapsedSec);
+                    _lastDownloadRate = (long)Math.Max(0, (currentDownload - _lastDownloadBytes) / elapsedSec);
+                }
+                else
+                {
+                    _lastUploadRate = 0;
+                    _lastDownloadRate = 0;
+                }
+                _lastUploadBytes = currentUpload;
+                _lastDownloadBytes = currentDownload;
+                _lastTrafficCheck = now;
+            }
+            return (_lastUploadRate, _lastDownloadRate);
+        }
+    }
+
+    private (long used, long total) GetMemoryUsage()
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && File.Exists("/proc/meminfo"))
+        {
+            try
+            {
+                long memTotalKb = 0;
+                long memAvailableKb = 0;
+                long memFreeKb = 0;
+                long buffersKb = 0;
+                long cachedKb = 0;
+
+                foreach (var line in File.ReadLines("/proc/meminfo"))
+                {
+                    var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length < 2 || !long.TryParse(parts[1], out var val)) continue;
+
+                    if (line.StartsWith("MemTotal:", StringComparison.OrdinalIgnoreCase))
+                        memTotalKb = val;
+                    else if (line.StartsWith("MemAvailable:", StringComparison.OrdinalIgnoreCase))
+                        memAvailableKb = val;
+                    else if (line.StartsWith("MemFree:", StringComparison.OrdinalIgnoreCase))
+                        memFreeKb = val;
+                    else if (line.StartsWith("Buffers:", StringComparison.OrdinalIgnoreCase))
+                        buffersKb = val;
+                    else if (line.StartsWith("Cached:", StringComparison.OrdinalIgnoreCase))
+                        cachedKb = val;
+                }
+
+                if (memTotalKb > 0)
+                {
+                    if (memAvailableKb <= 0)
+                    {
+                        memAvailableKb = memFreeKb + buffersKb + cachedKb;
+                    }
+                    var usedKb = Math.Max(0, memTotalKb - memAvailableKb);
+                    return (usedKb * 1024L, memTotalKb * 1024L);
+                }
+            }
+            catch
+            {
+                // Fallback to GC memory
+            }
+        }
+
+        var memInfo = GC.GetGCMemoryInfo();
+        var fallbackTotal = memInfo.TotalAvailableMemoryBytes > 0 ? memInfo.TotalAvailableMemoryBytes : 1024L * 1024 * 1024 * 4;
+        var fallbackUsed = Process.GetCurrentProcess().WorkingSet64;
+        return (fallbackUsed, fallbackTotal);
     }
 
     private double CalculateCpuUsage()
@@ -69,6 +158,50 @@ public sealed class SystemStatsService : ISystemStatsService
                 return _lastCpuUsage;
             }
 
+            // Attempt host CPU from /proc/stat on Linux
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && File.Exists("/proc/stat"))
+            {
+                try
+                {
+                    var firstLine = File.ReadLines("/proc/stat").FirstOrDefault();
+                    if (firstLine != null && firstLine.StartsWith("cpu "))
+                    {
+                        var parts = firstLine.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                        if (parts.Length >= 5)
+                        {
+                            long total = 0;
+                            for (int i = 1; i < parts.Length; i++)
+                            {
+                                if (long.TryParse(parts[i], out var v)) total += v;
+                            }
+                            long.TryParse(parts[4], out var idle);
+                            if (parts.Length >= 6 && long.TryParse(parts[5], out var iowait)) idle += iowait;
+
+                            if (_lastHostCpuTotal > 0)
+                            {
+                                var deltaTotal = total - _lastHostCpuTotal;
+                                var deltaIdle = idle - _lastHostCpuIdle;
+                                if (deltaTotal > 0)
+                                {
+                                    _lastCpuUsage = Math.Clamp(Math.Round((1.0 - (double)deltaIdle / deltaTotal) * 100.0, 1), 0.0, 100.0);
+                                    _lastHostCpuTotal = total;
+                                    _lastHostCpuIdle = idle;
+                                    _lastCpuCheck = now;
+                                    return _lastCpuUsage;
+                                }
+                            }
+                            _lastHostCpuTotal = total;
+                            _lastHostCpuIdle = idle;
+                        }
+                    }
+                }
+                catch
+                {
+                    // Fallback to process CPU
+                }
+            }
+
+            // Fallback: Process CPU
             var currentCpuTime = Process.GetCurrentProcess().TotalProcessorTime;
             var cpuUsedMs = (currentCpuTime - _lastCpuTime).TotalMilliseconds;
             var totalAvailableMs = elapsed * Environment.ProcessorCount;

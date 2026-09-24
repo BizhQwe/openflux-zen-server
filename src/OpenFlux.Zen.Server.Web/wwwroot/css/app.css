@@ -163,22 +163,28 @@
       color: var(--text-muted);
     }
     .btn-outline:hover { background: var(--card-hover); color: var(--text); border-color: #3b4d6e; }
-    .btn-sm {
-      min-height: 36px;
-      height: 36px;
-      padding: 0 14px;
-      font-size: 0.825rem;
-      border-radius: 8px;
-      box-sizing: border-box;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      line-height: 1;
+    .btn-sm,
+    .btn.btn-sm,
+    button.btn-sm,
+    .toolbar .btn-sm,
+    .toolbar > .btn.btn-sm,
+    .header-actions .btn.btn-sm {
+      height: 36px !important;
+      min-height: 36px !important;
+      max-height: 36px !important;
+      padding: 0 14px !important;
+      font-size: 0.825rem !important;
+      border-radius: 8px !important;
+      box-sizing: border-box !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      line-height: 34px !important;
+      vertical-align: middle !important;
     }
-    .btn svg { display: block; }
+    .btn svg { display: block; flex-shrink: 0; }
     .toolbar, .button-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; min-width: 0; }
-    .toolbar > .btn { min-height: 42px; }
-    .toolbar > .btn.btn-sm { min-height: 36px; height: 36px; }
+    .toolbar > .btn:not(.btn-sm) { min-height: 42px; }
     .toolbar select.form-control,
     .toolbar .form-control,
     .form-control-sm,

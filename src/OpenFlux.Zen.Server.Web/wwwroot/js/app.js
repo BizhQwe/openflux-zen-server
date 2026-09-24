@@ -127,21 +127,33 @@ async function loadStats() {
     const cpuEl = document.getElementById('stat-cpu');
     if (cpuEl) cpuEl.textContent = Math.round(s.cpuUsagePercent) + '%';
     const ramEl = document.getElementById('stat-ram');
-    if (ramEl) ramEl.textContent = fmtBytes(s.memoryUsageBytes);
+    if (ramEl) {
+      if (s.memoryTotalBytes && s.memoryTotalBytes > 0) {
+        ramEl.textContent = `${fmtBytes(s.memoryUsedBytes)} / ${fmtBytes(s.memoryTotalBytes)}`;
+      } else {
+        ramEl.textContent = fmtBytes(s.memoryUsedBytes);
+      }
+    }
     const ramPctEl = document.getElementById('stat-ram-pct');
     if (ramPctEl) ramPctEl.textContent = Math.round(s.memoryUsagePercent) + '%';
+    const speedDown = s.downloadRateBytesPerSec || 0;
+    const speedUp = s.uploadRateBytesPerSec || 0;
+    const speedTotal = speedDown + speedUp;
     const speedTotalEl = document.getElementById('stat-speed-total');
-    if (speedTotalEl) speedTotalEl.textContent = fmtSpeed(s.uploadRateBytesPerSec + s.downloadRateBytesPerSec);
+    if (speedTotalEl) speedTotalEl.textContent = fmtSpeed(speedTotal);
     const speedUpEl = document.getElementById('stat-speed-up');
-    if (speedUpEl) speedUpEl.textContent = fmtSpeed(s.uploadRateBytesPerSec);
+    if (speedUpEl) speedUpEl.textContent = fmtSpeed(speedUp);
     const speedDownEl = document.getElementById('stat-speed-down');
-    if (speedDownEl) speedDownEl.textContent = fmtSpeed(s.downloadRateBytesPerSec);
+    if (speedDownEl) speedDownEl.textContent = fmtSpeed(speedDown);
+    const upTraffic = s.totalUploadBytes || 0;
+    const downTraffic = s.totalDownloadBytes || 0;
+    const totalTraffic = upTraffic + downTraffic;
     const trafficEl = document.getElementById('stat-total-traffic');
-    if (trafficEl) trafficEl.textContent = fmtBytes(s.totalBytesSent + s.totalBytesReceived);
+    if (trafficEl) trafficEl.textContent = fmtBytes(totalTraffic);
     const uploadEl = document.getElementById('stat-upload');
-    if (uploadEl) uploadEl.textContent = fmtBytes(s.totalBytesSent);
+    if (uploadEl) uploadEl.textContent = fmtBytes(upTraffic);
     const downloadEl = document.getElementById('stat-download');
-    if (downloadEl) downloadEl.textContent = fmtBytes(s.totalBytesReceived);
+    if (downloadEl) downloadEl.textContent = fmtBytes(downTraffic);
   } catch (err) {
     console.warn('Failed to load stats:', err);
   }
