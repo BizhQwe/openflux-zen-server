@@ -1,18 +1,20 @@
 @echo off
 setlocal
-if "%~1"=="" set "cmd=help" else set "cmd=%~1"
-if /I "%cmd%"=="help" goto help
-if /I "%cmd%"=="credentials" goto credentials
-if /I "%cmd%"=="uninstall" goto uninstall
-:help
-echo OpenFluxZenServer help
-echo OpenFluxZenServer credentials
-echo OpenFluxZenServer uninstall
-exit /b 0
-:credentials
-echo Username: %OPENFLUX_ADMIN_USER%
-echo Password is supplied through OPENFLUX_ADMIN_PASSWORD during installation.
-exit /b 0
-:uninstall
-call "%~dp0..\installers\uninstall.bat"
-exit /b 0
+set "SCRIPT_DIR=%~dp0"
+set "APP_DIR=%SCRIPT_DIR%.."
+
+if exist "%APP_DIR%\OpenFlux.Zen.Server.exe" (
+    "%APP_DIR%\OpenFlux.Zen.Server.exe" %*
+) else if exist "%APP_DIR%\publish\OpenFlux.Zen.Server.exe" (
+    "%APP_DIR%\publish\OpenFlux.Zen.Server.exe" %*
+) else if exist "%APP_DIR%\publish\OpenFlux.Zen.Server.dll" (
+    dotnet "%APP_DIR%\publish\OpenFlux.Zen.Server.dll" %*
+) else if exist "%APP_DIR%\src\OpenFlux.Zen.Server\bin\Release\net10.0\OpenFlux.Zen.Server.exe" (
+    "%APP_DIR%\src\OpenFlux.Zen.Server\bin\Release\net10.0\OpenFlux.Zen.Server.exe" %*
+) else if exist "%APP_DIR%\src\OpenFlux.Zen.Server\bin\Debug\net10.0\OpenFlux.Zen.Server.exe" (
+    "%APP_DIR%\src\OpenFlux.Zen.Server\bin\Debug\net10.0\OpenFlux.Zen.Server.exe" %*
+) else if exist "%APP_DIR%\src\OpenFlux.Zen.Server\bin\Debug\net10.0\OpenFlux.Zen.Server.dll" (
+    dotnet "%APP_DIR%\src\OpenFlux.Zen.Server\bin\Debug\net10.0\OpenFlux.Zen.Server.dll" %*
+) else (
+    dotnet run --project "%APP_DIR%\src\OpenFlux.Zen.Server" -- %*
+)
