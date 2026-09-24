@@ -16,3 +16,4 @@ WantedBy=multi-user.target
 EOF
 systemctl daemon-reload; systemctl enable --now openflux-zen-server.service; echo "OpenFlux Zen Server installed at $PREFIX"
 
+
