@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -10,170 +9,27 @@ using OpenFlux.Zen.Server.Models;
 
 namespace OpenFlux.Zen.Server.Services;
 
-public interface IAuthService
-{
-    Task<(bool Success, string Token, string Username)> LoginAsync(string username, string password);
-    bool ValidateToken(string token);
-    void RevokeToken(string token);
-    Task<bool> ChangePasswordAsync(string currentPassword, string newPassword);
-    Task<(bool Success, string Message, string NewUsername)> ChangeProfileAsync(string currentPassword, string? newUsername, string? newPassword);
-    Task<CredentialsResponse> GetCredentialsAsync();
-}
-
-public interface ISettingsService
-{
-    Task<AppSettings> GetSettingsAsync();
-    Task<AppSettings> UpdateSettingsAsync(AppSettings settings);
-    Task<string> RegenerateSecretPathAsync();
-    Task<bool> SetAutoStartAsync(bool enabled);
-    void SaveCredentialsFile(string username, string plainPassword, string secretPath, string? publicUrl);
-}
-
-public sealed class AuthService : IAuthService, ISettingsService
+public sealed class AuthService : IAuthService
 {
     private readonly ILogger<AuthService> _logger;
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly ISettingsService _settingsService;
     private readonly string _credentialsFilePath;
     private readonly HashSet<string> _activeTokens = new();
     private readonly HashSet<string> _revokedTokens = new();
     private readonly object _tokenLock = new();
 
-    public AuthService(ILogger<AuthService> logger, IServiceScopeFactory scopeFactory)
+    public AuthService(ILogger<AuthService> logger, IServiceScopeFactory scopeFactory, ISettingsService settingsService)
     {
         _logger = logger;
         _scopeFactory = scopeFactory;
+        _settingsService = settingsService;
         _credentialsFilePath = OpenFlux.Zen.Server.Common.AppPaths.GetCredentialsPath();
-    }
-
-    public async Task<AppSettings> GetSettingsAsync()
-    {
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var settings = await db.Settings.FirstOrDefaultAsync(s => s.Id == 1);
-        if (settings == null)
-        {
-            settings = await InitializeDefaultSettingsAsync(db);
-        }
-        return settings;
-    }
-
-    public async Task<AppSettings> UpdateSettingsAsync(AppSettings updated)
-    {
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var current = await db.Settings.FirstOrDefaultAsync(s => s.Id == 1);
-        if (current == null)
-        {
-            current = await InitializeDefaultSettingsAsync(db);
-        }
-
-        current.Username = updated.Username;
-        current.SecretPath = updated.SecretPath;
-        current.ListenHost = updated.ListenHost;
-        current.ListenPort = updated.ListenPort;
-        current.PublicUrl = updated.PublicUrl;
-        current.PublishMode = updated.PublishMode;
-        current.Domain = updated.Domain;
-        current.ZrokToken = updated.ZrokToken;
-        current.ZrokShareUrl = updated.ZrokShareUrl;
-        current.AutoStartEnabled = updated.AutoStartEnabled;
-        current.UpdatedAt = DateTime.UtcNow;
-
-        await db.SaveChangesAsync();
-        return current;
-    }
-
-    public async Task<string> RegenerateSecretPathAsync()
-    {
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var settings = await db.Settings.FirstOrDefaultAsync(s => s.Id == 1);
-        if (settings == null)
-        {
-            settings = await InitializeDefaultSettingsAsync(db);
-        }
-
-        var newSecret = Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant();
-        settings.SecretPath = newSecret;
-        settings.UpdatedAt = DateTime.UtcNow;
-        await db.SaveChangesAsync();
-
-        _logger.LogInformation("Regenerated secret path: {Path}", newSecret);
-        return newSecret;
-    }
-
-    public async Task<bool> SetAutoStartAsync(bool enabled)
-    {
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var settings = await db.Settings.FirstOrDefaultAsync(s => s.Id == 1);
-        if (settings == null)
-        {
-            settings = await InitializeDefaultSettingsAsync(db);
-        }
-
-        settings.AutoStartEnabled = enabled;
-        settings.UpdatedAt = DateTime.UtcNow;
-        await db.SaveChangesAsync();
-
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-        {
-            var action = enabled ? "enable" : "disable";
-            try
-            {
-                using var p = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = "systemctl",
-                    Arguments = $"{action} openflux-zen-server.service",
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                });
-                p?.WaitForExit(3000);
-
-                if (File.Exists("/etc/systemd/system/openflux-zrok.service"))
-                {
-                    using var p2 = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                    {
-                        FileName = "systemctl",
-                        Arguments = $"{action} openflux-zrok.service",
-                        UseShellExecute = false,
-                        CreateNoWindow = true
-                    });
-                    p2?.WaitForExit(3000);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to update systemctl autostart configuration");
-            }
-        }
-        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            var startType = enabled ? "auto" : "demand";
-            try
-            {
-                using var p = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = "sc.exe",
-                    Arguments = $"config OpenFluxZenServer start= {startType}",
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                });
-                p?.WaitForExit(3000);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to update Windows service autostart configuration");
-            }
-        }
-
-        _logger.LogInformation("Autostart configuration updated: {Enabled}", enabled);
-        return true;
     }
 
     public async Task<(bool Success, string Token, string Username)> LoginAsync(string username, string password)
     {
-        var settings = await GetSettingsAsync();
+        var settings = await _settingsService.GetSettingsAsync();
         if (!string.Equals(settings.Username, username, StringComparison.OrdinalIgnoreCase))
         {
             return (false, "", "");
@@ -331,7 +187,7 @@ public sealed class AuthService : IAuthService, ISettingsService
         {
             settings.UpdatedAt = DateTime.UtcNow;
             await db.SaveChangesAsync();
-            SaveCredentialsFile(settings.Username, effectivePassword, settings.SecretPath, settings.PublicUrl);
+            _settingsService.SaveCredentialsFile(settings.Username, effectivePassword, settings.SecretPath, settings.PublicUrl);
             _logger.LogInformation("Profile updated successfully for user {User}", settings.Username);
         }
 
@@ -340,7 +196,7 @@ public sealed class AuthService : IAuthService, ISettingsService
 
     public async Task<CredentialsResponse> GetCredentialsAsync()
     {
-        var settings = await GetSettingsAsync();
+        var settings = await _settingsService.GetSettingsAsync();
         string plainPassword = "******";
 
         if (File.Exists(_credentialsFilePath))
@@ -366,73 +222,6 @@ public sealed class AuthService : IAuthService, ISettingsService
             LocalUrl = localUrl,
             PublicUrl = !string.IsNullOrWhiteSpace(settings.PublicUrl) ? settings.PublicUrl : localUrl
         };
-    }
-
-    public void SaveCredentialsFile(string username, string plainPassword, string secretPath, string? publicUrl)
-    {
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(_credentialsFilePath)!);
-            var data = new
-            {
-                username,
-                password = plainPassword,
-                secretPath,
-                publicUrl,
-                updatedAt = DateTime.UtcNow
-            };
-            var json = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(_credentialsFilePath, json);
-
-            // Set file permissions to owner-only on Linux
-            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            {
-                try
-                {
-                    File.SetUnixFileMode(_credentialsFilePath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
-                }
-                catch { }
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to write credentials file");
-        }
-    }
-
-    private async Task<AppSettings> InitializeDefaultSettingsAsync(AppDbContext db)
-    {
-        var initialUser = Environment.GetEnvironmentVariable("OPENFLUX_ADMIN_USER") ?? ("zen_" + Convert.ToHexString(RandomNumberGenerator.GetBytes(4)).ToLowerInvariant());
-        var initialPassword = Environment.GetEnvironmentVariable("OPENFLUX_ADMIN_PASSWORD") ?? GenerateRandomPassword(16);
-        var initialSecret = Environment.GetEnvironmentVariable("OPENFLUX_SECRET_PATH") ?? Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant();
-        var initialPort = 5000;
-        if (int.TryParse(Environment.GetEnvironmentVariable("OPENFLUX_PORT"), out var p))
-        {
-            initialPort = p;
-        }
-
-        var (hash, salt) = HashPassword(initialPassword);
-        var settings = new AppSettings
-        {
-            Id = 1,
-            Username = initialUser,
-            PasswordHash = hash,
-            PasswordSalt = salt,
-            SecretPath = initialSecret,
-            ListenHost = "127.0.0.1",
-            ListenPort = initialPort,
-            PublishMode = "local",
-            AutoStartEnabled = true,
-            UpdatedAt = DateTime.UtcNow
-        };
-
-        db.Settings.Add(settings);
-        await db.SaveChangesAsync();
-
-        SaveCredentialsFile(initialUser, initialPassword, initialSecret, null);
-        _logger.LogInformation("Initialized default admin settings. Secret path: /{Secret}/", initialSecret);
-
-        return settings;
     }
 
     public static (string Hash, string Salt) HashPassword(string password)

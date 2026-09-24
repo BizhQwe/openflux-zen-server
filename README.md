@@ -54,13 +54,13 @@ Production-ready кроссплатформенная web-панель упра�
 
 Установка в одну команду:
 ```bash
-curl -fsSL https://raw.githubusercontent.com/BizhQwe/openflux-zen-server/main/installers/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/BizhQwe/openflux-zen-server/main/scripts/install.sh | bash
 ```
 
 Или клонированием:
 ```bash
 git clone https://github.com/BizhQwe/openflux-zen-server.git /opt/openflux-zen-server
-bash /opt/openflux-zen-server/installers/install.sh
+bash /opt/openflux-zen-server/scripts/install.sh
 ```
 
 В процессе скрипт:
@@ -79,7 +79,7 @@ bash /opt/openflux-zen-server/installers/install.sh
    ```
 2. Запустите от имени Администратора:
    ```cmd
-   installers\install.bat
+   scripts\install.bat
    ```
 
 Скрипт опубликует бинарники, создаст задание автозапуска, добавит `OpenFluxZenServer` в `PATH` и запустит сервер.
@@ -109,7 +109,7 @@ OpenFluxZenServer uninstall
 
 ```
 openflux-zen-server/
-├── installers/
+├── scripts/   
 │   ├── install.sh                              # Единый установщик Linux
 │   └── install.bat                             # Единый установщик Windows
 ├── runtimes/                                   # Нативные скомпилированные бинарники OpenFlux
