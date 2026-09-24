@@ -13,75 +13,106 @@ async function loadTunnels() {
 }
 
 function renderTunnels(list) {
-  const container = document.getElementById('tunnel-list');
-  if (!list || list.length === 0) {
-    container.innerHTML = `
-      <div class="card" style="text-align: center; color: var(--text-dim); padding: 40px 20px;">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin: 0 auto 12px; display: block; opacity: 0.6;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        Нет настроенных туннелей.<br>Нажмите «Добавить туннель», чтобы создать первый туннель OpenFlux.
-      </div>
-    `;
-    return;
-  }
+      const container = document.getElementById('tunnel-list');
+      if (list.length === 0) {
+        container.innerHTML = `
+          <div class="card" style="text-align: center; padding: 40px; color: var(--text-dim);">
+            <div style="margin-bottom: 14px; opacity: 0.65;">
+              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
+                <rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
+                <line x1="6" y1="6" x2="6.01" y2="6"/>
+                <line x1="6" y1="18" x2="6.01" y2="18"/>
+              </svg>
+            </div>
+            <h4>Нет настроенных туннелей</h4>
+            <p style="margin-top: 6px;">Нажмите кнопку «Добавить туннель», чтобы создать ваш первый OpenFlux туннель.</p>
+          </div>
+        `;
+        return;
+      }
 
-  container.innerHTML = list.map(t => {
-    const isRunning = t.status === 'Running' || t.status === 1;
-    const badgeClass = isRunning ? 'badge-running' : (t.status === 'Error' || t.status === 3 ? 'badge-error' : 'badge-stopped');
-    const badgeText = isRunning ? 'АКТИВЕН' : (t.status === 'Error' || t.status === 3 ? 'ОШИБКА' : 'ОСТАНОВЛЕН');
+      container.innerHTML = list.map(t => {
+        let statusBadge = '<span class="badge badge-status badge-stopped">Остановлен</span>';
+        if (t.status === 2) {
+          statusBadge = '<span class="badge badge-status badge-running"><span class="pulse"></span>Активен</span>';
+        } else if (t.status === 1) {
+          statusBadge = '<span class="badge badge-status badge-starting">Запуск...</span>';
+        } else if (t.status === 4) {
+          statusBadge = `<span class="badge badge-status badge-failed" title="${t.errorMessage || ''}">Ошибка</span>`;
+        }
 
-    return `
-      <div class="tunnel-item" id="tunnel-${t.id}">
-        <div class="tunnel-top">
-          <div class="tunnel-title-group">
-            <span class="tunnel-name">${escapeHtml(t.name)}</span>
-            <div class="badges">
-              <span class="badge badge-status ${badgeClass}">
-                <span class="badge-dot"></span>${badgeText}
-              </span>
-              <span class="badge badge-role">${t.role.toUpperCase()}</span>
-              <span class="badge badge-transport">${t.transport.toUpperCase()}</span>
-              <span class="badge badge-transport">${t.mode ? t.mode.toUpperCase() : 'L4'}</span>
-              <span class="badge badge-transport">${t.codec ? t.codec.toUpperCase() : 'BATCHED'}</span>
+        const isRunning = t.status === 2;
+        const totalBytes = (t.uploadBytes || 0) + (t.downloadBytes || 0);
+        let trafficLimitStr = 'Без лимита';
+        let trafficPct = 0;
+        if (t.trafficLimitBytes > 0) {
+          trafficLimitStr = fmtBytes(t.trafficLimitBytes);
+          trafficPct = Math.min(100, Math.round(totalBytes / t.trafficLimitBytes * 100));
+        }
+
+        const clientLimitStr = t.clientLimit > 0 ? `${t.connectedClients || 0} / ${t.clientLimit}` : `${t.connectedClients || 0} (∞)`;
+
+        return `
+          <div class="tunnel-item">
+            <div class="tunnel-top">
+              <div class="tunnel-title-group">
+                <div class="tunnel-name">${escapeHtml(t.name)}</div>
+                ${statusBadge}
+                <div class="badges">
+                  <span class="badge badge-tag">${t.role}</span>
+                  <span class="badge badge-tag">${t.transport}</span>
+                  <span class="badge badge-tag">${t.role === 'exit' ? t.mode : t.inbound}</span>
+                  <span class="badge badge-tag">${t.codec}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="tunnel-details">
+              <div class="detail-item">
+                <span class="detail-label">Клиенты</span>
+                <span class="detail-val">${clientLimitStr}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Отдано (Upload)</span>
+                <span class="detail-val" style="display: inline-flex; align-items: center; gap: 4px;">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+                  ${fmtBytes(t.uploadBytes)}
+                </span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Принято (Download)</span>
+                <span class="detail-val" style="display: inline-flex; align-items: center; gap: 4px;">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
+                  ${fmtBytes(t.downloadBytes)}
+                </span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Лимит трафика</span>
+                <span class="detail-val">${trafficLimitStr}</span>
+                ${t.trafficLimitBytes > 0 ? `<div class="progress-bar-bg"><div class="progress-bar-fill" style="width: ${trafficPct}%"></div></div>` : ''}
+              </div>
+            </div>
+
+            <div class="tunnel-actions">
+              <div class="action-group">
+                ${isRunning ? 
+                  `<button class="btn btn-danger btn-sm" onclick="stopTunnel('${t.id}')"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>Остановить</button>` :
+                  `<button class="btn btn-success btn-sm" onclick="startTunnel('${t.id}')"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>Запустить</button>`}
+                <button class="btn btn-outline btn-sm" onclick="viewTunnelLogs('${t.id}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Логи</button>
+                <button class="btn btn-outline btn-sm" onclick="resetStats('${t.id}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>Сброс трафика</button>
+              </div>
+
+              <div class="action-group">
+                <button class="btn btn-outline btn-sm" onclick="editTunnel('${t.id}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Настроить</button>
+                <button class="btn btn-outline btn-sm" style="color: #ef4444;" onclick="deleteTunnel('${t.id}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>Удалить</button>
+              </div>
             </div>
           </div>
-        </div>
+        `;
+      }).join('');
+    }
 
-        <div class="tunnel-stats-grid">
-          <div class="tunnel-stat">
-            <span class="tunnel-stat-label">Клиенты</span>
-            <span class="tunnel-stat-val">${t.activeClients || 0} <small>(${t.clientLimit > 0 ? t.clientLimit : '∞'})</small></span>
-          </div>
-          <div class="tunnel-stat">
-            <span class="tunnel-stat-label">Отдано (Upload)</span>
-            <span class="tunnel-stat-val">↑ ${fmtBytes(t.bytesSent)}</span>
-          </div>
-          <div class="tunnel-stat">
-            <span class="tunnel-stat-label">Принято (Download)</span>
-            <span class="tunnel-stat-val">↓ ${fmtBytes(t.bytesReceived)}</span>
-          </div>
-          <div class="tunnel-stat">
-            <span class="tunnel-stat-label">Лимит трафика</span>
-            <span class="tunnel-stat-val">${t.trafficLimitBytes > 0 ? fmtBytes(t.trafficLimitBytes) : 'Без лимита'}</span>
-          </div>
-        </div>
-
-        <div class="tunnel-actions">
-          ${isRunning
-            ? `<button class="btn btn-danger btn-sm" onclick="stopTunnel('${t.id}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>Остановить</button>`
-            : `<button class="btn btn-success btn-sm" onclick="startTunnel('${t.id}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>Запустить</button>`
-          }
-          <button class="btn btn-outline btn-sm" onclick="viewTunnelLogs('${t.id}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>Логи</button>
-          <button class="btn btn-outline btn-sm" onclick="resetStats('${t.id}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>Сброс трафика</button>
-
-          <div style="margin-left: auto; display: flex; gap: 8px;">
-            <button class="btn btn-outline btn-sm" onclick="editTunnel('${t.id}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Настроить</button>
-            <button class="btn btn-outline btn-sm btn-danger-hover" onclick="deleteTunnel('${t.id}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Удалить</button>
-          </div>
-        </div>
-      </div>
-    `;
-  }).join('');
-}
 
 async function startTunnel(id) {
   try {
