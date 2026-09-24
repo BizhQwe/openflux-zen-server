@@ -120,16 +120,28 @@ async function loadStats() {
     const res = await api('api/stats');
     if (!res.ok) return;
     const s = await res.json();
-    document.getElementById('stat-active-tunnels').textContent = `${s.activeTunnels} / ${s.totalTunnels}`;
-    document.getElementById('stat-total-tunnels').textContent = s.totalTunnels;
-    document.getElementById('stat-cpu').textContent = `${Math.round(s.cpuUsagePercent)}% CPU`;
-    document.getElementById('stat-ram').textContent = `${fmtBytes(s.memoryUsageBytes)} (${Math.round(s.memoryUsagePercent)}%)`;
-    document.getElementById('stat-network-speed').textContent = fmtSpeed(s.uploadRateBytesPerSec + s.downloadRateBytesPerSec);
-    document.getElementById('stat-network-up').textContent = fmtSpeed(s.uploadRateBytesPerSec);
-    document.getElementById('stat-network-down').textContent = fmtSpeed(s.downloadRateBytesPerSec);
-    document.getElementById('stat-traffic').textContent = fmtBytes(s.totalBytesSent + s.totalBytesReceived);
-    document.getElementById('stat-upload').textContent = fmtBytes(s.totalBytesSent);
-    document.getElementById('stat-download').textContent = fmtBytes(s.totalBytesReceived);
+    const activeEl = document.getElementById('stat-active-tunnels');
+    if (activeEl) activeEl.textContent = s.activeTunnels + ' / ' + s.totalTunnels;
+    const totalEl = document.getElementById('stat-total-tunnels');
+    if (totalEl) totalEl.textContent = s.totalTunnels;
+    const cpuEl = document.getElementById('stat-cpu');
+    if (cpuEl) cpuEl.textContent = Math.round(s.cpuUsagePercent) + '%';
+    const ramEl = document.getElementById('stat-ram');
+    if (ramEl) ramEl.textContent = fmtBytes(s.memoryUsageBytes);
+    const ramPctEl = document.getElementById('stat-ram-pct');
+    if (ramPctEl) ramPctEl.textContent = Math.round(s.memoryUsagePercent) + '%';
+    const speedTotalEl = document.getElementById('stat-speed-total');
+    if (speedTotalEl) speedTotalEl.textContent = fmtSpeed(s.uploadRateBytesPerSec + s.downloadRateBytesPerSec);
+    const speedUpEl = document.getElementById('stat-speed-up');
+    if (speedUpEl) speedUpEl.textContent = fmtSpeed(s.uploadRateBytesPerSec);
+    const speedDownEl = document.getElementById('stat-speed-down');
+    if (speedDownEl) speedDownEl.textContent = fmtSpeed(s.downloadRateBytesPerSec);
+    const trafficEl = document.getElementById('stat-total-traffic');
+    if (trafficEl) trafficEl.textContent = fmtBytes(s.totalBytesSent + s.totalBytesReceived);
+    const uploadEl = document.getElementById('stat-upload');
+    if (uploadEl) uploadEl.textContent = fmtBytes(s.totalBytesSent);
+    const downloadEl = document.getElementById('stat-download');
+    if (downloadEl) downloadEl.textContent = fmtBytes(s.totalBytesReceived);
   } catch (err) {
     console.warn('Failed to load stats:', err);
   }
