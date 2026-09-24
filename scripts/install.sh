@@ -221,6 +221,7 @@ pkill -9 -f openflux-linux 2>/dev/null || true
 cd "$PREFIX"
 dotnet publish src/OpenFlux.Zen.Server.Web/OpenFlux.Zen.Server.Web.csproj -c Release -o "$PREFIX/app" >/dev/null
 dotnet publish src/OpenFlux.Zen.Server.Cli/OpenFlux.Zen.Server.Cli.csproj -c Release -o "$PREFIX/app" >/dev/null
+dotnet build-server shutdown >/dev/null 2>&1 || true
 chmod +x "$PREFIX/app/OpenFluxZenServer" || true
 
 # Copy runtimes and set permissions (remove destination first to unlink busy inodes)
