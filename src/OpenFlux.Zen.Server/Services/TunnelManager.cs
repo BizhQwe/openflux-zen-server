@@ -185,6 +185,7 @@ public sealed class TunnelManager : ITunnelManager
 
     public async Task<bool> StartAsync(Guid id)
     {
+        await SyncFromDbIfEmptyAsync();
         if (!_liveTunnels.TryGetValue(id, out var tunnel))
         {
             return false;
@@ -225,6 +226,7 @@ public sealed class TunnelManager : ITunnelManager
 
     public async Task<bool> StopAsync(Guid id)
     {
+        await SyncFromDbIfEmptyAsync();
         if (!_liveTunnels.TryGetValue(id, out var tunnel))
         {
             return false;
@@ -241,6 +243,7 @@ public sealed class TunnelManager : ITunnelManager
 
     public async Task<bool> ToggleEnableAsync(Guid id, bool isEnabled)
     {
+        await SyncFromDbIfEmptyAsync();
         if (!_liveTunnels.TryGetValue(id, out var tunnel))
         {
             return false;
