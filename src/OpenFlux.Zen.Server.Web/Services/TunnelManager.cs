@@ -210,8 +210,16 @@ public sealed class TunnelManager : ITunnelManager
         if (success)
         {
             tunnel.Status = TunnelStatus.Running;
+            tunnel.IsEnabled = true;
             tunnel.LastStartedAt = DateTime.UtcNow;
             tunnel.RestartAttempts = 0;
+            using (var scope = _scopeFactory.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                await db.Tunnels.Where(t => t.Id == id).ExecuteUpdateAsync(s => s
+                    .SetProperty(t => t.IsEnabled, true)
+                    .SetProperty(t => t.LastStartedAt, tunnel.LastStartedAt));
+            }
             _logger.LogInformation("Tunnel {Name} ({Id}) started successfully", tunnel.Name, tunnel.Id);
             return true;
         }
@@ -235,8 +243,17 @@ public sealed class TunnelManager : ITunnelManager
         tunnel.Status = TunnelStatus.Stopping;
         await _supervisor.StopTunnelAsync(id);
         tunnel.Status = TunnelStatus.Stopped;
+        tunnel.IsEnabled = false;
         tunnel.LastStoppedAt = DateTime.UtcNow;
         tunnel.ConnectedClients = 0;
+        using (var scope = _scopeFactory.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await db.Tunnels.Where(t => t.Id == id).ExecuteUpdateAsync(s => s
+                .SetProperty(t => t.IsEnabled, false)
+                .SetProperty(t => t.LastStoppedAt, tunnel.LastStoppedAt)
+                .SetProperty(t => t.ConnectedClients, 0));
+        }
         _logger.LogInformation("Tunnel {Name} ({Id}) stopped", tunnel.Name, tunnel.Id);
         return true;
     }

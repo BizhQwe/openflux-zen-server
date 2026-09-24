@@ -25,6 +25,7 @@ public interface ISettingsService
     Task<AppSettings> GetSettingsAsync();
     Task<AppSettings> UpdateSettingsAsync(AppSettings settings);
     Task<string> RegenerateSecretPathAsync();
+    Task<bool> SetAutoStartAsync(bool enabled);
     void SaveCredentialsFile(string username, string plainPassword, string secretPath, string? publicUrl);
 }
 
@@ -99,6 +100,75 @@ public sealed class AuthService : IAuthService, ISettingsService
 
         _logger.LogInformation("Regenerated secret path: {Path}", newSecret);
         return newSecret;
+    }
+
+    public async Task<bool> SetAutoStartAsync(bool enabled)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var settings = await db.Settings.FirstOrDefaultAsync(s => s.Id == 1);
+        if (settings == null)
+        {
+            settings = await InitializeDefaultSettingsAsync(db);
+        }
+
+        settings.AutoStartEnabled = enabled;
+        settings.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync();
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            var action = enabled ? "enable" : "disable";
+            try
+            {
+                using var p = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "systemctl",
+                    Arguments = $"{action} openflux-zen-server.service",
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                });
+                p?.WaitForExit(3000);
+
+                if (File.Exists("/etc/systemd/system/openflux-zrok.service"))
+                {
+                    using var p2 = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = "systemctl",
+                        Arguments = $"{action} openflux-zrok.service",
+                        UseShellExecute = false,
+                        CreateNoWindow = true
+                    });
+                    p2?.WaitForExit(3000);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to update systemctl autostart configuration");
+            }
+        }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            var startType = enabled ? "auto" : "demand";
+            try
+            {
+                using var p = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "sc.exe",
+                    Arguments = $"config OpenFluxZenServer start= {startType}",
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                });
+                p?.WaitForExit(3000);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to update Windows service autostart configuration");
+            }
+        }
+
+        _logger.LogInformation("Autostart configuration updated: {Enabled}", enabled);
+        return true;
     }
 
     public async Task<(bool Success, string Token, string Username)> LoginAsync(string username, string password)

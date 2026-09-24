@@ -143,6 +143,12 @@ app.MapPost("/api/settings/regenerate-secret", async (ISettingsService settingsS
     return Results.Ok(new { secretPath = newSecret });
 });
 
+app.MapPost("/api/settings/autostart", async (AutostartRequest req, ISettingsService settingsService) =>
+{
+    var ok = await settingsService.SetAutoStartAsync(req.Enabled);
+    return Results.Ok(new { success = ok, autoStartEnabled = req.Enabled });
+});
+
 // Statistics
 app.MapGet("/api/stats", async (ISystemStatsService statsService) =>
 {

@@ -60,3 +60,8 @@ public sealed class CredentialsResponse
     public string LocalUrl { get; set; } = "";
     public string? PublicUrl { get; set; }
 }
+
+public sealed class AutostartRequest
+{
+    public bool Enabled { get; set; }
+}
