@@ -87,8 +87,21 @@
       border-radius: 10px;
       border: 1px solid var(--card-border);
     }
-    .brand-title { font-weight: 800; font-size: 1.25rem; letter-spacing: -0.5px; line-height: 1.15; }
-    .brand-title span { color: var(--accent); }
+    .brand-copy {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .brand-title {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 10px;
+      font-weight: 800;
+      font-size: 1.25rem;
+      letter-spacing: -0.5px;
+      line-height: 1.15;
+    }
+    .brand-title .brand-accent { color: var(--accent); }
     .brand-badge {
       display: inline-flex;
       align-items: center;
@@ -462,9 +475,10 @@
     }
     .login-brand {
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 12px;
+      gap: 14px;
       margin-bottom: 16px;
     }
     .login-brand-copy {
@@ -556,7 +570,7 @@
       .modal-footer { padding: 12px 16px; }
       .modal-footer .btn { flex: 1; }
       .login-container { padding: 24px; }
-      .login-brand { gap: 8px; }
+      .login-brand { gap: 12px; }
       .login-brand-copy { gap: 8px; }
       .login-brand-title { font-size: 1.25rem; }
       .login-logo { width: 56px; height: 56px; }
@@ -575,10 +589,10 @@
     <div class="header-inner">
       <a href="#" class="brand">
         <img src="assets/logo/transparent/web/icon-192x192.png" alt="OpenFlux Logo" />
-        <div>
-          <div class="brand-title">OpenFlux <span>Zen</span></div>
+        <div class="brand-copy">
+          <div class="brand-title"><span>OpenFlux</span><span class="brand-accent">Zen</span></div>
+          <span class="brand-badge">Server</span>
         </div>
-        <span class="brand-badge">Server</span>
       </a>
 
       <nav class="nav-links" aria-label="Основная навигация">
@@ -601,11 +615,11 @@
       <div class="login-brand">
         <img src="assets/logo/transparent/web/icon-192x192.png" class="login-logo" alt="OpenFlux Logo" />
         <div class="login-brand-copy">
-          <div class="brand-title login-brand-title">OpenFlux <span>Zen</span></div>
+          <div class="brand-title login-brand-title"><span>OpenFlux</span><span class="brand-accent">Zen</span></div>
           <span class="brand-badge">Server</span>
         </div>
       </div>
-      <p class="login-sub">Защищённая панель управления туннелями</p>
+      <p class="login-sub">Войдите в панель управления туннелями</p>
 
       <form id="login-form" onsubmit="event.preventDefault(); doLogin();">
         <div class="form-group" style="text-align: left;">
