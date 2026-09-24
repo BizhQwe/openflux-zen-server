@@ -57,7 +57,8 @@ public sealed class ExportImportService : IExportImportService
 
         return JsonSerializer.Serialize(dto, new JsonSerializerOptions
         {
-            WriteIndented = true
+            WriteIndented = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         });
     }
 

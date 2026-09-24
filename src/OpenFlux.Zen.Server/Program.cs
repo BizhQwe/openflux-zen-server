@@ -80,7 +80,10 @@ var app = builder.Build();
 // 5. Secret Path Middleware (Stealth Protection)
 app.UseMiddleware<SecretPathMiddleware>();
 
-// 6. Static Files (UI)
+// 6. Routing (must run after SecretPathMiddleware so routes match the rewritten Path!)
+app.UseRouting();
+
+// 7. Static Files (UI)
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
@@ -300,9 +303,28 @@ Commands:
 
 static async Task PrintCredentialsAsync()
 {
-    var baseDir = AppContext.BaseDirectory;
-    var credsFile = Path.Combine(baseDir, "data", ".credentials");
-    var dbPath = Path.Combine(baseDir, "data", "openflux.db");
+    var candidates = new List<string>
+    {
+        AppContext.BaseDirectory,
+        Directory.GetCurrentDirectory(),
+        Path.Combine(AppContext.BaseDirectory, "..", "..", ".."),
+        Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "src", "OpenFlux.Zen.Server"),
+        "/opt/openflux-zen-server/app",
+        "/opt/openflux-zen-server",
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "OpenFluxZenServer")
+    };
+
+    string? credsFile = null;
+    string? dbPath = null;
+
+    foreach (var dir in candidates)
+    {
+        var cf = Path.Combine(dir, "data", ".credentials");
+        if (File.Exists(cf) && credsFile == null) credsFile = cf;
+
+        var db = Path.Combine(dir, "data", "openflux.db");
+        if (File.Exists(db) && dbPath == null) dbPath = db;
+    }
 
     string username = "admin";
     string password = "unknown";
@@ -310,7 +332,7 @@ static async Task PrintCredentialsAsync()
     string? publicUrl = null;
     int port = 5000;
 
-    if (File.Exists(credsFile))
+    if (credsFile != null && File.Exists(credsFile))
     {
         try
         {

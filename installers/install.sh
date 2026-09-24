@@ -177,12 +177,19 @@ EOF
 
         # Check or download zrok
         if ! command -v zrok >/dev/null 2>&1; then
-            echo "Скачивание zrok ($ZROK_ARCH)..."
-            ZROK_URL="https://github.com/openziti/zrok/releases/download/v0.4.48/zrok_0.4.48_linux_${ZROK_ARCH}.tar.gz"
+            echo "Скачивание zrok v2.0.4 ($ZROK_ARCH)..."
+            ZROK_URL="https://github.com/openziti/zrok/releases/download/v2.0.4/zrok_2.0.4_linux_${ZROK_ARCH}.tar.gz"
             curl -sSL "$ZROK_URL" -o /tmp/zrok.tar.gz
-            tar -xzf /tmp/zrok.tar.gz -C /usr/local/bin zrok
-            chmod +x /usr/local/bin/zrok
-            rm -f /tmp/zrok.tar.gz
+            mkdir -p /tmp/zrok_ext
+            tar -xzf /tmp/zrok.tar.gz -C /tmp/zrok_ext
+            if [ -f "/tmp/zrok_ext/zrok2" ]; then
+                cp /tmp/zrok_ext/zrok2 /usr/local/bin/zrok2
+                ln -sf /usr/local/bin/zrok2 /usr/local/bin/zrok
+            elif [ -f "/tmp/zrok_ext/zrok" ]; then
+                cp /tmp/zrok_ext/zrok /usr/local/bin/zrok
+            fi
+            chmod +x /usr/local/bin/zrok /usr/local/bin/zrok2 2>/dev/null || true
+            rm -rf /tmp/zrok.tar.gz /tmp/zrok_ext
         fi
 
         echo "Включение окружения Zrok..."
@@ -211,9 +218,9 @@ EOF
         systemctl enable --now openflux-zrok.service 2>/dev/null || true
 
         # Wait a moment for zrok to initialize and parse URL
-        sleep 4
-        ZROK_SHARE_URL=""
-        if command -v zrok >/dev/null 2>&1; then
+        sleep 5
+        ZROK_SHARE_URL=$(journalctl -u openflux-zrok --no-pager -n 50 2>/dev/null | grep -Eo 'https://[^ ]+\.share\.zrok\.io' | tail -n1 || true)
+        if [ -z "$ZROK_SHARE_URL" ] && command -v zrok >/dev/null 2>&1; then
             ZROK_SHARE_URL=$(zrok overview 2>/dev/null | grep -Eo 'https://[^ ]+\.share\.zrok\.io' | head -n1 || true)
         fi
         if [ -n "$ZROK_SHARE_URL" ]; then
