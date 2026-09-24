@@ -286,20 +286,29 @@ WantedBy=multi-user.target
 EOF
 
 systemctl daemon-reload
-systemctl enable --now openflux-zen-server.service
+systemctl enable openflux-zen-server.service >/dev/null 2>&1
+systemctl restart openflux-zen-server.service --no-block
 
 # 10. Setup CLI Command in PATH
 echo -e "${BLUE}[8/8] Installing OpenFluxZenServer CLI command in PATH...${NC}"
 ln -sf "$PREFIX/app/OpenFluxZenServer" /usr/local/bin/OpenFluxZenServer
 chmod +x "$PREFIX/app/OpenFluxZenServer" /usr/local/bin/OpenFluxZenServer
 
-# Wait for service startup
-sleep 2
-
-# Check health endpoint under secret path
+# Wait for service startup with live visual progress
+echo -ne "${CYAN}Ожидание готовности службы OpenFlux Zen Server${NC}"
 HEALTH_OK=0
-if curl -s "http://127.0.0.1:$LISTEN_PORT/$SECRET_PATH/api/health" | grep -q "healthy"; then
-    HEALTH_OK=1
+for i in {1..30}; do
+    if curl -sf "http://127.0.0.1:$LISTEN_PORT/$SECRET_PATH/api/health" 2>/dev/null | grep -q "healthy"; then
+        HEALTH_OK=1
+        echo -e " ${GREEN}✓ Готово!${NC}"
+        break
+    fi
+    echo -ne "${CYAN}.${NC}"
+    sleep 1
+done
+
+if [ "$HEALTH_OK" -eq 0 ]; then
+    echo -e " ${YELLOW}(служба ещё инициализируется)${NC}"
 fi
 
 echo -e "\n${GREEN}${BOLD}=================================================================="
