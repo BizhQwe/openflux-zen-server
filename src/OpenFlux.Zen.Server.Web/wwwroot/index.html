@@ -175,10 +175,22 @@
       color: var(--text-muted);
     }
     .btn-outline:hover { background: var(--card-hover); color: var(--text); border-color: #3b4d6e; }
-    .btn-sm { min-height: 36px; padding: 7px 12px; font-size: 0.8rem; border-radius: 8px; }
+    .btn-sm {
+      min-height: 36px;
+      height: 36px;
+      padding: 0 14px;
+      font-size: 0.825rem;
+      border-radius: 8px;
+      box-sizing: border-box;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+    }
     .btn svg { display: block; }
     .toolbar, .button-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; min-width: 0; }
     .toolbar > .btn { min-height: 42px; }
+    .toolbar > .btn.btn-sm { min-height: 36px; height: 36px; }
     .toolbar .form-control { width: auto; max-width: 320px; min-height: 42px; }
     .button-row .form-control { flex: 1 1 240px; }
     .header-actions .btn { min-height: 42px; }
@@ -197,7 +209,7 @@
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 16px;
-      margin: 0 0 32px;
+      margin: 0 0 20px;
     }
     @media (max-width: 1100px) {
       .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -734,7 +746,7 @@
           <h3 class="section-title">Список туннелей</h3>
           <div class="toolbar">
             <button class="btn btn-outline btn-sm" onclick="loadTunnels()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>Обновить</button>
-            <button class="btn btn-primary" onclick="openTunnelModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Добавить туннель</button>
+            <button class="btn btn-primary btn-sm" onclick="openTunnelModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Добавить туннель</button>
           </div>
         </div>
 
@@ -751,8 +763,9 @@
             <select id="log-target-select" class="form-control" aria-label="Источник логов" onchange="loadActiveLogs()">
               <option value="system">Лог панели (System)</option>
             </select>
-            <button class="btn btn-outline btn-sm" onclick="loadActiveLogs()">Обновить</button>
-            <button class="btn btn-outline btn-sm" onclick="clearCurrentLogs()">Очистить</button>
+            <button class="btn btn-outline btn-sm" onclick="loadActiveLogs()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>Обновить</button>
+            <button class="btn btn-outline btn-sm" onclick="downloadCurrentLogs()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Скачать логи</button>
+            <button class="btn btn-outline btn-sm" onclick="clearCurrentLogs()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Очистить</button>
           </div>
         </div>
 
@@ -1488,6 +1501,48 @@
         await api(`api/tunnels/${target}/logs`, { method: 'DELETE' });
         toast('Лог туннеля очищен', 'info');
         loadActiveLogs();
+      }
+    }
+
+    async function downloadCurrentLogs() {
+      const select = document.getElementById('log-target-select');
+      const target = select.value;
+      const selectedOption = select.options[select.selectedIndex];
+      const targetName = (selectedOption ? selectedOption.text : target).replace(/[^a-zA-Z0-9_Ѐ-ӿ-]/g, '_');
+      try {
+        let url = target === 'system' ? 'api/logs/system?tail=2000' : `api/tunnels/${target}/logs?tail=2000`;
+        const res = await api(url);
+        if (!res.ok) {
+          toast('Не удалось получить логи для скачивания', 'danger');
+          return;
+        }
+        const lines = await res.json();
+        if (!lines || lines.length === 0) {
+          toast('Логи пусты, нечего скачивать', 'warning');
+          return;
+        }
+        let textContent = '';
+        if (target === 'system') {
+          textContent = lines.join('\r\n');
+        } else {
+          textContent = lines.map(l => {
+            const timeStr = l.timestamp ? new Date(l.timestamp).toISOString() : '';
+            return `[${timeStr}] [${(l.stream || '').toUpperCase()}] ${l.message || ''}`;
+          }).join('\r\n');
+        }
+
+        const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
+        const a = document.createElement('a');
+        const dateStr = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+        a.href = URL.createObjectURL(blob);
+        a.download = `openflux-log-${targetName}-${dateStr}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
+        toast('Логи успешно сохранены в файл', 'success');
+      } catch (err) {
+        toast('Ошибка при сохранении логов', 'danger');
       }
     }
 
