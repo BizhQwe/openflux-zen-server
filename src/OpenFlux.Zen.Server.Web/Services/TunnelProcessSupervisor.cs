@@ -96,6 +96,11 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
             return false;
         }
 
+        if (string.Equals(tunnel.Mode, "l3", StringComparison.OrdinalIgnoreCase))
+        {
+            EnsureL3NetworkConfiguration();
+        }
+
         var args = BuildCommandLineArguments(tunnel);
         _logger.LogInformation("Starting tunnel {TunnelId} ({Name}): {Binary} {Args}", tunnel.Id, tunnel.Name, binaryPath, args);
         _logService.AppendLog(tunnel.Id, "system", $"Starting tunnel: {binaryPath} {args}");
@@ -111,7 +116,7 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
             CreateNoWindow = true
         };
 
-        psi.EnvironmentVariables["GOMEMLIMIT"] = "256MiB";
+        psi.EnvironmentVariables["GOMEMLIMIT"] = "128MiB";
 
         Process proc;
         try
@@ -511,4 +516,53 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
             tunnel.ErrorMessage = null;
         }
     }
+
+    private void EnsureL3NetworkConfiguration()
+    {
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) return;
+
+        try
+        {
+            // 1. Enable IPv4 forwarding
+            using (var sysctl = Process.Start(new ProcessStartInfo
+            {
+                FileName = "sysctl",
+                Arguments = "-w net.ipv4.ip_forward=1",
+                UseShellExecute = false,
+                CreateNoWindow = true
+            }))
+            {
+                sysctl?.WaitForExit(2000);
+            }
+
+            // 2. Prevent Linux kernel from sending TCP RST packets for raw user-space SNAT/DNAT sessions
+            using (var check = Process.Start(new ProcessStartInfo
+            {
+                FileName = "iptables",
+                Arguments = "-C OUTPUT -p tcp --tcp-flags RST RST -j DROP",
+                UseShellExecute = false,
+                CreateNoWindow = true
+            }))
+            {
+                check?.WaitForExit(2000);
+                if (check != null && check.ExitCode != 0)
+                {
+                    using var add = Process.Start(new ProcessStartInfo
+                    {
+                        FileName = "iptables",
+                        Arguments = "-I OUTPUT -p tcp --tcp-flags RST RST -j DROP",
+                        UseShellExecute = false,
+                        CreateNoWindow = true
+                    });
+                    add?.WaitForExit(2000);
+                    _logger.LogInformation("Configured iptables TCP RST drop rule for OpenFlux L3 raw mode");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to apply automatic L3 network configuration");
+        }
+    }
 }
+

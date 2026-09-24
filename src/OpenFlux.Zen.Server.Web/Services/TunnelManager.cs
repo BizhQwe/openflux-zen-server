@@ -27,6 +27,7 @@ public sealed class TunnelManager : ITunnelManager
     private readonly ConcurrentDictionary<Guid, Tunnel> _liveTunnels = new();
     private readonly ConcurrentDictionary<Guid, (long LastUp, long LastDown, DateTime LastTime)> _tunnelRateTrackers = new();
     private readonly SemaphoreSlim _lock = new(1, 1);
+    private volatile bool _isSynced;
     private readonly Timer _statsPersistTimer;
     private readonly Timer _rateDecayTimer;
 
@@ -444,16 +445,27 @@ public sealed class TunnelManager : ITunnelManager
 
     private async Task SyncFromDbIfEmptyAsync()
     {
-        if (!_liveTunnels.IsEmpty) return;
+        if (_isSynced) return;
 
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var tunnels = await db.Tunnels.AsNoTracking().ToListAsync();
-        foreach (var t in tunnels)
+        await _lock.WaitAsync();
+        try
         {
-            t.Status = TunnelStatus.Stopped;
-            t.ConnectedClients = 0;
-            _liveTunnels.TryAdd(t.Id, t);
+            if (_isSynced) return;
+
+            using var scope = _scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var tunnels = await db.Tunnels.AsNoTracking().ToListAsync();
+            foreach (var t in tunnels)
+            {
+                t.Status = TunnelStatus.Stopped;
+                t.ConnectedClients = 0;
+                _liveTunnels.TryAdd(t.Id, t);
+            }
+            _isSynced = true;
+        }
+        finally
+        {
+            _lock.Release();
         }
     }
 

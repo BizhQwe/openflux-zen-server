@@ -99,10 +99,23 @@ async function initApp() {
   loadStats();
   loadTunnels();
   if (!statsInterval) {
-    statsInterval = setInterval(() => {
-      loadStats();
-      loadTunnels(true);
-    }, 1000);
+    let isPolling = false;
+    statsInterval = setInterval(async () => {
+      if (document.hidden || isPolling) return;
+      isPolling = true;
+      try {
+        await Promise.allSettled([loadStats(), loadTunnels(true)]);
+      } finally {
+        isPolling = false;
+      }
+    }, 2000);
+
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && document.getElementById('main-view').style.display !== 'none') {
+        loadStats();
+        loadTunnels(true);
+      }
+    });
   }
 }
 

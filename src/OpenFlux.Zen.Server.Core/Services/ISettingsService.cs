@@ -9,4 +9,6 @@ public interface ISettingsService
     Task<string> RegenerateSecretPathAsync();
     Task<bool> SetAutoStartAsync(bool enabled);
     void SaveCredentialsFile(string username, string plainPassword, string secretPath, string? publicUrl);
+    void InvalidateCache();
 }
+

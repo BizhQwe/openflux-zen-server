@@ -436,10 +436,16 @@ Environment=OPENFLUX_ADMIN_USER=$ADMIN_USER
 Environment=OPENFLUX_ADMIN_PASSWORD=$ADMIN_PASS
 Environment=OPENFLUX_PUBLIC_URL=$FINAL_URL
 Environment=OPENFLUX_PUBLISH_MODE=$PUBLISH_MODE
+Environment=DOTNET_gcServer=0
+Environment=DOTNET_GCHeapHardLimit=80000000
 
 [Install]
 WantedBy=multi-user.target
 EOF
+
+# Ensure IPv4 forwarding is active for OpenFlux tunnels
+echo "net.ipv4.ip_forward = 1" > /etc/sysctl.d/99-openflux.conf
+sysctl --system >/dev/null 2>&1 || true
 
 systemctl daemon-reload
 systemctl enable openflux-zen-server.service >/dev/null 2>&1

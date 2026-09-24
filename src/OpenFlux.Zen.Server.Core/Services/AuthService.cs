@@ -187,6 +187,7 @@ public sealed class AuthService : IAuthService
         {
             settings.UpdatedAt = DateTime.UtcNow;
             await db.SaveChangesAsync();
+            _settingsService.InvalidateCache();
             _settingsService.SaveCredentialsFile(settings.Username, effectivePassword, settings.SecretPath, settings.PublicUrl);
             _logger.LogInformation("Profile updated successfully for user {User}", settings.Username);
         }

@@ -14,6 +14,8 @@ public sealed class SettingsService : ISettingsService
     private readonly ILogger<SettingsService> _logger;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly string _credentialsFilePath;
+    private volatile AppSettings? _cachedSettings;
+    private readonly SemaphoreSlim _cacheLock = new(1, 1);
 
     public SettingsService(ILogger<SettingsService> logger, IServiceScopeFactory scopeFactory)
     {
@@ -22,76 +24,122 @@ public sealed class SettingsService : ISettingsService
         _credentialsFilePath = OpenFlux.Zen.Server.Common.AppPaths.GetCredentialsPath();
     }
 
+    public void InvalidateCache()
+    {
+        _cachedSettings = null;
+    }
+
     public async Task<AppSettings> GetSettingsAsync()
     {
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var settings = await db.Settings.FirstOrDefaultAsync(s => s.Id == 1);
-        if (settings == null)
+        if (_cachedSettings != null)
         {
-            settings = await InitializeDefaultSettingsAsync(db);
+            return _cachedSettings;
         }
-        return settings;
+
+        await _cacheLock.WaitAsync();
+        try
+        {
+            if (_cachedSettings != null)
+            {
+                return _cachedSettings;
+            }
+
+            using var scope = _scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var settings = await db.Settings.FirstOrDefaultAsync(s => s.Id == 1);
+            if (settings == null)
+            {
+                settings = await InitializeDefaultSettingsAsync(db);
+            }
+            _cachedSettings = settings;
+            return settings;
+        }
+        finally
+        {
+            _cacheLock.Release();
+        }
     }
 
     public async Task<AppSettings> UpdateSettingsAsync(AppSettings updated)
     {
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var current = await db.Settings.FirstOrDefaultAsync(s => s.Id == 1);
-        if (current == null)
+        await _cacheLock.WaitAsync();
+        try
         {
-            current = await InitializeDefaultSettingsAsync(db);
+            using var scope = _scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var current = await db.Settings.FirstOrDefaultAsync(s => s.Id == 1);
+            if (current == null)
+            {
+                current = await InitializeDefaultSettingsAsync(db);
+            }
+
+            current.Username = updated.Username;
+            current.SecretPath = updated.SecretPath;
+            current.ListenHost = updated.ListenHost;
+            current.ListenPort = updated.ListenPort;
+            current.PublicUrl = updated.PublicUrl;
+            current.PublishMode = updated.PublishMode;
+            current.Domain = updated.Domain;
+            current.ZrokToken = updated.ZrokToken;
+            current.ZrokShareUrl = updated.ZrokShareUrl;
+            current.AutoStartEnabled = updated.AutoStartEnabled;
+            current.UpdatedAt = DateTime.UtcNow;
+
+            await db.SaveChangesAsync();
+            _cachedSettings = current;
+            return current;
         }
-
-        current.Username = updated.Username;
-        current.SecretPath = updated.SecretPath;
-        current.ListenHost = updated.ListenHost;
-        current.ListenPort = updated.ListenPort;
-        current.PublicUrl = updated.PublicUrl;
-        current.PublishMode = updated.PublishMode;
-        current.Domain = updated.Domain;
-        current.ZrokToken = updated.ZrokToken;
-        current.ZrokShareUrl = updated.ZrokShareUrl;
-        current.AutoStartEnabled = updated.AutoStartEnabled;
-        current.UpdatedAt = DateTime.UtcNow;
-
-        await db.SaveChangesAsync();
-        return current;
+        finally
+        {
+            _cacheLock.Release();
+        }
     }
 
     public async Task<string> RegenerateSecretPathAsync()
     {
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var settings = await db.Settings.FirstOrDefaultAsync(s => s.Id == 1);
-        if (settings == null)
+        await _cacheLock.WaitAsync();
+        try
         {
-            settings = await InitializeDefaultSettingsAsync(db);
+            using var scope = _scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var settings = await db.Settings.FirstOrDefaultAsync(s => s.Id == 1);
+            if (settings == null)
+            {
+                settings = await InitializeDefaultSettingsAsync(db);
+            }
+
+            var newSecret = Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant();
+            settings.SecretPath = newSecret;
+            settings.UpdatedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+
+            _cachedSettings = settings;
+            _logger.LogInformation("Regenerated secret path: {Path}", newSecret);
+            return newSecret;
         }
-
-        var newSecret = Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant();
-        settings.SecretPath = newSecret;
-        settings.UpdatedAt = DateTime.UtcNow;
-        await db.SaveChangesAsync();
-
-        _logger.LogInformation("Regenerated secret path: {Path}", newSecret);
-        return newSecret;
+        finally
+        {
+            _cacheLock.Release();
+        }
     }
 
     public async Task<bool> SetAutoStartAsync(bool enabled)
     {
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var settings = await db.Settings.FirstOrDefaultAsync(s => s.Id == 1);
-        if (settings == null)
+        await _cacheLock.WaitAsync();
+        try
         {
-            settings = await InitializeDefaultSettingsAsync(db);
-        }
+            using var scope = _scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var settings = await db.Settings.FirstOrDefaultAsync(s => s.Id == 1);
+            if (settings == null)
+            {
+                settings = await InitializeDefaultSettingsAsync(db);
+            }
 
-        settings.AutoStartEnabled = enabled;
-        settings.UpdatedAt = DateTime.UtcNow;
-        await db.SaveChangesAsync();
+            settings.AutoStartEnabled = enabled;
+            settings.UpdatedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+            _cachedSettings = settings;
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
@@ -146,6 +194,11 @@ public sealed class SettingsService : ISettingsService
 
         _logger.LogInformation("Autostart configuration updated: {Enabled}", enabled);
         return true;
+        }
+        finally
+        {
+            _cacheLock.Release();
+        }
     }
 
     public void SaveCredentialsFile(string username, string plainPassword, string secretPath, string? publicUrl)
