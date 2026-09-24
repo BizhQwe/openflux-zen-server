@@ -112,9 +112,9 @@ if [ -f "$PREFIX/app/data/.credentials" ]; then
     EXISTING_PASS=$(grep -o '"password": "[^"]*"' "$PREFIX/app/data/.credentials" 2>/dev/null | cut -d'"' -f4 || true)
 fi
 
-ADMIN_USER="${OPENFLUX_ADMIN_USER:-${EXISTING_USER:-admin}}"
+ADMIN_USER="${OPENFLUX_ADMIN_USER:-${EXISTING_USER:-$(openssl rand -base64 8 | tr -dc 'a-zA-Z0-9' | head -c 10)}}"
 ADMIN_PASS="${OPENFLUX_ADMIN_PASSWORD:-${EXISTING_PASS:-$(openssl rand -base64 12 | tr -dc 'a-zA-Z0-9' | head -c 16)}}"
-SECRET_PATH="${OPENFLUX_SECRET_PATH:-${EXISTING_SECRET:-zen-$(openssl rand -hex 8)}}"
+SECRET_PATH="${OPENFLUX_SECRET_PATH:-${EXISTING_SECRET:-$(openssl rand -hex 8)}}"
 LISTEN_PORT="${OPENFLUX_PORT:-5000}"
 
 # 8. Interactive or Non-interactive Publishing Configuration

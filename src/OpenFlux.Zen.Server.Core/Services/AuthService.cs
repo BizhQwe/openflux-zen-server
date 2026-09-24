@@ -16,6 +16,7 @@ public interface IAuthService
     bool ValidateToken(string token);
     void RevokeToken(string token);
     Task<bool> ChangePasswordAsync(string currentPassword, string newPassword);
+    Task<(bool Success, string Message, string NewUsername)> ChangeProfileAsync(string currentPassword, string? newUsername, string? newPassword);
     Task<CredentialsResponse> GetCredentialsAsync();
 }
 
@@ -91,7 +92,7 @@ public sealed class AuthService : IAuthService, ISettingsService
             settings = await InitializeDefaultSettingsAsync(db);
         }
 
-        var newSecret = "zen-" + Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant();
+        var newSecret = Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant();
         settings.SecretPath = newSecret;
         settings.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
@@ -209,25 +210,62 @@ public sealed class AuthService : IAuthService, ISettingsService
 
     public async Task<bool> ChangePasswordAsync(string currentPassword, string newPassword)
     {
+        var (success, _, _) = await ChangeProfileAsync(currentPassword, null, newPassword);
+        return success;
+    }
+
+    public async Task<(bool Success, string Message, string NewUsername)> ChangeProfileAsync(string currentPassword, string? newUsername, string? newPassword)
+    {
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var settings = await db.Settings.FirstOrDefaultAsync(s => s.Id == 1);
-        if (settings == null) return false;
+        if (settings == null) return (false, "Настройки не найдены", "");
 
         if (!VerifyPassword(currentPassword, settings.PasswordHash, settings.PasswordSalt))
         {
-            return false;
+            return (false, "Неверный текущий пароль", settings.Username);
         }
 
-        var (hash, salt) = HashPassword(newPassword);
-        settings.PasswordHash = hash;
-        settings.PasswordSalt = salt;
-        settings.UpdatedAt = DateTime.UtcNow;
-        await db.SaveChangesAsync();
+        bool updated = false;
+        string effectivePassword = "******";
+        if (File.Exists(_credentialsFilePath))
+        {
+            try
+            {
+                var content = File.ReadAllText(_credentialsFilePath);
+                var doc = JsonSerializer.Deserialize<JsonElement>(content);
+                if (doc.TryGetProperty("password", out var pwd))
+                {
+                    effectivePassword = pwd.GetString() ?? effectivePassword;
+                }
+            }
+            catch { }
+        }
 
-        SaveCredentialsFile(settings.Username, newPassword, settings.SecretPath, settings.PublicUrl);
-        _logger.LogInformation("Password changed successfully for user {User}", settings.Username);
-        return true;
+        if (!string.IsNullOrWhiteSpace(newUsername) && !string.Equals(newUsername.Trim(), settings.Username, StringComparison.Ordinal))
+        {
+            settings.Username = newUsername.Trim();
+            updated = true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(newPassword))
+        {
+            var (hash, salt) = HashPassword(newPassword);
+            settings.PasswordHash = hash;
+            settings.PasswordSalt = salt;
+            effectivePassword = newPassword;
+            updated = true;
+        }
+
+        if (updated)
+        {
+            settings.UpdatedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+            SaveCredentialsFile(settings.Username, effectivePassword, settings.SecretPath, settings.PublicUrl);
+            _logger.LogInformation("Profile updated successfully for user {User}", settings.Username);
+        }
+
+        return (true, "Учётные данные успешно обновлены", settings.Username);
     }
 
     public async Task<CredentialsResponse> GetCredentialsAsync()
@@ -294,9 +332,9 @@ public sealed class AuthService : IAuthService, ISettingsService
 
     private async Task<AppSettings> InitializeDefaultSettingsAsync(AppDbContext db)
     {
-        var initialUser = Environment.GetEnvironmentVariable("OPENFLUX_ADMIN_USER") ?? "admin";
+        var initialUser = Environment.GetEnvironmentVariable("OPENFLUX_ADMIN_USER") ?? ("zen_" + Convert.ToHexString(RandomNumberGenerator.GetBytes(4)).ToLowerInvariant());
         var initialPassword = Environment.GetEnvironmentVariable("OPENFLUX_ADMIN_PASSWORD") ?? GenerateRandomPassword(16);
-        var initialSecret = Environment.GetEnvironmentVariable("OPENFLUX_SECRET_PATH") ?? ("zen-" + Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant());
+        var initialSecret = Environment.GetEnvironmentVariable("OPENFLUX_SECRET_PATH") ?? Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant();
         var initialPort = 5000;
         if (int.TryParse(Environment.GetEnvironmentVariable("OPENFLUX_PORT"), out var p))
         {

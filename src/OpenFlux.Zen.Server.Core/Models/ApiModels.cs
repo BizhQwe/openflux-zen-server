@@ -41,7 +41,8 @@ public sealed class LoginResponse
 public sealed class ChangePasswordRequest
 {
     public string CurrentPassword { get; set; } = "";
-    public string NewPassword { get; set; } = "";
+    public string? NewUsername { get; set; }
+    public string? NewPassword { get; set; }
 }
 
 public sealed class ExportConfigDto

@@ -106,10 +106,16 @@ app.MapGet("/api/auth/me", async (ISettingsService settingsService) =>
     return Results.Ok(new { username = s.Username, secretPath = s.SecretPath, publicUrl = s.PublicUrl });
 });
 
+app.MapPost("/api/auth/change-profile", async (ChangePasswordRequest req, IAuthService auth) =>
+{
+    var (success, msg, newUsername) = await auth.ChangeProfileAsync(req.CurrentPassword, req.NewUsername, req.NewPassword);
+    return success ? Results.Ok(new { success = true, message = msg, username = newUsername }) : Results.BadRequest(new { error = msg });
+});
+
 app.MapPost("/api/auth/change-password", async (ChangePasswordRequest req, IAuthService auth) =>
 {
-    var success = await auth.ChangePasswordAsync(req.CurrentPassword, req.NewPassword);
-    return success ? Results.Ok(new { success = true }) : Results.BadRequest(new { error = "Invalid current password" });
+    var (success, msg, newUsername) = await auth.ChangeProfileAsync(req.CurrentPassword, req.NewUsername, req.NewPassword);
+    return success ? Results.Ok(new { success = true, message = msg, username = newUsername }) : Results.BadRequest(new { error = msg });
 });
 
 app.MapGet("/api/credentials", async (IAuthService auth) =>
@@ -247,19 +253,6 @@ app.MapPost("/api/config/import", async (HttpContext context, IExportImportServi
     var json = await reader.ReadToEndAsync();
     var (imported, errors, message) = await exportImport.ImportConfigurationJsonAsync(json);
     return Results.Ok(new { imported, errors, message });
-});
-
-// Complete System Uninstall
-app.MapPost("/api/system/uninstall", async (ChangePasswordRequest req, IAuthService auth, IUninstallerService uninstaller) =>
-{
-    var settings = await auth.GetCredentialsAsync();
-    if (!AuthService.VerifyPassword(req.CurrentPassword, (await ((ISettingsService)auth).GetSettingsAsync()).PasswordHash, (await ((ISettingsService)auth).GetSettingsAsync()).PasswordSalt))
-    {
-        return Results.BadRequest(new { error = "Invalid password confirmation for uninstallation" });
-    }
-
-    _ = Task.Run(async () => await uninstaller.TriggerUninstallAsync());
-    return Results.Ok(new { success = true, message = "Uninstallation initiated. Server is terminating." });
 });
 
 // SPA Fallback
