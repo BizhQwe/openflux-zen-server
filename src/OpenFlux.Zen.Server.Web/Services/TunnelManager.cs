@@ -25,6 +25,7 @@ public sealed class TunnelManager : ITunnelManager
     private readonly ITunnelProcessSupervisor _supervisor;
     private readonly ITunnelLogService _logService;
     private readonly ConcurrentDictionary<Guid, Tunnel> _liveTunnels = new();
+    private readonly ConcurrentDictionary<Guid, (long LastUp, long LastDown, DateTime LastTime)> _tunnelRateTrackers = new();
     private readonly SemaphoreSlim _lock = new(1, 1);
     private readonly Timer _statsPersistTimer;
 
@@ -246,6 +247,9 @@ public sealed class TunnelManager : ITunnelManager
         tunnel.IsEnabled = false;
         tunnel.LastStoppedAt = DateTime.UtcNow;
         tunnel.ConnectedClients = 0;
+        tunnel.UploadRateBytesPerSec = 0;
+        tunnel.DownloadRateBytesPerSec = 0;
+        _tunnelRateTrackers.TryRemove(id, out _);
         using (var scope = _scopeFactory.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -324,9 +328,19 @@ public sealed class TunnelManager : ITunnelManager
             return Task.CompletedTask;
         }
 
+        var now = DateTime.UtcNow;
         tunnel.UploadBytes += uploadDelta;
         tunnel.DownloadBytes += downloadDelta;
         tunnel.ConnectedClients = clients;
+
+        var prev = _tunnelRateTrackers.GetOrAdd(tunnelId, _ => (tunnel.UploadBytes, tunnel.DownloadBytes, now));
+        var elapsedSec = (now - prev.LastTime).TotalSeconds;
+        if (elapsedSec >= 0.5)
+        {
+            tunnel.UploadRateBytesPerSec = elapsedSec > 0 ? (long)Math.Max(0, (tunnel.UploadBytes - prev.LastUp) / elapsedSec) : 0;
+            tunnel.DownloadRateBytesPerSec = elapsedSec > 0 ? (long)Math.Max(0, (tunnel.DownloadBytes - prev.LastDown) / elapsedSec) : 0;
+            _tunnelRateTrackers[tunnelId] = (tunnel.UploadBytes, tunnel.DownloadBytes, now);
+        }
 
         // Check traffic limit
         if (tunnel.TrafficLimitBytes > 0 && (tunnel.UploadBytes + tunnel.DownloadBytes) >= tunnel.TrafficLimitBytes)
@@ -362,6 +376,9 @@ public sealed class TunnelManager : ITunnelManager
         }
 
         tunnel.ConnectedClients = 0;
+        tunnel.UploadRateBytesPerSec = 0;
+        tunnel.DownloadRateBytesPerSec = 0;
+        _tunnelRateTrackers.TryRemove(tunnelId, out _);
 
         // If tunnel is supposed to be enabled, attempt auto-recovery
         if (tunnel.IsEnabled)

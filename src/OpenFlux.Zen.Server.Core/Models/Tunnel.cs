@@ -30,6 +30,12 @@ public sealed class Tunnel
     public long DownloadBytes { get; set; } = 0;
     public int ConnectedClients { get; set; } = 0;
 
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public long UploadRateBytesPerSec { get; set; } = 0;
+
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public long DownloadRateBytesPerSec { get; set; } = 0;
+
     // State & Persistence
     public bool IsEnabled { get; set; } = false;
     public TunnelStatus Status { get; set; } = TunnelStatus.Stopped;

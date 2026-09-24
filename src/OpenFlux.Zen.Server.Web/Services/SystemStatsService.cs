@@ -22,13 +22,21 @@ public sealed class SystemStatsService : ISystemStatsService
     private long _lastHostCpuIdle;
     private readonly object _cpuLock = new();
 
-    // Traffic / Network Rate Tracking
+    // Traffic / Network Rate Tracking (from tunnels)
     private long _lastUploadBytes;
     private long _lastDownloadBytes;
     private DateTime _lastTrafficCheck = DateTime.UtcNow;
     private long _lastUploadRate;
     private long _lastDownloadRate;
     private readonly object _trafficLock = new();
+
+    // Host NIC dev tracking (/proc/net/dev)
+    private long _lastNetDevRx;
+    private long _lastNetDevTx;
+    private DateTime _lastNetDevCheck = DateTime.UtcNow;
+    private long _hostDownloadRate;
+    private long _hostUploadRate;
+    private readonly object _netDevLock = new();
 
     public SystemStatsService(ITunnelManager tunnelManager)
     {
@@ -44,7 +52,12 @@ public sealed class SystemStatsService : ISystemStatsService
         var totalUpload = tunnels.Sum(t => t.UploadBytes);
         var totalDownload = tunnels.Sum(t => t.DownloadBytes);
 
-        var (uploadRate, downloadRate) = CalculateNetworkRates(totalUpload, totalDownload);
+        var (tunnelUpRate, tunnelDownRate) = CalculateNetworkRates(totalUpload, totalDownload);
+        var (hostUpRate, hostDownRate) = GetHostNetworkRates();
+
+        var uploadRate = Math.Max(tunnelUpRate, hostUpRate);
+        var downloadRate = Math.Max(tunnelDownRate, hostDownRate);
+
         var cpuUsage = CalculateCpuUsage();
         var (memUsed, memTotal) = GetMemoryUsage();
 
@@ -94,6 +107,56 @@ public sealed class SystemStatsService : ISystemStatsService
             }
             return (_lastUploadRate, _lastDownloadRate);
         }
+    }
+
+    private (long uploadRate, long downloadRate) GetHostNetworkRates()
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && File.Exists("/proc/net/dev"))
+        {
+            try
+            {
+                long rxBytes = 0;
+                long txBytes = 0;
+                foreach (var line in File.ReadLines("/proc/net/dev"))
+                {
+                    var trimmed = line.Trim();
+                    if (trimmed.StartsWith("lo:") || trimmed.StartsWith("Inter-") || trimmed.StartsWith("face")) continue;
+                    var colonIdx = trimmed.IndexOf(':');
+                    if (colonIdx > 0)
+                    {
+                        var stats = trimmed.Substring(colonIdx + 1).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                        if (stats.Length >= 9)
+                        {
+                            if (long.TryParse(stats[0], out var rx)) rxBytes += rx;
+                            if (long.TryParse(stats[8], out var tx)) txBytes += tx;
+                        }
+                    }
+                }
+
+                lock (_netDevLock)
+                {
+                    var now = DateTime.UtcNow;
+                    var elapsedSec = (now - _lastNetDevCheck).TotalSeconds;
+                    if (elapsedSec >= 0.5)
+                    {
+                        if (_lastNetDevRx > 0 && elapsedSec > 0)
+                        {
+                            _hostDownloadRate = (long)Math.Max(0, (rxBytes - _lastNetDevRx) / elapsedSec);
+                            _hostUploadRate = (long)Math.Max(0, (txBytes - _lastNetDevTx) / elapsedSec);
+                        }
+                        _lastNetDevRx = rxBytes;
+                        _lastNetDevTx = txBytes;
+                        _lastNetDevCheck = now;
+                    }
+                    return (_hostUploadRate, _hostDownloadRate);
+                }
+            }
+            catch
+            {
+                // Fallback
+            }
+        }
+        return (0, 0);
     }
 
     private (long used, long total) GetMemoryUsage()

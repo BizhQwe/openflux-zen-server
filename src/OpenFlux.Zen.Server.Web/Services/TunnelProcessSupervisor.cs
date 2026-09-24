@@ -16,13 +16,27 @@ public interface ITunnelProcessSupervisor
 
 public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
 {
+    private sealed class TunnelState
+    {
+        public Guid TunnelId { get; init; }
+        public Process Process { get; init; } = null!;
+        public CancellationTokenSource Cts { get; init; } = null!;
+        public long PendingUploadBytes;
+        public long PendingDownloadBytes;
+        public int LastConnectedSockets;
+        public int LastClientCount;
+        public readonly ConcurrentDictionary<string, DateTime> ActiveClients = new();
+        public ulong LastL3Upload;
+        public ulong LastL3Download;
+        public Func<Guid, long, long, int, Task> Callback { get; set; } = null!;
+    }
+
     private readonly ILogger<TunnelProcessSupervisor> _logger;
     private readonly IOpenFluxBinaryResolver _binaryResolver;
     private readonly ITunnelLogService _logService;
-    private readonly ConcurrentDictionary<Guid, Process> _runningProcesses = new();
-    private readonly ConcurrentDictionary<Guid, CancellationTokenSource> _processCts = new();
-    private readonly ConcurrentDictionary<Guid, (ulong LastPackets, ulong LastL3Upload, ulong LastL3Download)> _lastStats = new();
+    private readonly ConcurrentDictionary<Guid, TunnelState> _tunnelStates = new();
     private readonly string _keysDirectory;
+    private readonly Timer _flushTimer;
 
     [GeneratedRegex(@"\[STATS\]\s+uptime=\S+\s+mode=\S+\s+packets=(\d+)\s+connected=(\d+)\s+established=(\d+)", RegexOptions.Compiled)]
     private static partial Regex StatsRegex();
@@ -40,15 +54,18 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         _logService = logService;
         _keysDirectory = Path.Combine(AppContext.BaseDirectory, "data", "keys");
         Directory.CreateDirectory(_keysDirectory);
+
+        // Periodic flush of accumulated packet bytes & client counts every 500ms
+        _flushTimer = new Timer(OnFlushTimerTick, null, TimeSpan.FromMilliseconds(500), TimeSpan.FromMilliseconds(500));
     }
 
     public bool IsRunning(Guid tunnelId)
     {
-        if (_runningProcesses.TryGetValue(tunnelId, out var proc))
+        if (_tunnelStates.TryGetValue(tunnelId, out var state))
         {
             try
             {
-                return !proc.HasExited;
+                return !state.Process.HasExited;
             }
             catch
             {
@@ -93,7 +110,6 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
             CreateNoWindow = true
         };
 
-        // Environment variables for OpenFlux
         psi.EnvironmentVariables["GOMEMLIMIT"] = "256MiB";
 
         Process proc;
@@ -109,15 +125,21 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         }
 
         var cts = new CancellationTokenSource();
-        _processCts[tunnel.Id] = cts;
-        _lastStats[tunnel.Id] = (0, 0, 0);
+        var state = new TunnelState
+        {
+            TunnelId = tunnel.Id,
+            Process = proc,
+            Cts = cts,
+            Callback = onStatsUpdate
+        };
+        _tunnelStates[tunnel.Id] = state;
 
         proc.OutputDataReceived += (_, e) =>
         {
             if (e.Data != null)
             {
                 _logService.AppendLog(tunnel.Id, "stdout", e.Data);
-                ParseStats(tunnel.Id, e.Data, onStatsUpdate);
+                ParseStats(state, e.Data);
             }
         };
 
@@ -126,15 +148,14 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
             if (e.Data != null)
             {
                 _logService.AppendLog(tunnel.Id, "stderr", e.Data);
-                ParseStats(tunnel.Id, e.Data, onStatsUpdate);
+                ParseStats(state, e.Data);
             }
         };
 
         proc.Exited += async (_, _) =>
         {
-            _runningProcesses.TryRemove(tunnel.Id, out _);
-            _processCts.TryRemove(tunnel.Id, out _);
-            _lastStats.TryRemove(tunnel.Id, out _);
+            FlushState(state);
+            _tunnelStates.TryRemove(tunnel.Id, out _);
 
             int exitCode = -1;
             try { exitCode = proc.ExitCode; } catch { }
@@ -156,9 +177,8 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
 
             proc.BeginOutputReadLine();
             proc.BeginErrorReadLine();
-            _runningProcesses[tunnel.Id] = proc;
 
-            // Wait a brief moment to catch immediate startup crashes (e.g. invalid arguments)
+            // Wait a brief moment to catch immediate startup crashes
             await Task.Delay(350);
             if (proc.HasExited)
             {
@@ -178,7 +198,7 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
 
     public async Task<bool> StopTunnelAsync(Guid tunnelId)
     {
-        if (!_runningProcesses.TryGetValue(tunnelId, out var proc))
+        if (!_tunnelStates.TryGetValue(tunnelId, out var state))
         {
             return true;
         }
@@ -186,6 +206,7 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         try
         {
             _logService.AppendLog(tunnelId, "system", "Stopping tunnel process...");
+            var proc = state.Process;
             if (!proc.HasExited)
             {
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
@@ -196,7 +217,6 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
                 {
                     try
                     {
-                        // On Linux, try SIGTERM first
                         Process.Start(new ProcessStartInfo
                         {
                             FileName = "kill",
@@ -218,13 +238,12 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Exception while stopping tunnel {TunnelId}", tunnelId);
-            try { proc.Kill(entireProcessTree: true); } catch { }
+            try { state.Process.Kill(entireProcessTree: true); } catch { }
         }
         finally
         {
-            _runningProcesses.TryRemove(tunnelId, out _);
-            _processCts.TryRemove(tunnelId, out _);
-            _lastStats.TryRemove(tunnelId, out _);
+            FlushState(state);
+            _tunnelStates.TryRemove(tunnelId, out _);
         }
 
         return true;
@@ -232,59 +251,41 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
 
     public void StopAll()
     {
-        foreach (var (id, proc) in _runningProcesses)
+        foreach (var (id, state) in _tunnelStates)
         {
             try
             {
-                if (!proc.HasExited)
+                if (!state.Process.HasExited)
                 {
-                    proc.Kill(entireProcessTree: true);
+                    state.Process.Kill(entireProcessTree: true);
                 }
             }
             catch { }
         }
-        _runningProcesses.Clear();
-        _processCts.Clear();
-        _lastStats.Clear();
+        _tunnelStates.Clear();
     }
 
     private string BuildCommandLineArguments(Tunnel t)
     {
         var parts = new List<string>();
 
-        // Always include -debug flag as strictly required
+        // Always include -debug flag as strictly required for traffic stats & logs
         parts.Add("-debug");
 
-        // Role: exit | client | bench-send | bench-sink
-        var role = string.IsNullOrWhiteSpace(t.Role) ? "exit" : t.Role.Trim();
-        parts.Add($"--role={role}");
+        // Role on server is strictly EXIT node
+        parts.Add("--role=exit");
 
         // Transport: yandex | vyandex | oneme | cupsonline | mailru
         var transport = string.IsNullOrWhiteSpace(t.Transport) ? "yandex" : t.Transport.Trim();
         parts.Add($"--transport={transport}");
 
-        // Mode: only applicable to exit node (l3 | l4)
-        if (role == "exit")
+        // Mode: l4 | l3
+        var mode = string.IsNullOrWhiteSpace(t.Mode) ? "l4" : t.Mode.Trim();
+        parts.Add($"--mode={mode}");
+
+        if (!string.IsNullOrWhiteSpace(t.LocalIp))
         {
-            var mode = string.IsNullOrWhiteSpace(t.Mode) ? "l4" : t.Mode.Trim();
-            parts.Add($"--mode={mode}");
-
-            if (!string.IsNullOrWhiteSpace(t.LocalIp))
-            {
-                parts.Add($"--local-ip={t.LocalIp.Trim()}");
-            }
-        }
-
-        // Inbound: only applicable to client (tun | socks5)
-        if (role == "client")
-        {
-            var inbound = string.IsNullOrWhiteSpace(t.Inbound) ? "socks5" : t.Inbound.Trim();
-            parts.Add($"--inbound={inbound}");
-
-            if (inbound == "socks5" && !string.IsNullOrWhiteSpace(t.Socks5Address))
-            {
-                parts.Add($"--socks5={t.Socks5Address.Trim()}");
-            }
+            parts.Add($"--local-ip={t.LocalIp.Trim()}");
         }
 
         // Codec: batched | legacy
@@ -318,19 +319,6 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
             parts.Add($"--encryption-key-file=\"{keyFilePath}\"");
         }
 
-        // Benchmark options
-        if (role == "bench-send")
-        {
-            if (t.BenchBytes > 0)
-            {
-                parts.Add($"--bench-bytes={t.BenchBytes}");
-            }
-            if (t.BenchCompressible)
-            {
-                parts.Add("--bench-compressible");
-            }
-        }
-
         // Extra custom arguments
         if (!string.IsNullOrWhiteSpace(t.ExtraArgs))
         {
@@ -340,68 +328,145 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         return string.Join(" ", parts);
     }
 
-    private void ParseStats(Guid tunnelId, string line, Func<Guid, long, long, int, Task> onStatsUpdate)
+    private void ParseStats(TunnelState state, string line)
     {
         try
         {
-            // Parse L4 stats: [STATS] uptime=... mode=l4 packets=1234 connected=2 established=1
-            var match = StatsRegex().Match(line);
-            if (match.Success)
+            // 1. Fast packet line parsing in L4 mode:
+            // "<- 52 bytes - TCP 10.10.10.2:33128 -> 66.90.91.4:8080"
+            // "-> 1472 bytes - TCP 62.63.162.194:8080 -> 10.10.10.2:64025"
+            if (line.Contains(" bytes - "))
             {
-                ulong packets = ulong.Parse(match.Groups[1].Value);
-                int connected = int.Parse(match.Groups[2].Value);
-
-                var prev = _lastStats.GetOrAdd(tunnelId, _ => (0, 0, 0));
-                long packetDelta = 0;
-                if (packets >= prev.LastPackets)
+                int arrowIdx = line.IndexOf("<- ");
+                bool isUpload = arrowIdx >= 0;
+                if (!isUpload)
                 {
-                    packetDelta = (long)(packets - prev.LastPackets);
+                    arrowIdx = line.IndexOf("-> ");
                 }
-                _lastStats[tunnelId] = (packets, prev.LastL3Upload, prev.LastL3Download);
 
-                // Estimated packet size ~1300 bytes split evenly between upload and download
-                long bytesDelta = packetDelta * 1300;
-                long uploadDelta = bytesDelta / 2;
-                long downloadDelta = bytesDelta / 2;
-
-                _ = Task.Run(async () =>
+                if (arrowIdx >= 0)
                 {
-                    await onStatsUpdate(tunnelId, uploadDelta, downloadDelta, connected);
-                });
+                    int bytesIdx = line.IndexOf(" bytes", arrowIdx + 3);
+                    if (bytesIdx > arrowIdx + 3)
+                    {
+                        var byteSpan = line.AsSpan(arrowIdx + 3, bytesIdx - (arrowIdx + 3));
+                        if (long.TryParse(byteSpan, out var byteCount))
+                        {
+                            if (isUpload)
+                                Interlocked.Add(ref state.PendingUploadBytes, byteCount);
+                            else
+                                Interlocked.Add(ref state.PendingDownloadBytes, byteCount);
+
+                            // Extract client IP address to accurately count unique devices
+                            int protoIdx = line.IndexOf(" TCP ", bytesIdx);
+                            if (protoIdx < 0) protoIdx = line.IndexOf(" UDP ", bytesIdx);
+                            if (protoIdx >= 0)
+                            {
+                                int afterProto = protoIdx + 5;
+                                int innerArrow = line.IndexOf(" -> ", afterProto);
+                                if (innerArrow > afterProto)
+                                {
+                                    string ipWithPort = isUpload
+                                        ? line.Substring(afterProto, innerArrow - afterProto).Trim()
+                                        : line.Substring(innerArrow + 4).Split(' ', StringSplitOptions.RemoveEmptyEntries)[0].Trim();
+
+                                    int colonIdx = ipWithPort.LastIndexOf(':');
+                                    var ip = colonIdx > 0 ? ipWithPort.Substring(0, colonIdx) : ipWithPort;
+                                    if (!string.IsNullOrWhiteSpace(ip) && (ip.StartsWith("10.") || ip.StartsWith("172.") || ip.StartsWith("192.168.") || ip.StartsWith("100.")))
+                                    {
+                                        state.ActiveClients[ip] = DateTime.UtcNow;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
                 return;
             }
 
-            // Parse L3 stats: [L3-STATS] fromTr=... toNet=... | fromNet=... toCli=...
+            // 2. Parse L4 stats line: [STATS] uptime=... mode=l4 packets=0 connected=41 established=33
+            var match = StatsRegex().Match(line);
+            if (match.Success)
+            {
+                int connected = int.Parse(match.Groups[2].Value);
+                state.LastConnectedSockets = connected;
+                return;
+            }
+
+            // 3. Parse L3 stats: [L3-STATS] fromTr=17(+17) toNet=17(+17) | fromNet=92(+92) toCli=11(+11)
             var l3Match = L3StatsRegex().Match(line);
             if (l3Match.Success)
             {
                 ulong fromTr = ulong.Parse(l3Match.Groups[1].Value);
                 ulong toCli = ulong.Parse(l3Match.Groups[7].Value);
 
-                var prev = _lastStats.GetOrAdd(tunnelId, _ => (0, 0, 0));
-                long upDelta = 0;
-                long downDelta = 0;
-
-                if (fromTr >= prev.LastL3Upload)
+                if (fromTr > state.LastL3Upload)
                 {
-                    upDelta = (long)((fromTr - prev.LastL3Upload) * 1300);
+                    long upDelta = (long)((fromTr - state.LastL3Upload) * 1300);
+                    Interlocked.Add(ref state.PendingUploadBytes, upDelta);
                 }
-                if (toCli >= prev.LastL3Download)
+                if (toCli > state.LastL3Download)
                 {
-                    downDelta = (long)((toCli - prev.LastL3Download) * 1300);
+                    long downDelta = (long)((toCli - state.LastL3Download) * 1300);
+                    Interlocked.Add(ref state.PendingDownloadBytes, downDelta);
                 }
 
-                _lastStats[tunnelId] = (prev.LastPackets, fromTr, toCli);
-
-                _ = Task.Run(async () =>
-                {
-                    await onStatsUpdate(tunnelId, upDelta, downDelta, 1);
-                });
+                state.LastL3Upload = fromTr;
+                state.LastL3Download = toCli;
+                state.LastConnectedSockets = 1;
             }
         }
         catch (Exception ex)
         {
-            _logger.LogTrace(ex, "Failed to parse stats line for tunnel {TunnelId}", tunnelId);
+            _logger.LogTrace(ex, "Failed to parse stats line for tunnel {TunnelId}", state.TunnelId);
         }
+    }
+
+    private void OnFlushTimerTick(object? _)
+    {
+        foreach (var state in _tunnelStates.Values)
+        {
+            FlushState(state);
+        }
+    }
+
+    private void FlushState(TunnelState state)
+    {
+        try
+        {
+            var up = Interlocked.Exchange(ref state.PendingUploadBytes, 0);
+            var down = Interlocked.Exchange(ref state.PendingDownloadBytes, 0);
+
+            // Prune clients not seen in last 60 seconds
+            var now = DateTime.UtcNow;
+            foreach (var (ip, dt) in state.ActiveClients)
+            {
+                if ((now - dt).TotalSeconds > 60)
+                {
+                    state.ActiveClients.TryRemove(ip, out _);
+                }
+            }
+
+            // Calculate unique client device count
+            int uniqueClients = state.ActiveClients.Count;
+            if (uniqueClients == 0 && state.LastConnectedSockets > 0)
+            {
+                uniqueClients = 1; // Fallback: active sockets detected, so at least 1 device connected
+            }
+
+            if (up > 0 || down > 0 || uniqueClients != state.LastClientCount)
+            {
+                state.LastClientCount = uniqueClients;
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await state.Callback(state.TunnelId, up, down, uniqueClients);
+                    }
+                    catch { }
+                });
+            }
+        }
+        catch { }
     }
 }

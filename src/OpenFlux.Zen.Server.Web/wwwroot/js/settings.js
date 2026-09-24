@@ -53,30 +53,6 @@ async function loadSettings() {
     if (secretInput && s.secretPath) {
       secretInput.value = '/' + s.secretPath.replace(/^\/+|\/+$/g, '') + '/';
     }
-    const autostartInput = document.getElementById('setting-autostart');
-    const autostartLabel = document.getElementById('setting-autostart-label');
-    if (autostartInput) {
-      autostartInput.checked = s.autoStartEnabled !== false;
-      if (autostartLabel) autostartLabel.textContent = autostartInput.checked ? 'Включён' : 'Выключен';
-    }
-  }
-}
-
-async function toggleAutostart(enabled) {
-  const label = document.getElementById('setting-autostart-label');
-  if (label) label.textContent = enabled ? 'Включён' : 'Выключен';
-  try {
-    const res = await api('api/settings/autostart', {
-      method: 'POST',
-      body: JSON.stringify({ enabled })
-    });
-    if (res.ok) {
-      toast(enabled ? 'Автозапуск службы включён' : 'Автозапуск службы отключён', 'success');
-    } else {
-      toast('Не удалось обновить настройки автозапуска', 'danger');
-    }
-  } catch {
-    toast('Ошибка соединения при изменении автозапуска', 'danger');
   }
 }
 

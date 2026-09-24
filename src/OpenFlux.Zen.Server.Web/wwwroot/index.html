@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/app.css?v=1.0.5" />
+  <link rel="stylesheet" href="css/app.css?v=1.0.6" />
 </head>
 <body>
 
@@ -250,21 +250,6 @@
           </form>
         </div>
 
-        <div class="card settings-card">
-          <h4 style="margin-bottom: 8px;">Автозапуск службы</h4>
-          <p style="color: var(--text-dim); margin-bottom: 16px; font-size: 0.9rem;">
-            Автоматический запуск службы OpenFlux Zen Server при старте операционной системы хоста.
-          </p>
-          <div class="button-row">
-            <label class="switch-container">
-              <span class="switch">
-                <input type="checkbox" id="setting-autostart" onchange="toggleAutostart(this.checked)" />
-                <span class="slider"></span>
-              </span>
-              <span id="setting-autostart-label" style="font-size: 0.9rem; font-weight: 600;">Включён</span>
-            </label>
-          </div>
-        </div>
 
         <div class="card">
           <h4 style="margin-bottom: 8px;">Секретный путь панели</h4>
@@ -297,16 +282,9 @@
             <input type="text" id="tunnel-name" class="form-control" placeholder="Yandex Exit Server" required />
           </div>
 
+          <input type="hidden" id="tunnel-role" value="exit" />
+
           <div class="form-row">
-            <div class="form-group">
-              <label for="tunnel-role">Роль (Role)</label>
-              <select id="tunnel-role" class="form-control" onchange="onRoleChange()">
-                <option value="exit">exit (Выходная нода / сервер)</option>
-                <option value="client">client (Клиент)</option>
-                <option value="bench-send">bench-send (Бенчмарк отправитель)</option>
-                <option value="bench-sink">bench-sink (Бенчмарк получатель)</option>
-              </select>
-            </div>
             <div class="form-group">
               <label for="tunnel-transport">Транспорт (Transport)</label>
               <select id="tunnel-transport" class="form-control" onchange="onTransportChange()">
@@ -317,35 +295,12 @@
                 <option value="mailru">mailru (Mail.ru Docs WebSocket)</option>
               </select>
             </div>
-          </div>
-
-          <!-- Exit Mode -->
-          <div id="group-exit" class="form-row">
             <div class="form-group">
               <label for="tunnel-mode">Режим выхода (Mode)</label>
               <select id="tunnel-mode" class="form-control">
-                <option value="l4">l4 / proxy (gVisor stream proxy, универсальный)</option>
-                <option value="l3">l3 (Сырой SNAT/DNAT, Linux root/raw)</option>
+                <option value="l4">l4 / proxy (Stream proxy, gVisor TCP stack)</option>
+                <option value="l3">l3 (Сырой SNAT/DNAT, Linux root)</option>
               </select>
-            </div>
-            <div class="form-group">
-              <label for="tunnel-local-ip">Egress IP (--local-ip, для L3)</label>
-              <input type="text" id="tunnel-local-ip" class="form-control" placeholder="Автоопределение" />
-            </div>
-          </div>
-
-          <!-- Client Inbound -->
-          <div id="group-client" class="form-row" style="display: none;">
-            <div class="form-group">
-              <label for="tunnel-inbound">Входящий интерфейс (Inbound)</label>
-              <select id="tunnel-inbound" class="form-control">
-                <option value="socks5">socks5 (SOCKS5 прокси)</option>
-                <option value="tun">tun (utun интерфейс)</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="tunnel-socks5">Адрес SOCKS5 (--socks5)</label>
-              <input type="text" id="tunnel-socks5" class="form-control" value=":1080" />
             </div>
           </div>
 
@@ -371,14 +326,19 @@
             <div class="form-group">
               <label for="tunnel-codec">Кодек (Codec)</label>
               <select id="tunnel-codec" class="form-control">
-                <option value="batched">batched (zstd + coalescing, по умолчанию)</option>
+                <option value="batched">batched (zstd + coalescing)</option>
                 <option value="legacy">legacy (per-packet LZ4)</option>
               </select>
             </div>
             <div class="form-group">
-              <label for="tunnel-encryption">Ключ шифрования (AES-256-GCM)</label>
-              <input type="text" id="tunnel-encryption" class="form-control" placeholder="Необязательно (общий секрет)" />
+              <label for="tunnel-local-ip">Egress IP (--local-ip, для L3)</label>
+              <input type="text" id="tunnel-local-ip" class="form-control" placeholder="Автоопределение" />
             </div>
+          </div>
+
+          <div class="form-group">
+            <label for="tunnel-encryption">Ключ шифрования (AES-256-GCM)</label>
+            <input type="text" id="tunnel-encryption" class="form-control" placeholder="Необязательно (общий секрет)" />
           </div>
 
           <div class="form-row">
@@ -394,17 +354,7 @@
 
           <div class="form-group">
             <label for="tunnel-extra-args">Дополнительные параметры CLI</label>
-            <input type="text" id="tunnel-extra-args" class="form-control" placeholder="Например: --bench-bytes=100" />
-          </div>
-
-          <div class="form-group">
-            <label class="switch-container">
-              <span class="switch">
-                <input type="checkbox" id="tunnel-enabled" checked />
-                <span class="slider"></span>
-              </span>
-              <span>Включить туннель (автозапуск и восстановление)</span>
-            </label>
+            <input type="text" id="tunnel-extra-args" class="form-control" placeholder="Например: --debug" />
           </div>
         </form>
       </div>
@@ -419,10 +369,10 @@
   <!-- Toast notifications -->
   <div id="toast-container" role="status" aria-live="polite"></div>
 
-  <script src="js/api.js?v=1.0.5"></script>
-  <script src="js/tunnels.js?v=1.0.5"></script>
-  <script src="js/logs.js?v=1.0.5"></script>
-  <script src="js/settings.js?v=1.0.5"></script>
-  <script src="js/app.js?v=1.0.5"></script>
+  <script src="js/api.js?v=1.0.6"></script>
+  <script src="js/tunnels.js?v=1.0.6"></script>
+  <script src="js/logs.js?v=1.0.6"></script>
+  <script src="js/settings.js?v=1.0.6"></script>
+  <script src="js/app.js?v=1.0.6"></script>
 </body>
 </html>
