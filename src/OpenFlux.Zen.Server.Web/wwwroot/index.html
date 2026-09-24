@@ -87,24 +87,33 @@
       border-radius: 10px;
       border: 1px solid var(--card-border);
     }
-    .brand-title { font-weight: 800; font-size: 1.25rem; letter-spacing: -0.5px; }
+    .brand-title { font-weight: 800; font-size: 1.25rem; letter-spacing: -0.5px; line-height: 1.15; }
     .brand-title span { color: var(--accent); }
     .brand-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       font-size: 0.7rem;
       background: rgba(59, 130, 246, 0.15);
       color: #60a5fa;
       border: 1px solid rgba(59, 130, 246, 0.3);
-      padding: 2px 8px;
+      min-height: 24px;
+      padding: 3px 9px;
       border-radius: 20px;
       font-weight: 600;
+      line-height: 1;
     }
 
-    .nav-links { display: flex; gap: 4px; align-items: center; min-width: 0; }
+    .nav-links { display: flex; gap: 10px; align-items: stretch; min-width: 0; }
     .nav-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       background: transparent;
       border: 1px solid transparent;
       color: var(--text-muted);
       padding: 8px 16px;
+      height: 42px;
       min-height: 42px;
       white-space: nowrap;
       border-radius: 8px;
@@ -157,8 +166,9 @@
     .btn svg { display: block; }
     .toolbar, .button-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; min-width: 0; }
     .toolbar > .btn { min-height: 42px; }
-    .toolbar .form-control { width: auto; max-width: 320px; }
+    .toolbar .form-control { width: auto; max-width: 320px; min-height: 42px; }
     .button-row .form-control { flex: 1 1 240px; }
+    .header-actions .btn { min-height: 42px; }
 
     /* Cards */
     .card {
@@ -450,10 +460,23 @@
       box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
       text-align: center;
     }
+    .login-brand {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .login-brand-copy {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .login-brand-title { font-size: 1.5rem; }
     .login-logo {
       width: 72px;
       height: 72px;
-      margin: 0 auto 16px auto;
+      margin: 0;
       border-radius: 16px;
       border: 1px solid var(--card-border);
     }
@@ -509,8 +532,8 @@
       .brand img { width: 36px; height: 36px; }
       .brand-title { font-size: 1.1rem; }
       .brand-badge { display: none; }
-      .nav-links { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; }
-      .nav-btn { padding: 8px 4px; font-size: 0.75rem; }
+      .nav-links { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+      .nav-btn { height: 42px; padding: 8px 4px; font-size: 0.75rem; }
       .stats-grid { gap: 12px; margin-bottom: 24px; }
       .stat-card { padding: 16px; min-height: 136px; }
       .section-title { font-size: 1.2rem; }
@@ -533,6 +556,10 @@
       .modal-footer { padding: 12px 16px; }
       .modal-footer .btn { flex: 1; }
       .login-container { padding: 24px; }
+      .login-brand { gap: 8px; }
+      .login-brand-copy { gap: 8px; }
+      .login-brand-title { font-size: 1.25rem; }
+      .login-logo { width: 56px; height: 56px; }
       .terminal-container { height: 55dvh; min-height: 240px; padding: 12px; font-size: 0.75rem; }
       #toast-container { bottom: 16px; right: 16px; }
     }
@@ -571,9 +598,14 @@
 
     <!-- Login View -->
     <div id="login-view" class="login-container">
-      <img src="assets/logo/transparent/web/icon-192x192.png" class="login-logo" alt="Logo" />
-      <h2 class="login-title">OpenFlux Zen Server</h2>
-      <p class="login-sub">Управление сервером и защищёнными туннелями</p>
+      <div class="login-brand">
+        <img src="assets/logo/transparent/web/icon-192x192.png" class="login-logo" alt="OpenFlux Logo" />
+        <div class="login-brand-copy">
+          <div class="brand-title login-brand-title">OpenFlux <span>Zen</span></div>
+          <span class="brand-badge">Server</span>
+        </div>
+      </div>
+      <p class="login-sub">Защищённая панель управления туннелями</p>
 
       <form id="login-form" onsubmit="event.preventDefault(); doLogin();">
         <div class="form-group" style="text-align: left;">
