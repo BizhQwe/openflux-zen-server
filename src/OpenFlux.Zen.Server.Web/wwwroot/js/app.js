@@ -99,7 +99,10 @@ async function initApp() {
   loadStats();
   loadTunnels();
   if (!statsInterval) {
-    statsInterval = setInterval(loadStats, 5000);
+    statsInterval = setInterval(() => {
+      loadStats();
+      loadTunnels(true);
+    }, 1000);
   }
 }
 

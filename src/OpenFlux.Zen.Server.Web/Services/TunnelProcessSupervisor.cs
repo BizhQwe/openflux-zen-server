@@ -29,6 +29,7 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         public ulong LastL3Upload;
         public ulong LastL3Download;
         public Func<Guid, long, long, int, Task> Callback { get; set; } = null!;
+        public volatile bool IsIntentionalStop;
     }
 
     private readonly ILogger<TunnelProcessSupervisor> _logger;
@@ -55,8 +56,8 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         _keysDirectory = Path.Combine(AppContext.BaseDirectory, "data", "keys");
         Directory.CreateDirectory(_keysDirectory);
 
-        // Periodic flush of accumulated packet bytes & client counts every 500ms
-        _flushTimer = new Timer(OnFlushTimerTick, null, TimeSpan.FromMilliseconds(500), TimeSpan.FromMilliseconds(500));
+        // Periodic flush of accumulated packet bytes & client counts every 250ms for responsive stats
+        _flushTimer = new Timer(OnFlushTimerTick, null, TimeSpan.FromMilliseconds(250), TimeSpan.FromMilliseconds(250));
     }
 
     public bool IsRunning(Guid tunnelId)
@@ -155,16 +156,20 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         proc.Exited += async (_, _) =>
         {
             FlushState(state);
-            _tunnelStates.TryRemove(tunnel.Id, out _);
+            _tunnelStates.TryRemove(new KeyValuePair<Guid, TunnelState>(tunnel.Id, state));
 
             int exitCode = -1;
             try { exitCode = proc.ExitCode; } catch { }
 
             var msg = $"Process exited with code {exitCode}";
-            _logger.LogInformation("Tunnel {TunnelId} process exited (Code: {ExitCode})", tunnel.Id, exitCode);
+            _logger.LogInformation("Tunnel {TunnelId} process exited (Code: {ExitCode}, Intentional: {Intentional})", 
+                tunnel.Id, exitCode, state.IsIntentionalStop);
             _logService.AppendLog(tunnel.Id, "system", msg);
 
-            await onProcessExited(tunnel.Id, exitCode == 0 ? null : msg);
+            if (!state.IsIntentionalStop)
+            {
+                await onProcessExited(tunnel.Id, exitCode == 0 ? null : msg);
+            }
         };
 
         try
@@ -203,6 +208,8 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
             return true;
         }
 
+        state.IsIntentionalStop = true;
+
         try
         {
             _logService.AppendLog(tunnelId, "system", "Stopping tunnel process...");
@@ -231,8 +238,17 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
                     }
                 }
 
-                using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
-                await proc.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false);
+                using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+                try
+                {
+                    await proc.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    _logger.LogWarning("Tunnel {TunnelId} process did not exit on SIGTERM within 2s, force killing", tunnelId);
+                    try { proc.Kill(entireProcessTree: true); } catch { }
+                    await proc.WaitForExitAsync().ConfigureAwait(false);
+                }
             }
         }
         catch (Exception ex)
@@ -243,7 +259,7 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         finally
         {
             FlushState(state);
-            _tunnelStates.TryRemove(tunnelId, out _);
+            _tunnelStates.TryRemove(new KeyValuePair<Guid, TunnelState>(tunnelId, state));
         }
 
         return true;
@@ -269,8 +285,8 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
     {
         var parts = new List<string>();
 
-        // Always include -debug flag as strictly required for traffic stats & logs
-        parts.Add("-debug");
+        // Always include --debug flag as strictly required for traffic stats & logs
+        parts.Add("--debug");
 
         // Role on server is strictly EXIT node
         parts.Add("--role=exit");
@@ -322,7 +338,13 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         // Extra custom arguments
         if (!string.IsNullOrWhiteSpace(t.ExtraArgs))
         {
-            parts.Add(t.ExtraArgs.Trim());
+            var extra = t.ExtraArgs.Trim();
+            // Remove any user-supplied debug flags since --debug is already included unconditionally
+            var cleaned = Regex.Replace(extra, @"-?-debug\b", "", RegexOptions.IgnoreCase).Trim();
+            if (!string.IsNullOrWhiteSpace(cleaned))
+            {
+                parts.Add(cleaned);
+            }
         }
 
         return string.Join(" ", parts);

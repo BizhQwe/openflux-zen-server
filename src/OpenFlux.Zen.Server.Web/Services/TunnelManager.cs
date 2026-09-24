@@ -28,6 +28,7 @@ public sealed class TunnelManager : ITunnelManager
     private readonly ConcurrentDictionary<Guid, (long LastUp, long LastDown, DateTime LastTime)> _tunnelRateTrackers = new();
     private readonly SemaphoreSlim _lock = new(1, 1);
     private readonly Timer _statsPersistTimer;
+    private readonly Timer _rateDecayTimer;
 
     public TunnelManager(
         ILogger<TunnelManager> logger,
@@ -42,6 +43,9 @@ public sealed class TunnelManager : ITunnelManager
 
         // Persist accumulated traffic to DB every 15 seconds
         _statsPersistTimer = new Timer(async _ => await PersistStatsToDbAsync(), null, TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(15));
+
+        // Decay rates to 0 if no traffic received for > 1.2s
+        _rateDecayTimer = new Timer(_ => DecayRates(), null, TimeSpan.FromMilliseconds(500), TimeSpan.FromMilliseconds(500));
     }
 
     public async Task<IReadOnlyList<Tunnel>> GetAllAsync()
@@ -106,11 +110,12 @@ public sealed class TunnelManager : ITunnelManager
             var wasRunning = _supervisor.IsRunning(existing.Id);
             if (wasRunning)
             {
+                existing.Status = TunnelStatus.Stopping;
                 await _supervisor.StopTunnelAsync(existing.Id);
             }
 
             existing.Name = updated.Name;
-            existing.Role = updated.Role;
+            existing.Role = "exit";
             existing.Transport = updated.Transport;
             existing.Inbound = updated.Inbound;
             existing.Socks5Address = updated.Socks5Address;
@@ -128,6 +133,8 @@ public sealed class TunnelManager : ITunnelManager
             existing.TrafficLimitBytes = updated.TrafficLimitBytes;
             existing.IsEnabled = updated.IsEnabled;
             existing.UpdatedAt = DateTime.UtcNow;
+            existing.ErrorMessage = null;
+            existing.RestartAttempts = 0;
 
             using (var scope = _scopeFactory.CreateScope())
             {
@@ -138,7 +145,11 @@ public sealed class TunnelManager : ITunnelManager
 
             if (existing.IsEnabled)
             {
-                _ = Task.Run(async () => await StartAsync(existing.Id));
+                var started = await StartAsync(existing.Id);
+                if (!started)
+                {
+                    _logger.LogWarning("Tunnel {Name} ({Id}) failed to restart after settings update", existing.Name, existing.Id);
+                }
             }
             else
             {
@@ -150,6 +161,25 @@ public sealed class TunnelManager : ITunnelManager
         finally
         {
             _lock.Release();
+        }
+    }
+
+    private void DecayRates()
+    {
+        var now = DateTime.UtcNow;
+        foreach (var (id, tracker) in _tunnelRateTrackers)
+        {
+            if ((now - tracker.LastTime).TotalMilliseconds >= 1200)
+            {
+                if (_liveTunnels.TryGetValue(id, out var t))
+                {
+                    if (t.UploadRateBytesPerSec > 0 || t.DownloadRateBytesPerSec > 0)
+                    {
+                        t.UploadRateBytesPerSec = 0;
+                        t.DownloadRateBytesPerSec = 0;
+                    }
+                }
+            }
         }
     }
 

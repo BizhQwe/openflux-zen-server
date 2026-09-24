@@ -1,14 +1,59 @@
 // OpenFlux Zen Server - Tunnels Management
 
-async function loadTunnels() {
+async function loadTunnels(silent = false) {
   try {
     const res = await api('api/tunnels');
     if (!res.ok) return;
     tunnelsData = await res.json();
+
+    if (silent && tunnelsData.length > 0) {
+      let canUpdateInPlace = true;
+      for (const t of tunnelsData) {
+        if (!document.getElementById('tunnel-card-' + t.id)) {
+          canUpdateInPlace = false;
+          break;
+        }
+      }
+      if (canUpdateInPlace) {
+        updateTunnelsInPlace(tunnelsData);
+        return;
+      }
+    }
+
     renderTunnels(tunnelsData);
     updateLogSelect(tunnelsData);
   } catch (err) {
-    console.error('Failed to load tunnels:', err);
+    if (!silent) console.error('Failed to load tunnels:', err);
+  }
+}
+
+function updateTunnelsInPlace(list) {
+  for (const t of list) {
+    const clientLimitStr = t.clientLimit > 0 ? `${t.connectedClients || 0} / ${t.clientLimit}` : `${t.connectedClients || 0} (∞)`;
+    const upRateStr = t.uploadRateBytesPerSec > 0 ? ` <span class="rate-badge">↑ ${fmtSpeed(t.uploadRateBytesPerSec)}</span>` : '';
+    const downRateStr = t.downloadRateBytesPerSec > 0 ? ` <span class="rate-badge">↓ ${fmtSpeed(t.downloadRateBytesPerSec)}</span>` : '';
+
+    const clientsEl = document.getElementById('tunnel-clients-' + t.id);
+    if (clientsEl && clientsEl.textContent !== clientLimitStr) {
+      clientsEl.textContent = clientLimitStr;
+    }
+
+    const uploadEl = document.getElementById('tunnel-upload-' + t.id);
+    if (uploadEl) {
+      uploadEl.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>${fmtBytes(t.uploadBytes)}${upRateStr}`;
+    }
+
+    const downloadEl = document.getElementById('tunnel-download-' + t.id);
+    if (downloadEl) {
+      downloadEl.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>${fmtBytes(t.downloadBytes)}${downRateStr}`;
+    }
+
+    if (t.trafficLimitBytes > 0) {
+      const totalBytes = (t.uploadBytes || 0) + (t.downloadBytes || 0);
+      const trafficPct = Math.min(100, Math.round(totalBytes / t.trafficLimitBytes * 100));
+      const progEl = document.getElementById('tunnel-prog-' + t.id);
+      if (progEl) progEl.style.width = trafficPct + '%';
+    }
   }
 }
 
@@ -39,7 +84,7 @@ function renderTunnels(list) {
     } else if (t.status === 1) {
       statusBadge = '<span class="badge badge-status badge-starting">Запуск...</span>';
     } else if (t.status === 4) {
-      statusBadge = `<span class="badge badge-status badge-failed" title="${t.errorMessage || ''}">Ошибка</span>`;
+      statusBadge = `<span class="badge badge-status badge-failed" title="${escapeHtml(t.errorMessage || '')}">Ошибка</span>`;
     }
 
     const isRunning = t.status === 2;
@@ -56,13 +101,12 @@ function renderTunnels(list) {
     const downRateStr = t.downloadRateBytesPerSec > 0 ? ` <span class="rate-badge">↓ ${fmtSpeed(t.downloadRateBytesPerSec)}</span>` : '';
 
     return `
-      <div class="tunnel-item">
+      <div class="tunnel-item" id="tunnel-card-${t.id}">
         <div class="tunnel-top">
           <div class="tunnel-title-group">
             <div class="tunnel-name">${escapeHtml(t.name)}</div>
-            ${statusBadge}
+            <span id="tunnel-status-${t.id}">${statusBadge}</span>
             <div class="badges">
-              <span class="badge badge-tag">Выходная нода</span>
               <span class="badge badge-tag">${t.transport}</span>
               <span class="badge badge-tag">${t.mode || 'l4'}</span>
               <span class="badge badge-tag">${t.codec}</span>
@@ -73,18 +117,18 @@ function renderTunnels(list) {
         <div class="tunnel-details">
           <div class="detail-item">
             <span class="detail-label">Клиенты</span>
-            <span class="detail-val">${clientLimitStr}</span>
+            <span class="detail-val" id="tunnel-clients-${t.id}">${clientLimitStr}</span>
           </div>
           <div class="detail-item">
             <span class="detail-label">Отдано (Upload)</span>
-            <span class="detail-val" style="display: inline-flex; align-items: center; gap: 4px;">
+            <span class="detail-val" id="tunnel-upload-${t.id}" style="display: inline-flex; align-items: center; gap: 4px;">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
               ${fmtBytes(t.uploadBytes)}${upRateStr}
             </span>
           </div>
           <div class="detail-item">
             <span class="detail-label">Принято (Download)</span>
-            <span class="detail-val" style="display: inline-flex; align-items: center; gap: 4px;">
+            <span class="detail-val" id="tunnel-download-${t.id}" style="display: inline-flex; align-items: center; gap: 4px;">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
               ${fmtBytes(t.downloadBytes)}${downRateStr}
             </span>
@@ -92,7 +136,7 @@ function renderTunnels(list) {
           <div class="detail-item">
             <span class="detail-label">Лимит трафика</span>
             <span class="detail-val">${trafficLimitStr}</span>
-            ${t.trafficLimitBytes > 0 ? `<div class="progress-bar-bg"><div class="progress-bar-fill" style="width: ${trafficPct}%"></div></div>` : ''}
+            ${t.trafficLimitBytes > 0 ? `<div class="progress-bar-bg"><div class="progress-bar-fill" id="tunnel-prog-${t.id}" style="width: ${trafficPct}%"></div></div>` : ''}
           </div>
         </div>
 
@@ -184,7 +228,7 @@ function openTunnelModal(tunnel = null) {
   document.getElementById('tunnel-encryption').value = tunnel ? (tunnel.encryptionKey || '') : '';
   document.getElementById('tunnel-client-limit').value = tunnel ? tunnel.clientLimit : 0;
   document.getElementById('tunnel-traffic-limit').value = tunnel && tunnel.trafficLimitBytes > 0 ? Math.round(tunnel.trafficLimitBytes / (1024 * 1024)) : 0;
-  document.getElementById('tunnel-extra-args').value = tunnel ? (tunnel.extraArgs || '') : '';
+  document.getElementById('tunnel-extra-args').value = tunnel ? (tunnel.extraArgs || '--debug') : '--debug';
 
   onTransportChange();
   document.getElementById('tunnel-modal').classList.add('open');
@@ -227,7 +271,7 @@ async function saveTunnel() {
     encryptionKey: document.getElementById('tunnel-encryption').value.trim() || null,
     clientLimit: parseInt(document.getElementById('tunnel-client-limit').value) || 0,
     trafficLimitBytes: trafficMB > 0 ? trafficMB * 1024 * 1024 : 0,
-    extraArgs: document.getElementById('tunnel-extra-args').value.trim() || null,
+    extraArgs: document.getElementById('tunnel-extra-args').value.trim() || '--debug',
     isEnabled: existing ? existing.isEnabled : false
   };
 
@@ -243,7 +287,7 @@ async function saveTunnel() {
     if (res.ok) {
       toast('Настройки туннеля сохранены', 'success');
       closeTunnelModal();
-      loadTunnels();
+      await loadTunnels();
     } else {
       toast('Ошибка сохранения туннеля', 'danger');
     }
