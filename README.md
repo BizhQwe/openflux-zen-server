@@ -105,40 +105,36 @@ OpenFluxZenServer uninstall
 
 ## Архитектура проекта
 
+Решение разделено на 3 специализированных проекта .NET 10:
+
 ```
 openflux-zen-server/
-├── cli/
-│   ├── OpenFluxZenServer.bat       # Windows CLI обёртка в PATH
-│   └── OpenFluxZenServer.sh        # Linux CLI обёртка в PATH
 ├── installers/
-│   ├── install.sh                  # Единый установщик Linux
-│   ├── install.bat                 # Единый установщик Windows
-│   └── uninstall.bat               # Деинсталлятор Windows
-├── runtimes/                       # Нативные скомпилированные бинарники OpenFlux
+│   ├── install.sh                              # Единый установщик Linux
+│   └── install.bat                             # Единый установщик Windows
+├── runtimes/                                   # Нативные скомпилированные бинарники OpenFlux
 │   ├── openflux-linux-amd64
 │   ├── openflux-linux-arm64
 │   ├── openflux-windows-amd64.exe
 │   └── openflux-windows-arm64.exe
 ├── src/
-│   └── OpenFlux.Zen.Server/        # Основной проект панели ASP.NET Core 10
-│       ├── Data/                   # AppDbContext и миграции SQLite
-│       │   ├── AppDbContext.cs
-│       │   └── Migrations/         # EF Core миграции
-│       ├── Middleware/
-│       │   └── SecretPathMiddleware.cs # Stealth защита и маршрутизация
-│       ├── Models/                 # Доменные модели (Tunnel, AppSettings, DTO)
-│       ├── Services/               # Бизнес-логика, State Machine, Supervisor
-│       │   ├── ITunnelManager.cs & TunnelManager.cs
-│       │   ├── ITunnelProcessSupervisor.cs & TunnelProcessSupervisor.cs
-│       │   ├── ITunnelLogService.cs & TunnelLogService.cs
-│       │   ├── ISystemStatsService.cs & SystemStatsService.cs
-│       │   ├── IAuthService.cs & AuthService.cs
-│       │   ├── IExportImportService.cs & ExportImportService.cs
-│       │   ├── IOpenFluxBinaryResolver.cs & OpenFluxBinaryResolver.cs
-│       │   ├── IUninstallerService.cs & UninstallerService.cs
-│       │   └── HostedRestoreService.cs # Восстановление туннелей на старте
-│       ├── nlog.config             # Конфигурация NLog
-│       └── wwwroot/                # SPA веб-интерфейс и логотипы
+│   ├── OpenFlux.Zen.Server.Core/               # Ядро системы: модели, БД, авторизация, пути
+│   │   ├── Common/ (AppPaths.cs)
+│   │   ├── Data/ (AppDbContext.cs)
+│   │   ├── Migrations/ (EF Core миграции SQLite)
+│   │   ├── Models/ (Tunnel, AppSettings, DTO)
+│   │   └── Services/ (AuthService)
+│   │
+│   ├── OpenFlux.Zen.Server.Web/                # Веб-служба ASP.NET Core 10 / Kestrel
+│   │   ├── Middleware/ (SecretPathMiddleware.cs)
+│   │   ├── Services/ (Supervision, LogService, SystemStats, ExportImport, Uninstaller)
+│   │   ├── wwwroot/ (SPA панель управления)
+│   │   └── Program.cs
+│   │
+│   └── OpenFlux.Zen.Server.Cli/                # Консольная утилита OpenFluxZenServer
+│       └── Program.cs                          # Реализация команд help, credentials, uninstall
+│
+├── openflux-zen-server.slnx                    # Решение Visual Studio
 └── README.md
 ```
 

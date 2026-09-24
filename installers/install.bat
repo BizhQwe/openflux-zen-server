@@ -25,20 +25,13 @@ if not exist "%ProgramFiles%" set "INSTALL_DIR=%LOCALAPPDATA%\OpenFluxZenServer"
 echo [1/6] Preparing installation directory: "%INSTALL_DIR%"...
 if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
 if not exist "%INSTALL_DIR%\runtimes" mkdir "%INSTALL_DIR%\runtimes"
-if not exist "%INSTALL_DIR%\cli" mkdir "%INSTALL_DIR%\cli"
 
-echo [2/6] Publishing application binaries...
-if exist "%REPO_ROOT%\publish\OpenFlux.Zen.Server.exe" (
-    xcopy /y /e /i "%REPO_ROOT%\publish\*" "%INSTALL_DIR%\" >nul
-) else (
-    dotnet publish "%REPO_ROOT%\src\OpenFlux.Zen.Server\OpenFlux.Zen.Server.csproj" -c Release -o "%INSTALL_DIR%" >nul
-)
+echo [2/6] Building and publishing application binaries (Web & CLI)...
+dotnet publish "%REPO_ROOT%\src\OpenFlux.Zen.Server.Web\OpenFlux.Zen.Server.Web.csproj" -c Release -o "%INSTALL_DIR%" >nul
+dotnet publish "%REPO_ROOT%\src\OpenFlux.Zen.Server.Cli\OpenFlux.Zen.Server.Cli.csproj" -c Release -o "%INSTALL_DIR%" >nul
 
 :: Copy native runtimes
 xcopy /y /e /i "%REPO_ROOT%\runtimes\*" "%INSTALL_DIR%\runtimes\" >nul
-
-:: Copy CLI wrappers
-copy /y "%REPO_ROOT%\cli\OpenFluxZenServer.bat" "%INSTALL_DIR%\cli\OpenFluxZenServer.bat" >nul
 
 echo [3/6] Generating credentials and secret path...
 set "ADMIN_USER=admin"
@@ -71,22 +64,20 @@ echo }
 
 echo [4/6] Configuring autostart scheduled task...
 schtasks /delete /tn "OpenFluxZenServer" /f >nul 2>&1
-schtasks /create /tn "OpenFluxZenServer" /tr "\"%INSTALL_DIR%\OpenFlux.Zen.Server.exe\"" /sc onstart /ru SYSTEM /rl HIGHEST /f >nul 2>&1
+schtasks /create /tn "OpenFluxZenServer" /tr "\"%INSTALL_DIR%\OpenFlux.Zen.Server.Web.exe\"" /sc onstart /ru SYSTEM /rl HIGHEST /f >nul 2>&1
 if %errorlevel% neq 0 (
-    :: Fallback to current user task if SYSTEM not permitted
-    schtasks /create /tn "OpenFluxZenServer" /tr "\"%INSTALL_DIR%\OpenFlux.Zen.Server.exe\"" /sc onlogon /rl HIGHEST /f >nul 2>&1
+    schtasks /create /tn "OpenFluxZenServer" /tr "\"%INSTALL_DIR%\OpenFlux.Zen.Server.Web.exe\"" /sc onlogon /rl HIGHEST /f >nul 2>&1
 )
 
 echo [5/6] Registering OpenFluxZenServer in system PATH...
-set "CLI_DIR=%INSTALL_DIR%\cli"
 for /f "tokens=2*" %%a in ('reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v Path 2^>nul') do set "SYS_PATH=%%b"
-echo ;%SYS_PATH%; | find /i ";%CLI_DIR%;" >nul
+echo ;%SYS_PATH%; | find /i ";%INSTALL_DIR%;" >nul
 if %errorlevel% neq 0 (
-    setx PATH "%SYS_PATH%;%CLI_DIR%" /m >nul 2>&1
+    setx PATH "%SYS_PATH%;%INSTALL_DIR%" /m >nul 2>&1
 )
 
 echo [6/6] Starting OpenFlux Zen Server...
-start "" "%INSTALL_DIR%\OpenFlux.Zen.Server.exe"
+start "" "%INSTALL_DIR%\OpenFlux.Zen.Server.Web.exe"
 
 timeout /t 2 /nobreak >nul
 

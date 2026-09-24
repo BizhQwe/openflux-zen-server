@@ -82,9 +82,11 @@ else
 fi
 
 # 6. Publish Application
-echo -e "${BLUE}[4/8] Building and publishing OpenFlux Zen Server...${NC}"
+echo -e "${BLUE}[4/8] Building and publishing OpenFlux Zen Server (Web & CLI)...${NC}"
 cd "$PREFIX"
-dotnet publish src/OpenFlux.Zen.Server/OpenFlux.Zen.Server.csproj -c Release -o "$PREFIX/app" >/dev/null
+dotnet publish src/OpenFlux.Zen.Server.Web/OpenFlux.Zen.Server.Web.csproj -c Release -o "$PREFIX/app" >/dev/null
+dotnet publish src/OpenFlux.Zen.Server.Cli/OpenFlux.Zen.Server.Cli.csproj -c Release -o "$PREFIX/app" >/dev/null
+chmod +x "$PREFIX/app/OpenFluxZenServer" || true
 
 # Copy runtimes and set permissions
 mkdir -p "$PREFIX/app/runtimes"
@@ -262,7 +264,7 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=$PREFIX/app
-ExecStart=/usr/bin/dotnet $PREFIX/app/OpenFlux.Zen.Server.dll
+ExecStart=/usr/bin/dotnet $PREFIX/app/OpenFlux.Zen.Server.Web.dll
 Restart=always
 RestartSec=5
 Environment=OPENFLUX_HOST=127.0.0.1
@@ -282,8 +284,8 @@ systemctl enable --now openflux-zen-server.service
 
 # 10. Setup CLI Command in PATH
 echo -e "${BLUE}[8/8] Installing OpenFluxZenServer CLI command in PATH...${NC}"
-ln -sf "$PREFIX/cli/OpenFluxZenServer.sh" /usr/local/bin/OpenFluxZenServer
-chmod +x "$PREFIX/cli/OpenFluxZenServer.sh" /usr/local/bin/OpenFluxZenServer
+ln -sf "$PREFIX/app/OpenFluxZenServer" /usr/local/bin/OpenFluxZenServer
+chmod +x "$PREFIX/app/OpenFluxZenServer" /usr/local/bin/OpenFluxZenServer
 
 # Wait for service startup
 sleep 2
