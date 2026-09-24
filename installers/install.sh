@@ -101,9 +101,20 @@ chmod +x "$PREFIX/app/runtimes/"* || true
 
 # 7. Generate Security Credentials
 echo -e "${BLUE}[5/8] Generating secure access keys and credentials...${NC}"
-ADMIN_USER="${OPENFLUX_ADMIN_USER:-admin}"
-ADMIN_PASS="${OPENFLUX_ADMIN_PASSWORD:-$(openssl rand -base64 12 | tr -dc 'a-zA-Z0-9' | head -c 16)}"
-SECRET_PATH="${OPENFLUX_SECRET_PATH:-zen-$(openssl rand -hex 8)}"
+
+# Check for existing credentials to preserve settings across updates
+EXISTING_SECRET=""
+EXISTING_USER=""
+EXISTING_PASS=""
+if [ -f "$PREFIX/app/data/.credentials" ]; then
+    EXISTING_SECRET=$(grep -o '"secretPath": "[^"]*"' "$PREFIX/app/data/.credentials" 2>/dev/null | cut -d'"' -f4 || true)
+    EXISTING_USER=$(grep -o '"username": "[^"]*"' "$PREFIX/app/data/.credentials" 2>/dev/null | cut -d'"' -f4 || true)
+    EXISTING_PASS=$(grep -o '"password": "[^"]*"' "$PREFIX/app/data/.credentials" 2>/dev/null | cut -d'"' -f4 || true)
+fi
+
+ADMIN_USER="${OPENFLUX_ADMIN_USER:-${EXISTING_USER:-admin}}"
+ADMIN_PASS="${OPENFLUX_ADMIN_PASSWORD:-${EXISTING_PASS:-$(openssl rand -base64 12 | tr -dc 'a-zA-Z0-9' | head -c 16)}}"
+SECRET_PATH="${OPENFLUX_SECRET_PATH:-${EXISTING_SECRET:-zen-$(openssl rand -hex 8)}}"
 LISTEN_PORT="${OPENFLUX_PORT:-5000}"
 
 # 8. Interactive or Non-interactive Publishing Configuration
@@ -113,32 +124,47 @@ PUBLIC_URL=""
 DOMAIN=""
 ZROK_TOKEN=""
 
+HAS_TTY=0
+if [ -r /dev/tty ] && [ -w /dev/tty ]; then
+    HAS_TTY=1
+fi
+
 # Non-interactive overrides via environment variables
 if [ -n "${OPENFLUX_NETWORK_ACCESS:-}" ]; then
     NET_ACCESS="$OPENFLUX_NETWORK_ACCESS"
+elif [ "$HAS_TTY" -eq 1 ]; then
+    echo -e "${CYAN}По умолчанию панель доступна только локально на сервере (127.0.0.1).${NC}"
+    read -r -p "Нужна ли сетевая доступность панели из интернета? [y/N]: " NET_ACCESS < /dev/tty
+elif [ -t 0 ]; then
+    echo -e "${CYAN}По умолчанию панель доступна только локально на сервере (127.0.0.1).${NC}"
+    read -r -p "Нужна ли сетевая доступность панели из интернета? [y/N]: " NET_ACCESS
 else
-    if [ -t 0 ]; then
-        echo -e "${CYAN}По умолчанию панель доступна только локально на сервере (127.0.0.1).${NC}"
-        read -r -p "Нужна ли сетевая доступность панели из интернета? [y/N]: " NET_ACCESS
-    else
-        NET_ACCESS="n"
-    fi
+    NET_ACCESS="n"
 fi
 
 if [[ "$NET_ACCESS" =~ ^[Yy]$ ]]; then
     if [ -n "${OPENFLUX_PUBLISH_MODE:-}" ]; then
         PUB_CHOICE="$OPENFLUX_PUBLISH_MODE"
-    else
+    elif [ "$HAS_TTY" -eq 1 ]; then
+        echo -e "${CYAN}Выберите режим публикации:${NC}"
+        echo "  1) Открытые порты (Собственный домен + безопасный HTTPS с авто-сертификатом)"
+        echo "  2) Через Zrok (Защищённый туннель без открытия портов наружу)"
+        read -r -p "Ваш выбор [1/2]: " PUB_CHOICE < /dev/tty
+    elif [ -t 0 ]; then
         echo -e "${CYAN}Выберите режим публикации:${NC}"
         echo "  1) Открытые порты (Собственный домен + безопасный HTTPS с авто-сертификатом)"
         echo "  2) Через Zrok (Защищённый туннель без открытия портов наружу)"
         read -r -p "Ваш выбор [1/2]: " PUB_CHOICE
+    else
+        PUB_CHOICE="1"
     fi
 
     if [ "$PUB_CHOICE" = "1" ]; then
         PUBLISH_MODE="domain"
         if [ -n "${OPENFLUX_DOMAIN:-}" ]; then
             DOMAIN="$OPENFLUX_DOMAIN"
+        elif [ "$HAS_TTY" -eq 1 ]; then
+            read -r -p "Введите ваш домен (например, zen.example.com): " DOMAIN < /dev/tty
         else
             read -r -p "Введите ваш домен (например, zen.example.com): " DOMAIN
         fi
@@ -183,6 +209,8 @@ EOF
         PUBLISH_MODE="zrok"
         if [ -n "${OPENFLUX_ZROK_TOKEN:-}" ]; then
             ZROK_TOKEN="$OPENFLUX_ZROK_TOKEN"
+        elif [ "$HAS_TTY" -eq 1 ]; then
+            read -r -p "Введите ваш Zrok токен (Account Token): " ZROK_TOKEN < /dev/tty
         else
             read -r -p "Введите ваш Zrok токен (Account Token): " ZROK_TOKEN
         fi

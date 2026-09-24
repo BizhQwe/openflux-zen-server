@@ -39,6 +39,27 @@ public sealed class HostedRestoreService : IHostedService
 
             // Ensure settings and admin account exist
             var settings = await _settingsService.GetSettingsAsync();
+
+            // Synchronize SecretPath from environment if specified and different
+            var envSecret = Environment.GetEnvironmentVariable("OPENFLUX_SECRET_PATH");
+            if (!string.IsNullOrWhiteSpace(envSecret) && !string.Equals(settings.SecretPath, envSecret.Trim('/'), StringComparison.OrdinalIgnoreCase))
+            {
+                settings.SecretPath = envSecret.Trim('/');
+                settings.UpdatedAt = DateTime.UtcNow;
+                await db.SaveChangesAsync(cancellationToken);
+                _logger.LogInformation("Synchronized secret access path from environment: /{SecretPath}/", settings.SecretPath);
+            }
+
+            // Synchronize PublicUrl from environment if specified
+            var envPublicUrl = Environment.GetEnvironmentVariable("OPENFLUX_PUBLIC_URL");
+            if (!string.IsNullOrWhiteSpace(envPublicUrl) && !string.Equals(settings.PublicUrl, envPublicUrl, StringComparison.OrdinalIgnoreCase))
+            {
+                settings.PublicUrl = envPublicUrl;
+                settings.UpdatedAt = DateTime.UtcNow;
+                await db.SaveChangesAsync(cancellationToken);
+                _logger.LogInformation("Synchronized public URL from environment: {PublicUrl}", settings.PublicUrl);
+            }
+
             _logger.LogInformation("Panel secret access path: /{SecretPath}/", settings.SecretPath);
 
             // Recover ONLY tunnels that were enabled before stop
