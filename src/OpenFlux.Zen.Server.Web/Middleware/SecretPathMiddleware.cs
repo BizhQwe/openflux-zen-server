@@ -54,6 +54,7 @@ public sealed class SecretPathMiddleware
         if (remainder.StartsWith("/api/", StringComparison.OrdinalIgnoreCase))
         {
             var isPublicApi = remainder.Equals("/api/auth/login", StringComparison.OrdinalIgnoreCase) ||
+                              remainder.Equals("/api/auth/logout", StringComparison.OrdinalIgnoreCase) ||
                               remainder.Equals("/api/health", StringComparison.OrdinalIgnoreCase);
 
             if (!isPublicApi)
@@ -72,7 +73,7 @@ public sealed class SecretPathMiddleware
         await _next(context);
     }
 
-    private static string? ExtractToken(HttpContext context)
+    public static string? ExtractToken(HttpContext context)
     {
         // 1. Check Authorization header
         if (context.Request.Headers.TryGetValue("Authorization", out var authHeader))
@@ -80,14 +81,21 @@ public sealed class SecretPathMiddleware
             var headerVal = authHeader.ToString();
             if (headerVal.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
             {
-                return headerVal["Bearer ".Length..].Trim();
+                var token = headerVal["Bearer ".Length..].Trim();
+                if (!string.IsNullOrEmpty(token)) return token;
             }
         }
 
         // 2. Check Cookie
         if (context.Request.Cookies.TryGetValue("zen_auth_token", out var cookieToken))
         {
-            return cookieToken;
+            if (!string.IsNullOrEmpty(cookieToken)) return cookieToken;
+        }
+
+        // 3. Check Query parameter
+        if (context.Request.Query.TryGetValue("token", out var queryToken))
+        {
+            if (!string.IsNullOrEmpty(queryToken)) return queryToken.ToString();
         }
 
         return null;

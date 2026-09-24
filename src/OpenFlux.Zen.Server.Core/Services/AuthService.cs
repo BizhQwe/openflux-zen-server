@@ -14,6 +14,7 @@ public interface IAuthService
 {
     Task<(bool Success, string Token, string Username)> LoginAsync(string username, string password);
     bool ValidateToken(string token);
+    void RevokeToken(string token);
     Task<bool> ChangePasswordAsync(string currentPassword, string newPassword);
     Task<CredentialsResponse> GetCredentialsAsync();
 }
@@ -32,6 +33,7 @@ public sealed class AuthService : IAuthService, ISettingsService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly string _credentialsFilePath;
     private readonly HashSet<string> _activeTokens = new();
+    private readonly HashSet<string> _revokedTokens = new();
     private readonly object _tokenLock = new();
 
     public AuthService(ILogger<AuthService> logger, IServiceScopeFactory scopeFactory)
@@ -111,7 +113,7 @@ public sealed class AuthService : IAuthService, ISettingsService
             return (false, "", "");
         }
 
-        var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
+        var token = GenerateSignedToken(settings.Username, settings.PasswordHash);
         lock (_tokenLock)
         {
             _activeTokens.Add(token);
@@ -125,8 +127,84 @@ public sealed class AuthService : IAuthService, ISettingsService
         if (string.IsNullOrWhiteSpace(token)) return false;
         lock (_tokenLock)
         {
-            return _activeTokens.Contains(token);
+            if (_revokedTokens.Contains(token)) return false;
+            if (_activeTokens.Contains(token)) return true;
         }
+
+        // Validate HMAC-SHA256 signed token: payload.signature
+        var parts = token.Split('.');
+        if (parts.Length != 2) return false;
+
+        try
+        {
+            var payloadB64 = parts[0];
+            var sigB64 = parts[1];
+
+            // Normalize base64 URL safe
+            var mod = payloadB64.Length % 4;
+            var paddedPayload = mod == 0 ? payloadB64 : payloadB64 + new string('=', 4 - mod);
+            paddedPayload = paddedPayload.Replace('-', '+').Replace('_', '/');
+            var payload = Encoding.UTF8.GetString(Convert.FromBase64String(paddedPayload));
+
+            var payloadParts = payload.Split(':');
+            if (payloadParts.Length != 3) return false;
+
+            var username = payloadParts[0];
+            if (!long.TryParse(payloadParts[1], out var expiresAt)) return false;
+
+            if (DateTimeOffset.UtcNow.ToUnixTimeSeconds() > expiresAt) return false;
+
+            using var scope = _scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var settings = db.Settings.FirstOrDefault(s => s.Id == 1);
+            if (settings == null) return false;
+
+            if (!string.Equals(settings.Username, username, StringComparison.OrdinalIgnoreCase)) return false;
+
+            using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(settings.PasswordHash));
+            var expectedSigBytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(payloadB64));
+            var expectedSigB64 = Convert.ToBase64String(expectedSigBytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+
+            if (CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(sigB64), Encoding.UTF8.GetBytes(expectedSigB64)))
+            {
+                lock (_tokenLock)
+                {
+                    _activeTokens.Add(token);
+                }
+                return true;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Token validation exception");
+            return false;
+        }
+
+        return false;
+    }
+
+    public void RevokeToken(string token)
+    {
+        if (string.IsNullOrWhiteSpace(token)) return;
+        lock (_tokenLock)
+        {
+            _activeTokens.Remove(token);
+            _revokedTokens.Add(token);
+        }
+    }
+
+    private static string GenerateSignedToken(string username, string keyMaterial)
+    {
+        var expiresAt = DateTimeOffset.UtcNow.AddDays(7).ToUnixTimeSeconds();
+        var nonce = Convert.ToHexString(RandomNumberGenerator.GetBytes(16)).ToLowerInvariant();
+        var payload = $"{username}:{expiresAt}:{nonce}";
+        var payloadB64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(payload)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+
+        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(keyMaterial));
+        var sigBytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(payloadB64));
+        var sigB64 = Convert.ToBase64String(sigBytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+
+        return $"{payloadB64}.{sigB64}";
     }
 
     public async Task<bool> ChangePasswordAsync(string currentPassword, string newPassword)

@@ -74,20 +74,29 @@ app.MapPost("/api/auth/login", async (LoginRequest req, IAuthService auth, HttpC
         return Results.Json(new LoginResponse { Success = false, Message = "Invalid username or password" }, statusCode: 401);
     }
 
+    var isHttps = context.Request.IsHttps ||
+                  string.Equals(context.Request.Headers["X-Forwarded-Proto"], "https", StringComparison.OrdinalIgnoreCase);
+
     context.Response.Cookies.Append("zen_auth_token", token, new CookieOptions
     {
         HttpOnly = true,
-        SameSite = SameSiteMode.Strict,
-        Secure = context.Request.IsHttps,
+        SameSite = SameSiteMode.Lax,
+        Path = "/",
+        Secure = isHttps,
         Expires = DateTimeOffset.UtcNow.AddDays(7)
     });
 
     return Results.Ok(new LoginResponse { Success = true, Token = token, Username = username });
 });
 
-app.MapPost("/api/auth/logout", (HttpContext context) =>
+app.MapPost("/api/auth/logout", (IAuthService auth, HttpContext context) =>
 {
-    context.Response.Cookies.Delete("zen_auth_token");
+    var token = SecretPathMiddleware.ExtractToken(context);
+    if (!string.IsNullOrWhiteSpace(token))
+    {
+        auth.RevokeToken(token);
+    }
+    context.Response.Cookies.Delete("zen_auth_token", new CookieOptions { Path = "/" });
     return Results.Ok(new { success = true });
 });
 

@@ -16,10 +16,8 @@
       --card-border: #1f293d;
       --card-hover: #162035;
       --accent: #3b82f6;
-      --accent-glow: rgba(59, 130, 246, 0.35);
       --accent-hover: #2563eb;
       --success: #10b981;
-      --success-glow: rgba(16, 185, 129, 0.3);
       --warning: #f59e0b;
       --danger: #ef4444;
       --text: #f9fafb;
@@ -76,7 +74,7 @@
       width: 42px;
       height: 42px;
       border-radius: 10px;
-      box-shadow: 0 0 15px var(--accent-glow);
+      border: 1px solid var(--card-border);
     }
     .brand-title { font-weight: 800; font-size: 1.25rem; letter-spacing: -0.5px; }
     .brand-title span { color: var(--accent); }
@@ -128,9 +126,8 @@
     .btn-primary {
       background: var(--accent);
       color: #fff;
-      box-shadow: 0 2px 10px var(--accent-glow);
     }
-    .btn-primary:hover { background: var(--accent-hover); box-shadow: 0 4px 14px var(--accent-glow); }
+    .btn-primary:hover { background: var(--accent-hover); }
     .btn-success { background: var(--success); color: #fff; }
     .btn-success:hover { background: #059669; }
     .btn-danger { background: var(--danger); color: #fff; }
@@ -166,17 +163,6 @@
       padding: 20px;
       position: relative;
       overflow: hidden;
-    }
-    .stat-card::after {
-      content: '';
-      position: absolute;
-      top: 0;
-      right: 0;
-      width: 100px;
-      height: 100px;
-      background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
-      opacity: 0.5;
-      pointer-events: none;
     }
     .stat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
     .stat-label { font-size: 0.85rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -241,13 +227,7 @@
       height: 8px;
       border-radius: 50%;
       background: #10b981;
-      box-shadow: 0 0 8px #10b981;
-      animation: pulseAnim 2s infinite;
-    }
-    @keyframes pulseAnim {
-      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-      70% { transform: scale(1); box-shadow: 0 0 0 7px rgba(16, 185, 129, 0); }
-      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+      display: inline-block;
     }
 
     .tunnel-details {
@@ -419,7 +399,7 @@
       height: 72px;
       margin: 0 auto 16px auto;
       border-radius: 16px;
-      box-shadow: 0 0 25px var(--accent-glow);
+      border: 1px solid var(--card-border);
     }
     .login-title { font-size: 1.5rem; font-weight: 800; margin-bottom: 6px; }
     .login-sub { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 24px; }
@@ -842,15 +822,27 @@
 
   <script>
     // Relative API Helper (works under any secretPath mount)
+    let isHandlingUnauthorized = false;
+    let statsInterval = null;
+
     const api = async (endpoint, options = {}) => {
       const token = localStorage.getItem('zen_token');
       const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
       if (token) headers['Authorization'] = 'Bearer ' + token;
       
-      const res = await fetch(endpoint, { ...options, headers });
-      if (res.status === 401 && !endpoint.includes('auth/login')) {
-        logout();
-        throw new Error('Unauthorized');
+      const res = await fetch(endpoint, { credentials: 'same-origin', ...options, headers });
+      if (res.status === 401) {
+        if (!endpoint.includes('auth/login') && !endpoint.includes('auth/logout')) {
+          if (!isHandlingUnauthorized) {
+            isHandlingUnauthorized = true;
+            try {
+              await logout();
+            } finally {
+              isHandlingUnauthorized = false;
+            }
+          }
+          throw new Error('Unauthorized');
+        }
       }
       return res;
     };
@@ -875,27 +867,46 @@
     async function doLogin() {
       const u = document.getElementById('login-user').value.trim();
       const p = document.getElementById('login-pass').value;
+      if (!u || !p) return;
       try {
-        const res = await api('api/auth/login', {
+        const res = await fetch('api/auth/login', {
           method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
           body: JSON.stringify({ username: u, password: p })
         });
         const data = await res.json();
-        if (data.success) {
+        if (res.ok && data.success) {
           localStorage.setItem('zen_token', data.token);
-          initApp();
+          await initApp();
           toast('Успешный вход в панель', 'success');
         } else {
-          toast(data.message || 'Ошибка входа', 'danger');
+          toast(data.message || 'Неверное имя пользователя или пароль', 'danger');
         }
       } catch (err) {
         toast('Ошибка соединения с сервером', 'danger');
       }
     }
 
-    function logout() {
+    async function logout() {
+      const token = localStorage.getItem('zen_token');
       localStorage.removeItem('zen_token');
-      api('api/auth/logout', { method: 'POST' }).catch(() => {});
+
+      if (statsInterval) {
+        clearInterval(statsInterval);
+        statsInterval = null;
+      }
+
+      if (token) {
+        try {
+          await fetch('api/auth/logout', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+            credentials: 'same-origin'
+          });
+        } catch (_) {}
+      }
+
       document.getElementById('app-header').style.display = 'none';
       document.getElementById('main-view').style.display = 'none';
       document.getElementById('login-view').style.display = 'block';
@@ -908,10 +919,15 @@
         const res = await api('api/auth/me');
         if (res.ok) {
           const data = await res.json();
-          document.getElementById('setting-secret-path').value = '/' + data.secretPath + '/';
+          const secretInput = document.getElementById('setting-secret-path');
+          if (secretInput && data.secretPath) {
+            secretInput.value = '/' + data.secretPath.replace(/^\/+|\/+$/g, '') + '/';
+          }
           return true;
         }
-      } catch {}
+      } catch (err) {
+        console.warn('Auth check failed:', err);
+      }
       return false;
     }
 
@@ -919,16 +935,26 @@
     async function initApp() {
       const isAuthed = await checkAuth();
       if (!isAuthed) {
-        logout();
+        localStorage.removeItem('zen_token');
+        if (statsInterval) {
+          clearInterval(statsInterval);
+          statsInterval = null;
+        }
+        document.getElementById('app-header').style.display = 'none';
+        document.getElementById('main-view').style.display = 'none';
+        document.getElementById('login-view').style.display = 'block';
         return;
       }
+
       document.getElementById('login-view').style.display = 'none';
       document.getElementById('app-header').style.display = 'block';
       document.getElementById('main-view').style.display = 'block';
 
       loadStats();
       loadTunnels();
-      setInterval(loadStats, 5000);
+      if (!statsInterval) {
+        statsInterval = setInterval(loadStats, 5000);
+      }
     }
 
     // Tab Switching
