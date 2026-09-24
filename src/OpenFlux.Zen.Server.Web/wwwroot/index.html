@@ -1257,7 +1257,8 @@
             <div class="tunnel-actions">
               <div class="action-group">
                 ${isRunning ? 
-                  `<button class="btn btn-danger btn-sm" onclick="stopTunnel('${t.id}')"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>Остановить</button>` :`r`n                  `<button class="btn btn-success btn-sm" onclick="startTunnel('${t.id}')"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>Запустить</button>`}
+                  `<button class="btn btn-danger btn-sm" onclick="stopTunnel('${t.id}')"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>Остановить</button>` :
+                  `<button class="btn btn-success btn-sm" onclick="startTunnel('${t.id}')"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>Запустить</button>`}
                 <button class="btn btn-outline btn-sm" onclick="viewTunnelLogs('${t.id}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Логи</button>
                 <button class="btn btn-outline btn-sm" onclick="resetStats('${t.id}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>Сброс трафика</button>
               </div>
