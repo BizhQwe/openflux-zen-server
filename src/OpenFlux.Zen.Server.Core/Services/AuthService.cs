@@ -64,6 +64,7 @@ public sealed class AuthService : IAuthService, ISettingsService
         }
 
         current.Username = updated.Username;
+        current.SecretPath = updated.SecretPath;
         current.ListenHost = updated.ListenHost;
         current.ListenPort = updated.ListenPort;
         current.PublicUrl = updated.PublicUrl;

@@ -38,29 +38,36 @@ public sealed class HostedRestoreService : IHostedService
             await db.Database.MigrateAsync(cancellationToken);
 
             // Ensure settings and admin account exist
-            var settings = await _settingsService.GetSettingsAsync();
-
-            // Synchronize SecretPath from environment if specified and different
-            var envSecret = Environment.GetEnvironmentVariable("OPENFLUX_SECRET_PATH");
-            if (!string.IsNullOrWhiteSpace(envSecret) && !string.Equals(settings.SecretPath, envSecret.Trim('/'), StringComparison.OrdinalIgnoreCase))
+            var currentSettings = await db.Settings.FirstOrDefaultAsync(s => s.Id == 1, cancellationToken);
+            if (currentSettings == null)
             {
-                settings.SecretPath = envSecret.Trim('/');
-                settings.UpdatedAt = DateTime.UtcNow;
-                await db.SaveChangesAsync(cancellationToken);
-                _logger.LogInformation("Synchronized secret access path from environment: /{SecretPath}/", settings.SecretPath);
+                await _settingsService.GetSettingsAsync();
+                currentSettings = await db.Settings.FirstOrDefaultAsync(s => s.Id == 1, cancellationToken);
             }
 
-            // Synchronize PublicUrl from environment if specified
-            var envPublicUrl = Environment.GetEnvironmentVariable("OPENFLUX_PUBLIC_URL");
-            if (!string.IsNullOrWhiteSpace(envPublicUrl) && !string.Equals(settings.PublicUrl, envPublicUrl, StringComparison.OrdinalIgnoreCase))
+            if (currentSettings != null)
             {
-                settings.PublicUrl = envPublicUrl;
-                settings.UpdatedAt = DateTime.UtcNow;
-                await db.SaveChangesAsync(cancellationToken);
-                _logger.LogInformation("Synchronized public URL from environment: {PublicUrl}", settings.PublicUrl);
-            }
+                // Synchronize SecretPath from environment if specified and different
+                var envSecret = Environment.GetEnvironmentVariable("OPENFLUX_SECRET_PATH");
+                if (!string.IsNullOrWhiteSpace(envSecret) && !string.Equals(currentSettings.SecretPath, envSecret.Trim('/'), StringComparison.OrdinalIgnoreCase))
+                {
+                    currentSettings.SecretPath = envSecret.Trim('/');
+                    currentSettings.UpdatedAt = DateTime.UtcNow;
+                    _logger.LogInformation("Synchronized secret access path from environment: /{SecretPath}/", currentSettings.SecretPath);
+                }
 
-            _logger.LogInformation("Panel secret access path: /{SecretPath}/", settings.SecretPath);
+                // Synchronize PublicUrl from environment if specified
+                var envPublicUrl = Environment.GetEnvironmentVariable("OPENFLUX_PUBLIC_URL");
+                if (!string.IsNullOrWhiteSpace(envPublicUrl) && !string.Equals(currentSettings.PublicUrl, envPublicUrl, StringComparison.OrdinalIgnoreCase))
+                {
+                    currentSettings.PublicUrl = envPublicUrl;
+                    currentSettings.UpdatedAt = DateTime.UtcNow;
+                    _logger.LogInformation("Synchronized public URL from environment: {PublicUrl}", currentSettings.PublicUrl);
+                }
+
+                await db.SaveChangesAsync(cancellationToken);
+                _logger.LogInformation("Panel secret access path: /{SecretPath}/", currentSettings.SecretPath);
+            }
 
             // Recover ONLY tunnels that were enabled before stop
             var enabledTunnels = await db.Tunnels
