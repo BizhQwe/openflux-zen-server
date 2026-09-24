@@ -68,12 +68,16 @@ fi
 
 # 5. Download / Clone Repository
 echo -e "${BLUE}[3/8] Fetching OpenFlux Zen Server repository...${NC}"
-mkdir -p "$PREFIX"
 if [ -d "$PREFIX/.git" ]; then
     echo "Updating existing repository in $PREFIX..."
     git -C "$PREFIX" fetch --all --prune
     git -C "$PREFIX" reset --hard origin/main
 else
+    if [ -d "$PREFIX" ]; then
+        echo "Removing non-git directory at $PREFIX..."
+        rm -rf "$PREFIX"
+    fi
+    mkdir -p "$PREFIX"
     git clone --depth 1 "$REPO_URL" "$PREFIX"
 fi
 
