@@ -1,0 +1,1 @@
+namespace OpenFlux.Zen.Server.Services;public sealed class HostedRestoreService(TunnelManager manager,ILogger<HostedRestoreService> log):BackgroundService{protected override async Task ExecuteAsync(CancellationToken stoppingToken){await Task.Delay(800,stoppingToken);try{await manager.RestoreEnabled();}catch(Exception ex){log.LogError(ex,"Restore failed");}}}

@@ -1,0 +1,1 @@
+namespace OpenFlux.Zen.Server.Models; public sealed class AppSettings { public int Id {get;set;}=1; public string Username {get;set;}=""; public string PasswordHash {get;set;}=""; public string SecretPath {get;set;}=""; public bool BindNetwork {get;set;} public string? PublicBaseUrl {get;set;} public bool AutoStart {get;set;}=true; }
