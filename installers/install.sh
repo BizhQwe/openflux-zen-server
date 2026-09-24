@@ -259,11 +259,12 @@ EOF
 
         # Wait a moment for zrok to initialize and parse URL
         sleep 5
-        ZROK_SHARE_URL=$(journalctl -u openflux-zrok --no-pager -n 50 2>/dev/null | grep -Eo 'https://[^ ]+\.share\.zrok\.io' | tail -n1 || true)
-        if [ -z "$ZROK_SHARE_URL" ] && command -v zrok >/dev/null 2>&1; then
-            ZROK_SHARE_URL=$(zrok overview 2>/dev/null | grep -Eo 'https://[^ ]+\.share\.zrok\.io' | head -n1 || true)
+        ZROK_ENDPOINT=$(journalctl -u openflux-zrok --no-pager -n 50 2>/dev/null | grep -Eo '[a-z0-9]+\.shares?\.zrok\.io' | tail -n1 || true)
+        if [ -z "$ZROK_ENDPOINT" ] && command -v zrok >/dev/null 2>&1; then
+            ZROK_ENDPOINT=$(zrok overview 2>/dev/null | grep -Eo '[a-z0-9]+\.shares?\.zrok\.io' | head -n1 || true)
         fi
-        if [ -n "$ZROK_SHARE_URL" ]; then
+        if [ -n "$ZROK_ENDPOINT" ]; then
+            ZROK_SHARE_URL="https://$ZROK_ENDPOINT"
             PUBLIC_URL="$ZROK_SHARE_URL/$SECRET_PATH/"
         else
             PUBLIC_URL="https://<zrok-share-url>/$SECRET_PATH/"
