@@ -266,14 +266,32 @@ public sealed class SettingsService : ISettingsService
 
     private async Task<AppSettings> InitializeDefaultSettingsAsync(AppDbContext db)
     {
-        var initialUser = Environment.GetEnvironmentVariable("OPENFLUX_ADMIN_USER") ?? ("zen_" + Convert.ToHexString(RandomNumberGenerator.GetBytes(4)).ToLowerInvariant());
-        var initialPassword = Environment.GetEnvironmentVariable("OPENFLUX_ADMIN_PASSWORD") ?? AuthService.GenerateRandomPassword(16);
-        var initialSecret = Environment.GetEnvironmentVariable("OPENFLUX_SECRET_PATH") ?? Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant();
-        var initialLang = Environment.GetEnvironmentVariable("OPENFLUX_LANGUAGE") ?? "ru";
-        var initialPort = 5000;
-        if (int.TryParse(Environment.GetEnvironmentVariable("OPENFLUX_PORT"), out var p))
+        string? credUser = null;
+        string? credPass = null;
+        string? credSecret = null;
+        string? credLang = null;
+        if (File.Exists(_credentialsFilePath))
         {
-            initialPort = p;
+            try
+            {
+                var content = await File.ReadAllTextAsync(_credentialsFilePath);
+                var doc = JsonSerializer.Deserialize<JsonElement>(content);
+                if (doc.TryGetProperty("username", out var u)) credUser = u.GetString();
+                if (doc.TryGetProperty("password", out var pwd)) credPass = pwd.GetString();
+                if (doc.TryGetProperty("secretPath", out var s)) credSecret = s.GetString();
+                if (doc.TryGetProperty("language", out var l)) credLang = l.GetString();
+            }
+            catch { }
+        }
+
+        var initialUser = Environment.GetEnvironmentVariable("OPENFLUX_ADMIN_USER") ?? credUser ?? ("zen_" + Convert.ToHexString(RandomNumberGenerator.GetBytes(4)).ToLowerInvariant());
+        var initialPassword = Environment.GetEnvironmentVariable("OPENFLUX_ADMIN_PASSWORD") ?? credPass ?? AuthService.GenerateRandomPassword(16);
+        var initialSecret = Environment.GetEnvironmentVariable("OPENFLUX_SECRET_PATH") ?? credSecret ?? Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant();
+        var initialLang = Environment.GetEnvironmentVariable("OPENFLUX_LANGUAGE") ?? credLang ?? "ru";
+        var initialPort = 5000;
+        if (int.TryParse(Environment.GetEnvironmentVariable("OPENFLUX_PORT"), out var portNum))
+        {
+            initialPort = portNum;
         }
 
         var (hash, salt) = AuthService.HashPassword(initialPassword);

@@ -14,7 +14,24 @@ public static class ServerCommands
         var isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
         if (isWindows)
         {
-            ProcessHelper.RunCommand("sc.exe", "start OpenFluxZenServer");
+            var (taskCode, _) = ProcessHelper.RunCommandWithOutput("schtasks.exe", "/run /tn \"OpenFluxZenServer\"");
+            if (taskCode != 0)
+            {
+                var exePath = Path.Combine(AppPaths.ResolveAppDirectory(), "OpenFlux.Zen.Server.Web.exe");
+                if (File.Exists(exePath))
+                {
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = exePath,
+                        WorkingDirectory = AppPaths.ResolveAppDirectory(),
+                        UseShellExecute = true
+                    });
+                }
+                else
+                {
+                    ProcessHelper.RunCommand("sc.exe", "start OpenFluxZenServer");
+                }
+            }
         }
         else
         {
@@ -34,7 +51,8 @@ public static class ServerCommands
         var isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
         if (isWindows)
         {
-            ProcessHelper.RunCommand("sc.exe", "stop OpenFluxZenServer");
+            ProcessHelper.RunCommand("schtasks.exe", "/end /tn \"OpenFluxZenServer\" >nul 2>&1");
+            ProcessHelper.RunCommand("sc.exe", "stop OpenFluxZenServer >nul 2>&1");
             ProcessHelper.RunCommand("taskkill.exe", "/f /im OpenFlux.Zen.Server.Web.exe >nul 2>&1");
         }
         else
@@ -55,9 +73,9 @@ public static class ServerCommands
         var isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
         if (isWindows)
         {
-            ProcessHelper.RunCommand("sc.exe", "stop OpenFluxZenServer");
+            await ExecuteStopAsync();
             await Task.Delay(1500);
-            ProcessHelper.RunCommand("sc.exe", "start OpenFluxZenServer");
+            await ExecuteStartAsync();
         }
         else
         {
@@ -66,9 +84,9 @@ public static class ServerCommands
             {
                 ProcessHelper.RunBash("systemctl restart openflux-zrok.service");
             }
+            await Task.Delay(1000);
+            await ExecuteStatusAsync();
         }
-        await Task.Delay(1000);
-        await ExecuteStatusAsync();
     }
 
     public static Task ExecuteStatusAsync()
@@ -119,7 +137,8 @@ public static class ServerCommands
             case "true":
                 if (isWindows)
                 {
-                    ProcessHelper.RunCommand("sc.exe", "config OpenFluxZenServer start= auto");
+                    ProcessHelper.RunCommand("schtasks.exe", "/change /tn \"OpenFluxZenServer\" /enable >nul 2>&1");
+                    ProcessHelper.RunCommand("sc.exe", "config OpenFluxZenServer start= auto >nul 2>&1");
                 }
                 else
                 {
@@ -141,7 +160,8 @@ public static class ServerCommands
             case "false":
                 if (isWindows)
                 {
-                    ProcessHelper.RunCommand("sc.exe", "config OpenFluxZenServer start= demand");
+                    ProcessHelper.RunCommand("schtasks.exe", "/change /tn \"OpenFluxZenServer\" /disable >nul 2>&1");
+                    ProcessHelper.RunCommand("sc.exe", "config OpenFluxZenServer start= demand >nul 2>&1");
                 }
                 else
                 {
@@ -161,8 +181,16 @@ public static class ServerCommands
                 bool isEnabled = false;
                 if (isWindows)
                 {
-                    var (_, scOut) = ProcessHelper.RunCommandWithOutput("sc.exe", "qc OpenFluxZenServer");
-                    isEnabled = scOut.Contains("AUTO_START", StringComparison.OrdinalIgnoreCase);
+                    var (_, taskOut) = ProcessHelper.RunCommandWithOutput("schtasks.exe", "/query /tn \"OpenFluxZenServer\" /fo list");
+                    if (taskOut.Contains("OpenFluxZenServer", StringComparison.OrdinalIgnoreCase))
+                    {
+                        isEnabled = !taskOut.Contains("Disabled", StringComparison.OrdinalIgnoreCase) && !taskOut.Contains("Отключено", StringComparison.OrdinalIgnoreCase);
+                    }
+                    else
+                    {
+                        var (_, scOut) = ProcessHelper.RunCommandWithOutput("sc.exe", "qc OpenFluxZenServer");
+                        isEnabled = scOut.Contains("AUTO_START", StringComparison.OrdinalIgnoreCase);
+                    }
                 }
                 else
                 {

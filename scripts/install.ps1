@@ -1,4 +1,4 @@
-﻿# ==============================================================================
+# ==============================================================================
 # OpenFlux Zen Server - Production 1-Command Installer for Windows (PowerShell)
 # Multi-language (RU / EN), Auto .NET 10 Install, Auto Git/Zip Fetch, CLI Setup
 # ==============================================================================
@@ -12,7 +12,7 @@ $isAdmin = $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::A
 if (-not $isAdmin) {
     Write-Host "[INFO] Requesting Administrator privileges..." -ForegroundColor Yellow
     $cmd = 'irm https://raw.githubusercontent.com/BizhQwe/openflux-zen-server/main/scripts/install.ps1 | iex'
-    Start-Process powershell.exe -Verb RunAs -ArgumentList ('-NoProfile -ExecutionPolicy Bypass -Command "' + $cmd + '"')
+    Start-Process powershell.exe -Verb RunAs -ArgumentList ('-NoProfile -ExecutionPolicy Bypass -NoExit -Command "' + $cmd + '"')
     exit
 }
 
@@ -96,27 +96,44 @@ $workDir = Join-Path $env:TEMP "openflux-zen-server-build"
 if (Test-Path $workDir) {
     Remove-Item -Path $workDir -Recurse -Force -ErrorAction SilentlyContinue
 }
-New-Item -ItemType Directory -Path $workDir -Force | Out-Null
 
-$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$scriptDir = if ($MyInvocation -and $MyInvocation.MyCommand -and $MyInvocation.MyCommand.Path) { Split-Path -Parent $MyInvocation.MyCommand.Path } else { "" }
 $localCsproj = if ($scriptDir) { Join-Path $scriptDir "..\src\OpenFlux.Zen.Server.Web\OpenFlux.Zen.Server.Web.csproj" } else { "" }
 if ($localCsproj -and (Test-Path $localCsproj)) {
     Write-Host "Using local repository files..." -ForegroundColor Gray
+    New-Item -ItemType Directory -Path $workDir -Force | Out-Null
     $sourceDir = (Resolve-Path "$scriptDir\..").Path
     Copy-Item -Path "$sourceDir\*" -Destination $workDir -Recurse -Force
 } else {
+    $cloneSuccess = $false
     if (Get-Command git -ErrorAction SilentlyContinue) {
         Write-Host "Cloning repository via git..." -ForegroundColor Gray
-        git clone --depth 1 "https://github.com/BizhQwe/openflux-zen-server.git" $workDir
-    } else {
-        Write-Host "Git not found. Downloading repository zip archive from GitHub..." -ForegroundColor Gray
+        try {
+            git clone --depth 1 "https://github.com/BizhQwe/openflux-zen-server.git" $workDir
+            if ($LASTEXITCODE -eq 0 -and (Test-Path (Join-Path $workDir "src\OpenFlux.Zen.Server.Web\OpenFlux.Zen.Server.Web.csproj"))) {
+                $cloneSuccess = $true
+            }
+        } catch {
+            $cloneSuccess = $false
+        }
+    }
+
+    if (-not $cloneSuccess) {
+        Write-Host "Downloading repository zip archive from GitHub..." -ForegroundColor Gray
+        if (Test-Path $workDir) {
+            Remove-Item -Path $workDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        New-Item -ItemType Directory -Path $workDir -Force | Out-Null
         $zipPath = Join-Path $env:TEMP "openflux-zen-server.zip"
         [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
         Invoke-WebRequest -Uri "https://github.com/BizhQwe/openflux-zen-server/archive/refs/heads/main.zip" -OutFile $zipPath -UseBasicParsing
         $extractDir = Join-Path $env:TEMP "openflux_extracted"
         if (Test-Path $extractDir) { Remove-Item -Path $extractDir -Recurse -Force -ErrorAction SilentlyContinue }
         Expand-Archive -Path $zipPath -DestinationPath $extractDir -Force
-        Copy-Item -Path "$extractDir\openflux-zen-server-main\*" -Destination $workDir -Recurse -Force
+        $topDir = Get-ChildItem -Path $extractDir -Directory | Select-Object -First 1
+        if ($topDir) {
+            Copy-Item -Path "$($topDir.FullName)\*" -Destination $workDir -Recurse -Force
+        }
         Remove-Item -Path $zipPath -Force -ErrorAction SilentlyContinue
         Remove-Item -Path $extractDir -Recurse -Force -ErrorAction SilentlyContinue
     }
@@ -139,8 +156,16 @@ Start-Sleep -Milliseconds 600
 $webProj = Join-Path $workDir "src\OpenFlux.Zen.Server.Web\OpenFlux.Zen.Server.Web.csproj"
 $cliProj = Join-Path $workDir "src\OpenFlux.Zen.Server.Cli\OpenFlux.Zen.Server.Cli.csproj"
 
-dotnet publish $webProj -c Release -o $InstallDir
-dotnet publish $cliProj -c Release -o $InstallDir
+$dotnetCmd = "dotnet"
+$dotnetDefault = Join-Path $env:ProgramFiles "dotnet\dotnet.exe"
+if (Test-Path $dotnetDefault) {
+    $dotnetCmd = $dotnetDefault
+} elseif (Get-Command dotnet -ErrorAction SilentlyContinue) {
+    $dotnetCmd = (Get-Command dotnet).Source
+}
+
+& $dotnetCmd publish $webProj -c Release -o $InstallDir
+& $dotnetCmd publish $cliProj -c Release -o $InstallDir
 
 # Copy native runtimes
 $runtimesSrc = Join-Path $workDir "runtimes"
@@ -300,4 +325,4 @@ Write-Host "    OpenFluxZenServer autostart    - $lblCliAuto"
 Write-Host "    OpenFluxZenServer help         - $lblCliHelp"
 Write-Host ""
 Write-Host "==================================================================" -ForegroundColor Green
-Write-Host ""
+Write-Host ""
