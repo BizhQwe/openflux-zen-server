@@ -16,6 +16,51 @@ if (-not $isAdmin) {
     exit
 }
 
+# Resilient Downloader (supports curl.exe, WebClient with browser headers, and Invoke-WebRequest)
+function Download-FileWithFallback {
+    param(
+        [Parameter(Mandatory=$true)][string]$SourceUrl,
+        [Parameter(Mandatory=$true)][string]$DestFile,
+        [int]$MinBytes = 1000
+    )
+
+    if (Test-Path $DestFile) {
+        Remove-Item -Path $DestFile -Force -ErrorAction SilentlyContinue
+    }
+
+    # 1. Native Windows curl.exe (standard on Windows 10/11 & Windows Server 2019/2022/2025)
+    if (Get-Command curl.exe -ErrorAction SilentlyContinue) {
+        & curl.exe -fL --retry 3 --connect-timeout 20 -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)" "$SourceUrl" -o "$DestFile" 2>$null
+        if ($LASTEXITCODE -eq 0 -and (Test-Path $DestFile) -and ((Get-Item $DestFile).Length -ge $MinBytes)) {
+            return $true
+        }
+        if (Test-Path $DestFile) { Remove-Item -Path $DestFile -Force -ErrorAction SilentlyContinue }
+    }
+
+    # 2. .NET WebClient with realistic User-Agent (avoids GitHub TCP connection reset)
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        $wc = New-Object System.Net.WebClient
+        $wc.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
+        $wc.DownloadFile($SourceUrl, $DestFile)
+        if ((Test-Path $DestFile) -and ((Get-Item $DestFile).Length -ge $MinBytes)) {
+            return $true
+        }
+        if (Test-Path $DestFile) { Remove-Item -Path $DestFile -Force -ErrorAction SilentlyContinue }
+    } catch {}
+
+    # 3. Invoke-WebRequest with User-Agent
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        Invoke-WebRequest -Uri $SourceUrl -OutFile $DestFile -UserAgent "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" -UseBasicParsing -TimeoutSec 120
+        if ((Test-Path $DestFile) -and ((Get-Item $DestFile).Length -ge $MinBytes)) {
+            return $true
+        }
+    } catch {}
+
+    return $false
+}
+
 # 2. Language Selection (Prompted in English)
 $chosenLang = $Lang
 if (-not $chosenLang) {
@@ -71,9 +116,12 @@ if (-not $hasDotnet10) {
     } else {
         Write-Host "Installing .NET 10 SDK via official Microsoft installer..." -ForegroundColor Yellow
     }
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     $dotnetInstallerScript = Join-Path $env:TEMP "dotnet-install.ps1"
-    Invoke-WebRequest -Uri "https://dot.net/v1/dotnet-install.ps1" -OutFile $dotnetInstallerScript -UseBasicParsing
+    $dlDotnet = Download-FileWithFallback "https://dot.net/v1/dotnet-install.ps1" $dotnetInstallerScript 5000
+    if (-not $dlDotnet) {
+        $msg = if ($chosenLang -eq "ru") { "Не удалось загрузить установщик .NET 10 SDK с https://dot.net" } else { "Failed to download .NET 10 SDK installer from https://dot.net" }
+        throw $msg
+    }
     & $dotnetInstallerScript -Channel 10.0 -InstallDir (Join-Path $env:ProgramFiles "dotnet")
     $env:DOTNET_ROOT = Join-Path $env:ProgramFiles "dotnet"
     $env:PATH = "$($env:DOTNET_ROOT);$($env:PATH)"
@@ -119,14 +167,18 @@ if ($localCsproj -and (Test-Path $localCsproj)) {
     }
 
     if (-not $cloneSuccess) {
-        Write-Host "Downloading repository zip archive from GitHub..." -ForegroundColor Gray
+        $txtDl = if ($chosenLang -eq "ru") { "Загрузка архива репозитория с GitHub..." } else { "Downloading repository zip archive from GitHub..." }
+        Write-Host $txtDl -ForegroundColor Gray
         if (Test-Path $workDir) {
             Remove-Item -Path $workDir -Recurse -Force -ErrorAction SilentlyContinue
         }
         New-Item -ItemType Directory -Path $workDir -Force | Out-Null
         $zipPath = Join-Path $env:TEMP "openflux-zen-server.zip"
-        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-        Invoke-WebRequest -Uri "https://github.com/BizhQwe/openflux-zen-server/archive/refs/heads/main.zip" -OutFile $zipPath -UseBasicParsing
+        $dlOk = Download-FileWithFallback "https://github.com/BizhQwe/openflux-zen-server/archive/refs/heads/main.zip" $zipPath 1000000
+        if (-not $dlOk) {
+            $msg = if ($chosenLang -eq "ru") { "Не удалось загрузить архив репозитория OpenFlux Zen Server с GitHub" } else { "Failed to download OpenFlux Zen Server repository archive from GitHub" }
+            throw $msg
+        }
         $extractDir = Join-Path $env:TEMP "openflux_extracted"
         if (Test-Path $extractDir) { Remove-Item -Path $extractDir -Recurse -Force -ErrorAction SilentlyContinue }
         Expand-Archive -Path $zipPath -DestinationPath $extractDir -Force
@@ -163,6 +215,9 @@ if (Test-Path $dotnetDefault) {
 } elseif (Get-Command dotnet -ErrorAction SilentlyContinue) {
     $dotnetCmd = (Get-Command dotnet).Source
 }
+
+$env:DOTNET_NOLOGO = "1"
+$env:DOTNET_CLI_TELEMETRY_OPTOUT = "1"
 
 & $dotnetCmd publish $webProj -c Release -o $InstallDir
 & $dotnetCmd publish $cliProj -c Release -o $InstallDir
