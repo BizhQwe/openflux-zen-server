@@ -337,7 +337,13 @@ if ($netAccess) {
     if ($pubChoice -match "2|zrok") {
         $publishMode = "zrok"
         $listenHost = "127.0.0.1"
-        $tokenPrompt = if ($chosenLang -eq "ru") { "  Введите ваш Zrok токен (Account Token)" } else { "  Enter your Zrok Account Token" }
+        if ($chosenLang -eq "ru") {
+            Write-Host "  (Подсказка: нужен Account Token из личного кабинета zrok.io, НЕ пароль от входа)" -ForegroundColor DarkGray
+            $tokenPrompt = "  Введите ваш Zrok токен (Account Token)"
+        } else {
+            Write-Host "  (Note: use your Account Token from zrok.io dashboard, NOT your login password)" -ForegroundColor DarkGray
+            $tokenPrompt = "  Enter your Zrok Account Token"
+        }
         $zrokToken = (Read-Host "$tokenPrompt").Trim()
 
         if ($zrokToken) {
