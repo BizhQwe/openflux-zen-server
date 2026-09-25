@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -e
 
+export LC_ALL="${LC_ALL:-C.UTF-8}"
+export LANG="${LANG:-C.UTF-8}"
+
 # ==============================================================================
 # OpenFlux Zen Server - Production Installer for Linux
 # Multi-language (RU / EN), Beautiful Visual Presentation, Systemd & CLI Setup
@@ -29,7 +32,7 @@ if [ -r /dev/tty ] && [ -w /dev/tty ]; then
 fi
 
 # 2. Language Selection (Interactive or via Flag / Env)
-# No automatic language guessing — explicitly ask user or read parameter
+# Prompt is displayed in English
 CHOSEN_LANG=""
 for arg in "$@"; do
     case "$arg" in
@@ -43,22 +46,23 @@ if [ -z "$CHOSEN_LANG" ] && [ -n "${INSTALL_LANG:-}" ]; then
 fi
 
 if [ -z "$CHOSEN_LANG" ]; then
-    echo -e "\n${CYAN}${BOLD}==================================================================${NC}"
-    echo -e "${CYAN}${BOLD}  OpenFlux Zen Server — Язык установки / Language Selection${NC}"
-    echo -e "${CYAN}${BOLD}==================================================================${NC}"
-    echo -e "  ${BOLD}1)${NC} Русский (Russian) — веб-интерфейс и установщик"
-    echo -e "  ${BOLD}2)${NC} English — web dashboard and installer"
+    echo -e "\n${CYAN}${BOLD}=================================================================="
+    echo -e "  OpenFlux Zen Server — Language Selection"
+    echo -e "==================================================================${NC}"
+    echo -e "  Please select your preferred language:"
+    echo -e "    ${BOLD}1)${NC} English"
+    echo -e "    ${BOLD}2)${NC} Russian (Русский)"
     if [ "$HAS_TTY" -eq 1 ]; then
-        read -r -p "Выберите язык / Select language [1/2, default: 1]: " LANG_INPUT < /dev/tty
+        read -r -p "Enter choice [1/2, default: 1]: " LANG_INPUT < /dev/tty
     elif [ -t 0 ]; then
-        read -r -p "Выберите язык / Select language [1/2, default: 1]: " LANG_INPUT
+        read -r -p "Enter choice [1/2, default: 1]: " LANG_INPUT
     else
         LANG_INPUT="1"
     fi
 
     case "$LANG_INPUT" in
-        2|[Ee][Nn]*) CHOSEN_LANG="en" ;;
-        *) CHOSEN_LANG="ru" ;;
+        2|[Rr][Uu]*) CHOSEN_LANG="ru" ;;
+        *) CHOSEN_LANG="en" ;;
     esac
 fi
 
@@ -174,6 +178,29 @@ else
     TXT_SRV_ACTIVE="✓ Service is running and responding."
     TXT_SRV_STARTING="! Service is starting up (check: systemctl status openflux-zen-server)."
 fi
+
+# Visual Row Alignment Helpers
+print_kv_row() {
+    local label="$1:"
+    local value="$2"
+    local target=22
+    local clen=${#label}
+    local pad=$((target - clen))
+    [ $pad -lt 1 ] && pad=1
+    local spaces=$(printf "%*s" "$pad" "")
+    echo -e "    ${CYAN}${label}${NC}${spaces}${value}"
+}
+
+print_cli_row() {
+    local cmd="$1"
+    local desc="$2"
+    local target=32
+    local clen=${#cmd}
+    local pad=$((target - clen))
+    [ $pad -lt 1 ] && pad=1
+    local spaces=$(printf "%*s" "$pad" "")
+    echo -e "    ${BOLD}${cmd}${NC}${spaces}— ${desc}"
+}
 
 # Print Header Banner
 echo -e "\n${CYAN}${BOLD}=================================================================="
@@ -520,7 +547,7 @@ if [ "$HEALTH_OK" -eq 0 ]; then
     echo -e " ${YELLOW}${TXT_HEALTH_INIT}${NC}"
 fi
 
-# Print Final Summary Card (Compact, cleanly formatted, no wrapping)
+# Print Final Summary Card (Pixel-perfect column alignment)
 echo -e "\n${GREEN}${BOLD}=================================================================="
 echo -e "  $TXT_SUCCESS_TITLE"
 echo -e "==================================================================${NC}\n"
@@ -532,23 +559,23 @@ echo -e "${CYAN}${BOLD}  ${TXT_LBL_LOCAL_URL}:${NC}"
 echo -e "    ${BOLD}$LOCAL_URL${NC}\n"
 
 echo -e "${CYAN}${BOLD}  ${TXT_LBL_CREDS_TITLE}:${NC}"
-echo -e "    ${TXT_LBL_USER}:            ${BOLD}$ADMIN_USER${NC}"
-echo -e "    ${TXT_LBL_PASS}:          ${BOLD}$ADMIN_PASS${NC}"
-echo -e "    ${TXT_LBL_SECRET}:      ${BOLD}/$SECRET_PATH/${NC}"
-echo -e "    ${TXT_LBL_LANG}:        ${BOLD}${CHOSEN_LANG^^}${NC}"
+print_kv_row "$TXT_LBL_USER" "${BOLD}$ADMIN_USER${NC}"
+print_kv_row "$TXT_LBL_PASS" "${BOLD}$ADMIN_PASS${NC}"
+print_kv_row "$TXT_LBL_SECRET" "${BOLD}/$SECRET_PATH/${NC}"
+print_kv_row "$TXT_LBL_LANG" "${BOLD}${CHOSEN_LANG^^}${NC}"
 if [ "$AUTOSTART_ENABLED" -eq 1 ]; then
-    echo -e "    ${TXT_LBL_AUTOSTART}:           ${GREEN}${BOLD}${TXT_ENABLED}${NC}"
+    print_kv_row "$TXT_LBL_AUTOSTART" "${GREEN}${BOLD}${TXT_ENABLED}${NC}"
 else
-    echo -e "    ${TXT_LBL_AUTOSTART}:           ${GRAY}${BOLD}${TXT_DISABLED}${NC}"
+    print_kv_row "$TXT_LBL_AUTOSTART" "${GRAY}${BOLD}${TXT_DISABLED}${NC}"
 fi
 
 echo -e "\n${GREEN}${BOLD}------------------------------------------------------------------${NC}"
-echo -e "${YELLOW}${BOLD}  ${TXT_LBL_CLI}${NC}\n"
-echo -e "    ${BOLD}OpenFluxZenServer status${NC}       — ${TXT_CLI_STATUS}"
-echo -e "    ${BOLD}OpenFluxZenServer restart${NC}      — ${TXT_CLI_RESTART}"
-echo -e "    ${BOLD}OpenFluxZenServer credentials${NC}  — ${TXT_CLI_CREDS}"
-echo -e "    ${BOLD}OpenFluxZenServer autostart${NC}    — ${TXT_CLI_AUTOSTART}"
-echo -e "    ${BOLD}OpenFluxZenServer help${NC}         — ${TXT_CLI_HELP}"
+echo -e "${YELLOW}${BOLD}  ${TXT_LBL_CLI}:${NC}\n"
+print_cli_row "OpenFluxZenServer status" "$TXT_CLI_STATUS"
+print_cli_row "OpenFluxZenServer restart" "$TXT_CLI_RESTART"
+print_cli_row "OpenFluxZenServer credentials" "$TXT_CLI_CREDS"
+print_cli_row "OpenFluxZenServer autostart" "$TXT_CLI_AUTOSTART"
+print_cli_row "OpenFluxZenServer help" "$TXT_CLI_HELP"
 echo -e "\n${GREEN}${BOLD}==================================================================${NC}\n"
 
 if [ "$HEALTH_OK" -eq 1 ]; then
