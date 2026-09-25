@@ -2,7 +2,7 @@
 setlocal enabledelayedexpansion
 
 :: ==============================================================================
-:: OpenFlux Zen Server - Production Installer for Windows
+:: OpenFlux Zen Server - Production Installer for Windows (Batch)
 :: ==============================================================================
 
 echo ==================================================================
@@ -24,24 +24,55 @@ if not exist "%ProgramFiles%" set "INSTALL_DIR=%LOCALAPPDATA%\OpenFluxZenServer"
 
 echo [1/6] Preparing installation directory: "%INSTALL_DIR%"...
 if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
-echo [2/6] Building and publishing application binaries (Web & CLI)...
+
+:: Check for .NET 10 SDK
+echo Checking .NET 10 environment...
+where dotnet >nul 2>&1
+set "NEED_DOTNET=1"
+if %errorlevel% equ 0 (
+    dotnet --list-sdks 2>nul | findstr /r "^10\." >nul
+    if !errorlevel! equ 0 set "NEED_DOTNET=0"
+)
+
+if not exist "%ProgramFiles%\dotnet\dotnet.exe" goto check_dotnet_need
+set "PATH=%ProgramFiles%\dotnet;%PATH%"
+"%ProgramFiles%\dotnet\dotnet.exe" --list-sdks 2>nul | findstr /r "^10\." >nul
+if %errorlevel% equ 0 set "NEED_DOTNET=0"
+
+:check_dotnet_need
+if "%NEED_DOTNET%"=="1" (
+    echo Installing .NET 10 SDK via official Microsoft installer...
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $f = \"$env:TEMP\dotnet-install.ps1\"; Invoke-WebRequest -Uri 'https://dot.net/v1/dotnet-install.ps1' -OutFile $f -UseBasicParsing; & $f -Channel 10.0 -InstallDir \"$env:ProgramFiles\dotnet\""
+    set "PATH=%ProgramFiles%\dotnet;%PATH%"
+    set "DOTNET_ROOT=%ProgramFiles%\dotnet"
+)
+
+echo [2/6] Building and publishing application binaries (Web and CLI)...
 taskkill /f /im OpenFlux.Zen.Server.Web.exe >nul 2>&1
 taskkill /f /im OpenFlux.Zen.Server.exe >nul 2>&1
 taskkill /f /im OpenFluxZenServer.exe >nul 2>&1
 taskkill /f /im openflux-windows-amd64.exe >nul 2>&1
 taskkill /f /im openflux-windows-arm64.exe >nul 2>&1
-dotnet publish "%REPO_ROOT%\src\OpenFlux.Zen.Server.Web\OpenFlux.Zen.Server.Web.csproj" -c Release -o "%INSTALL_DIR%" >nul
-dotnet publish "%REPO_ROOT%\src\OpenFlux.Zen.Server.Cli\OpenFlux.Zen.Server.Cli.csproj" -c Release -o "%INSTALL_DIR%" >nul
+
+dotnet publish "%REPO_ROOT%\src\OpenFlux.Zen.Server.Web\OpenFlux.Zen.Server.Web.csproj" -c Release -o "%INSTALL_DIR%" >nul 2>&1
+dotnet publish "%REPO_ROOT%\src\OpenFlux.Zen.Server.Cli\OpenFlux.Zen.Server.Cli.csproj" -c Release -o "%INSTALL_DIR%" >nul 2>&1
+
+if not exist "%INSTALL_DIR%\OpenFlux.Zen.Server.Web.exe" (
+    echo [ERROR] Failed to compile OpenFlux Zen Server binaries. Please verify .NET 10 SDK is installed.
+    pause
+    exit /b 1
+)
 
 :: Copy native runtimes
-xcopy /y /e /i "%REPO_ROOT%\runtimes\*" "%INSTALL_DIR%\runtimes\" >nul
+if exist "%REPO_ROOT%\runtimes" (
+    xcopy /y /e /i "%REPO_ROOT%\runtimes\*" "%INSTALL_DIR%\runtimes\" >nul 2>&1
+)
 
 echo [3/6] Generating credentials and secret path...
 set "ADMIN_USER=admin"
 if not "%OPENFLUX_ADMIN_USER%"=="" set "ADMIN_USER=%OPENFLUX_ADMIN_USER%"
 
-:: Generate random password and secret path
-for /f "tokens=2 delims==" %%a in ('wmic OS Get localdatetime /value') do set "dt=%%a"
+for /f "tokens=2 delims==" %%a in ('wmic OS Get localdatetime /value 2^>nul') do set "dt=%%a"
 set "RANDOM_HEX=%dt:~8,6%%RANDOM%"
 set "ADMIN_PASS=Zen%RANDOM%#%RANDOM%"
 if not "%OPENFLUX_ADMIN_PASSWORD%"=="" set "ADMIN_PASS=%OPENFLUX_ADMIN_PASSWORD%"
@@ -86,18 +117,28 @@ timeout /t 2 /nobreak >nul
 
 echo.
 echo ==================================================================
-echo       OpenFlux Zen Server УСПЕШНО УСТАНОВЛЕН И ЗАПУЩЕН!          
+echo   OpenFlux Zen Server — SUCCESSFULLY INSTALLED ^& STARTED!          
 echo ==================================================================
-echo Панель управления (Секретная ссылка): %FINAL_URL%
-echo Локальный адрес:                      %LOCAL_URL%
-echo Логин:                                %ADMIN_USER%
-echo Пароль:                               %ADMIN_PASS%
-echo Секретный путь:                       /%SECRET_PATH%/
+echo.
+echo   Web Dashboard URL:
+echo     %FINAL_URL%
+echo.
+echo   Local Access URL:
+echo     %LOCAL_URL%
+echo.
+echo   Authentication Details:
+echo     Username:           %ADMIN_USER%
+echo     Password:           %ADMIN_PASS%
+echo     Secret Path:        /%SECRET_PATH%/
+echo.
 echo ------------------------------------------------------------------
-echo CLI-команда доступна из любой папки:  OpenFluxZenServer ^<command^>
-echo   OpenFluxZenServer credentials  - просмотр текущих данных входа
-echo   OpenFluxZenServer help         - справка по командам
-echo   OpenFluxZenServer uninstall    - полное удаление панели из системы
+echo   CLI command available anywhere: OpenFluxZenServer ^<command^>
+echo.
+echo     OpenFluxZenServer status       — show server status
+echo     OpenFluxZenServer restart      — restart server service
+echo     OpenFluxZenServer credentials  — view login credentials and URLs
+echo     OpenFluxZenServer autostart    — configure autostart (enable ^| disable)
+echo     OpenFluxZenServer help         — show CLI command help
 echo ==================================================================
 echo.
 pause

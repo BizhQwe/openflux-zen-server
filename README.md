@@ -71,33 +71,49 @@ bash /opt/openflux-zen-server/scripts/install.sh
 5. Установит команду `OpenFluxZenServer` в `PATH`.
 6. Выведет итоговую защищённую ссылку и данные для входа.
 
-### Windows
+### Windows (10 / 11 / Windows Server)
 
-1. Скачайте или клонируйте репозиторий:
-   ```cmd
-   git clone https://github.com/BizhQwe/openflux-zen-server.git
-   ```
-2. Запустите от имени Администратора:
-   ```cmd
-   scripts\install.bat
-   ```
+Установка в одну команду (PowerShell от Администратора):
+```powershell
+irm https://raw.githubusercontent.com/BizhQwe/openflux-zen-server/main/scripts/install.ps1 | iex
+```
 
-Скрипт опубликует бинарники, создаст задание автозапуска, добавит `OpenFluxZenServer` в `PATH` и запустит сервер.
+Либо из стандартного CMD от имени Администратора:
+```cmd
+powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/BizhQwe/openflux-zen-server/main/scripts/install.ps1 | iex"
+```
+
+Скрипт автоматически:
+1. Проверит и при необходимости сам установит .NET 10 SDK через официальный установщик Microsoft.
+2. Склонирует или загрузит актуальный архив репозитория.
+3. Опубликует бинарники Web-панели и CLI.
+4. Настроит автозапуск в Планировщике заданий (Task Scheduler).
+5. Добавит `OpenFluxZenServer` в системный `PATH`.
+6. Запустит сервер и выведет все ссылки и данные для входа.
 
 ---
 
 ## Использование CLI (`OpenFluxZenServer`)
 
-Команда доступна из любого терминала:
+Команда доступна из любого терминала (PowerShell / CMD / Bash):
 
 ```bash
-# 1. Справка
-OpenFluxZenServer help
+# Просмотр статуса службы
+OpenFluxZenServer status
 
-# 2. Просмотр текущих учётных данных и секретной ссылки на панель
+# Перезапуск службы
+OpenFluxZenServer restart
+
+# Просмотр текущих учётных данных и ссылки на панель
 OpenFluxZenServer credentials
 
-# 3. Полное удаление панели из системы
+# Управление автозапуском (enable | disable | status)
+OpenFluxZenServer autostart status
+
+# Справка по всем командам
+OpenFluxZenServer help
+
+# Полное удаление панели из системы
 OpenFluxZenServer uninstall
 ```
 
