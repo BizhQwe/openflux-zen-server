@@ -20,26 +20,26 @@ async function downloadConfig() {
   a.href = URL.createObjectURL(blob);
   a.download = `openflux-config-${new Date().toISOString().slice(0,10)}.json`;
   a.click();
-  toast('Конфигурация выгружена', 'success');
+  toast(t('toast_saved'), 'success');
 }
 
 async function copyConfigToClipboard() {
   const res = await api('api/config/export');
   const text = await res.text();
   await navigator.clipboard.writeText(text);
-  toast('JSON скопирован в буфер обмена', 'success');
+  toast(t('toast_copied'), 'success');
 }
 
 async function importConfig() {
   const text = document.getElementById('import-json').value.trim();
-  if (!text) { toast('Вставьте JSON', 'danger'); return; }
+  if (!text) { toast(t('toast_error'), 'danger'); return; }
   try {
     const res = await api('api/config/import', { method: 'POST', body: text });
     const d = await res.json();
-    toast(d.message, d.errors > 0 ? 'warning' : 'success');
+    toast(d.message || t('toast_imported'), d.errors > 0 ? 'warning' : 'success');
     loadTunnels();
   } catch {
-    toast('Ошибка импорта JSON', 'danger');
+    toast(t('toast_error'), 'danger');
   }
 }
 
@@ -53,6 +53,13 @@ async function loadSettings() {
     if (secretInput && s.secretPath) {
       secretInput.value = '/' + s.secretPath.replace(/^\/+|\/+$/g, '') + '/';
     }
+    const langSelect = document.getElementById('setting-language');
+    if (langSelect && s.language) {
+      langSelect.value = s.language;
+      if (s.language !== currentLanguage && !localStorage.getItem('zen_lang')) {
+        setLanguage(s.language, false);
+      }
+    }
   }
 }
 
@@ -62,7 +69,7 @@ async function updateAccountProfile() {
   const nw = document.getElementById('new-pass').value;
 
   if (!cur) {
-    toast('Введите текущий пароль для подтверждения', 'danger');
+    toast(currentLanguage === 'en' ? 'Enter current password to confirm' : 'Введите текущий пароль для подтверждения', 'danger');
     return;
   }
 
@@ -73,26 +80,26 @@ async function updateAccountProfile() {
     });
     const data = await res.json();
     if (res.ok && data.success) {
-      toast('Данные учётной записи успешно обновлены', 'success');
+      toast(t('toast_saved'), 'success');
       document.getElementById('cur-pass').value = '';
       document.getElementById('new-pass').value = '';
       if (data.username) {
         document.getElementById('setting-username').value = data.username;
       }
     } else {
-      toast(data.error || data.message || 'Ошибка обновления учётных данных', 'danger');
+      toast(data.error || data.message || t('toast_error'), 'danger');
     }
   } catch {
-    toast('Не удалось сохранить изменения', 'danger');
+    toast(t('toast_error'), 'danger');
   }
 }
 
 async function regenerateSecretPath() {
-  if (!confirm('Сгенерировать новый секретный URL? Текущая ссылка станет недействительной!')) return;
+  if (!confirm(t('confirm_regen_secret'))) return;
   const res = await api('api/settings/regenerate-secret', { method: 'POST' });
   if (res.ok) {
     const d = await res.json();
-    toast('Секретный путь обновлён! Перенаправление...', 'success');
+    toast(currentLanguage === 'en' ? 'Secret path updated! Redirecting...' : 'Секретный путь обновлён! Перенаправление...', 'success');
     setTimeout(() => {
       window.location.pathname = '/' + d.secretPath.replace(/^\/+|\/+$/g, '') + '/';
     }, 1500);

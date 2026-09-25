@@ -83,6 +83,10 @@ public sealed class SettingsService : ISettingsService
             current.ZrokToken = updated.ZrokToken;
             current.ZrokShareUrl = updated.ZrokShareUrl;
             current.AutoStartEnabled = updated.AutoStartEnabled;
+            if (!string.IsNullOrWhiteSpace(updated.Language))
+            {
+                current.Language = updated.Language.Trim().ToLowerInvariant();
+            }
             current.UpdatedAt = DateTime.UtcNow;
 
             await db.SaveChangesAsync();
@@ -201,6 +205,33 @@ public sealed class SettingsService : ISettingsService
         }
     }
 
+    public async Task<bool> SetLanguageAsync(string language)
+    {
+        var lang = string.Equals(language?.Trim(), "en", StringComparison.OrdinalIgnoreCase) ? "en" : "ru";
+        await _cacheLock.WaitAsync();
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var settings = await db.Settings.FirstOrDefaultAsync(s => s.Id == 1);
+            if (settings == null)
+            {
+                settings = await InitializeDefaultSettingsAsync(db);
+            }
+
+            settings.Language = lang;
+            settings.UpdatedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+            _cachedSettings = settings;
+            _logger.LogInformation("Language updated: {Language}", lang);
+            return true;
+        }
+        finally
+        {
+            _cacheLock.Release();
+        }
+    }
+
     public void SaveCredentialsFile(string username, string plainPassword, string secretPath, string? publicUrl)
     {
         try
@@ -238,6 +269,7 @@ public sealed class SettingsService : ISettingsService
         var initialUser = Environment.GetEnvironmentVariable("OPENFLUX_ADMIN_USER") ?? ("zen_" + Convert.ToHexString(RandomNumberGenerator.GetBytes(4)).ToLowerInvariant());
         var initialPassword = Environment.GetEnvironmentVariable("OPENFLUX_ADMIN_PASSWORD") ?? AuthService.GenerateRandomPassword(16);
         var initialSecret = Environment.GetEnvironmentVariable("OPENFLUX_SECRET_PATH") ?? Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant();
+        var initialLang = Environment.GetEnvironmentVariable("OPENFLUX_LANGUAGE") ?? "ru";
         var initialPort = 5000;
         if (int.TryParse(Environment.GetEnvironmentVariable("OPENFLUX_PORT"), out var p))
         {
@@ -256,6 +288,7 @@ public sealed class SettingsService : ISettingsService
             ListenPort = initialPort,
             PublishMode = "local",
             AutoStartEnabled = true,
+            Language = initialLang,
             UpdatedAt = DateTime.UtcNow
         };
 

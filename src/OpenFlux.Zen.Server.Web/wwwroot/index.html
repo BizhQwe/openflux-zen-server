@@ -25,14 +25,18 @@
       </a>
 
       <nav class="nav-links" aria-label="Основная навигация">
-        <button class="nav-btn active" onclick="switchTab('tunnels')">Туннели</button>
-        <button class="nav-btn" onclick="switchTab('logs')">Логи</button>
-        <button class="nav-btn" onclick="switchTab('config')">Конфигурация</button>
-        <button class="nav-btn" onclick="switchTab('settings')">Настройки</button>
+        <button class="nav-btn active" onclick="switchTab('tunnels')" data-i18n="nav_tunnels">Туннели</button>
+        <button class="nav-btn" onclick="switchTab('logs')" data-i18n="nav_logs">Логи</button>
+        <button class="nav-btn" onclick="switchTab('config')" data-i18n="nav_config">Конфигурация</button>
+        <button class="nav-btn" onclick="switchTab('settings')" data-i18n="nav_settings">Настройки</button>
       </nav>
 
       <div class="header-actions">
-        <button class="btn btn-outline btn-sm" onclick="logout()">Выход</button>
+        <button id="lang-toggle-btn" class="btn btn-outline btn-sm lang-btn" onclick="toggleLanguage()" title="Switch Language / Сменить язык">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          <span id="current-lang-label">RU</span>
+        </button>
+        <button class="btn btn-outline btn-sm" onclick="logout()" data-i18n="nav_logout">Выход</button>
       </div>
     </div>
   </header>
@@ -48,18 +52,25 @@
           <span class="brand-badge">Server</span>
         </div>
       </div>
-      <p class="login-sub">Войдите в панель управления туннелями</p>
+      <p class="login-sub" data-i18n="login_sub">Войдите в панель управления туннелями</p>
+
+      <div style="display: flex; justify-content: center; margin-bottom: 16px;">
+        <button class="btn btn-outline btn-sm" onclick="toggleLanguage()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          <span id="login-lang-label">Language: RU / EN</span>
+        </button>
+      </div>
 
       <form id="login-form" onsubmit="event.preventDefault(); doLogin();">
         <div class="form-group" style="text-align: left;">
-          <label for="login-user">Имя пользователя</label>
-          <input type="text" id="login-user" autocomplete="username" class="form-control" placeholder="Имя пользователя" required autofocus />
+          <label for="login-user" data-i18n="login_user_label">Имя пользователя</label>
+          <input type="text" id="login-user" autocomplete="username" class="form-control" data-i18n-placeholder="login_user_placeholder" placeholder="Имя пользователя" required autofocus />
         </div>
         <div class="form-group" style="text-align: left;">
-          <label for="login-pass">Пароль</label>
+          <label for="login-pass" data-i18n="login_pass_label">Пароль</label>
           <input type="password" id="login-pass" autocomplete="current-password" class="form-control" placeholder="••••••••••••" required />
         </div>
-        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 8px;">Войти в панель</button>
+        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 8px;" data-i18n="login_btn">Войти в панель</button>
       </form>
     </div>
 
@@ -71,7 +82,7 @@
         <!-- 1. Активные туннели -->
         <div class="stat-card">
           <div class="stat-header">
-            <span class="stat-label">Активные туннели</span>
+            <span class="stat-label" data-i18n="stat_active_tunnels">Активные туннели</span>
             <span class="stat-icon">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
@@ -79,13 +90,13 @@
             </span>
           </div>
           <div class="stat-value" id="stat-active-tunnels">0 / 0</div>
-          <div class="stat-sub">Всего создано: <span id="stat-total-tunnels">0</span></div>
+          <div class="stat-sub"><span data-i18n="stat_total_created">Всего создано:</span> <span id="stat-total-tunnels">0</span></div>
         </div>
 
         <!-- 2. Ресурсы хоста -->
         <div class="stat-card">
           <div class="stat-header">
-            <span class="stat-label">Ресурсы хоста</span>
+            <span class="stat-label" data-i18n="stat_host_resources">Ресурсы хоста</span>
             <span class="stat-icon">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="4" y="4" width="16" height="16" rx="2"/>
@@ -108,7 +119,7 @@
         <!-- 3. Скорость сети (загрузка и отдача) -->
         <div class="stat-card">
           <div class="stat-header">
-            <span class="stat-label">Скорость сети</span>
+            <span class="stat-label" data-i18n="stat_network_speed">Скорость сети</span>
             <span class="stat-icon">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M12 14l4-4"/>
@@ -133,7 +144,7 @@
         <!-- 4. Сколько трафика потрачено -->
         <div class="stat-card">
           <div class="stat-header">
-            <span class="stat-label">Общий трафик</span>
+            <span class="stat-label" data-i18n="stat_total_traffic">Общий трафик</span>
             <span class="stat-icon">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="18" y1="20" x2="18" y2="10"/>
@@ -160,10 +171,10 @@
       <!-- Tab: Tunnels -->
       <div id="tab-tunnels" class="tab-content active">
         <div class="section-bar">
-          <h3 class="section-title">Список туннелей</h3>
+          <h3 class="section-title" data-i18n="tunnels_title">Список туннелей</h3>
           <div class="toolbar">
-            <button class="btn btn-outline btn-sm" onclick="loadTunnels()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>Обновить</button>
-            <button class="btn btn-primary btn-sm" onclick="openTunnelModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Добавить туннель</button>
+            <button class="btn btn-outline btn-sm" onclick="loadTunnels()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg><span data-i18n="btn_refresh">Обновить</span></button>
+            <button class="btn btn-primary btn-sm" onclick="openTunnelModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg><span data-i18n="btn_add_tunnel">Добавить туннель</span></button>
           </div>
         </div>
 
@@ -175,90 +186,105 @@
       <!-- Tab: Logs -->
       <div id="tab-logs" class="tab-content">
         <div class="section-bar">
-          <h3 class="section-title">Системные логи</h3>
+          <h3 class="section-title" data-i18n="logs_title">Системные логи</h3>
           <div class="toolbar">
             <select id="log-target-select" class="form-control form-control-sm" aria-label="Источник логов" onchange="loadActiveLogs()">
-              <option value="system">Лог панели (System)</option>
+              <option value="system" data-i18n="logs_panel_system">Лог панели (System)</option>
             </select>
-            <button class="btn btn-outline btn-sm" onclick="loadActiveLogs()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>Обновить</button>
-            <button class="btn btn-outline btn-sm" onclick="downloadCurrentLogs()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Скачать логи</button>
-            <button class="btn btn-outline btn-sm" onclick="clearCurrentLogs()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Очистить</button>
+            <button class="btn btn-outline btn-sm" onclick="loadActiveLogs()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg><span data-i18n="btn_refresh">Обновить</span></button>
+            <button class="btn btn-outline btn-sm" onclick="downloadCurrentLogs()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span data-i18n="btn_download_logs">Скачать логи</span></button>
+            <button class="btn btn-outline btn-sm" onclick="clearCurrentLogs()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><span data-i18n="btn_clear_logs">Очистить</span></button>
           </div>
         </div>
 
         <div class="terminal-container" id="terminal-output">
-          <div class="log-line log-system">Загрузка логов...</div>
+          <div class="log-line log-system" data-i18n="logs_loading">Загрузка логов...</div>
         </div>
       </div>
 
       <!-- Tab: Config Export / Import -->
       <div id="tab-config" class="tab-content">
         <div class="section-bar">
-          <h3 class="section-title">Резервное копирование и перенос</h3>
+          <h3 class="section-title" data-i18n="config_title">Резервное копирование и перенос</h3>
         </div>
 
         <div class="card settings-card">
-          <h4 style="margin-bottom: 8px;">Экспорт конфигурации (JSON)</h4>
-          <p style="color: var(--text-dim); margin-bottom: 16px; font-size: 0.9rem;">
+          <h4 style="margin-bottom: 8px;" data-i18n="config_export_title">Экспорт конфигурации (JSON)</h4>
+          <p style="color: var(--text-dim); margin-bottom: 16px; font-size: 0.9rem;" data-i18n="config_export_desc">
             Выгрузите все настройки и конфигурации ваших туннелей для резервной копии или переноса на другой сервер.
           </p>
           <div class="button-row">
-            <button class="btn btn-primary" onclick="downloadConfig()">Скачать файл конфигурации</button>
-            <button class="btn btn-outline" onclick="copyConfigToClipboard()">Скопировать JSON</button>
+            <button class="btn btn-primary" onclick="downloadConfig()" data-i18n="btn_download_config">Скачать файл конфигурации</button>
+            <button class="btn btn-outline" onclick="copyConfigToClipboard()" data-i18n="btn_copy_json">Скопировать JSON</button>
           </div>
         </div>
 
         <div class="card">
-          <h4 style="margin-bottom: 8px;">Импорт конфигурации (JSON)</h4>
-          <p style="color: var(--text-dim); margin-bottom: 16px; font-size: 0.9rem;">
+          <h4 style="margin-bottom: 8px;" data-i18n="config_import_title">Импорт конфигурации (JSON)</h4>
+          <p style="color: var(--text-dim); margin-bottom: 16px; font-size: 0.9rem;" data-i18n="config_import_desc">
             Вставьте экспортированный JSON или выберите файл конфигурации с вашего компьютера. Существующие туннели будут обновлены, новые — добавлены.
           </p>
           <div class="button-row" style="margin-bottom: 16px;">
             <input type="file" id="import-file-input" accept=".json,application/json" style="display: none;" onchange="handleConfigFileSelect(event)" />
-            <button class="btn btn-outline" type="button" onclick="document.getElementById('import-file-input').click()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Выбрать файл на ПК (.json)</button>
+            <button class="btn btn-outline" type="button" onclick="document.getElementById('import-file-input').click()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg><span data-i18n="btn_select_file">Выбрать файл на ПК (.json)</span></button>
             <span id="import-file-name" style="color: var(--accent); font-size: 0.85rem; font-weight: 600;"></span>
           </div>
           <div class="form-group">
-            <textarea id="import-json" aria-label="Конфигурация JSON для импорта" class="form-control" style="font-family: var(--font-mono); height: 180px;" placeholder="Вставьте JSON конфигурацию или выберите файл выше..."></textarea>
+            <textarea id="import-json" aria-label="Конфигурация JSON для импорта" class="form-control" style="font-family: var(--font-mono); height: 180px;" data-i18n-placeholder="import_placeholder" placeholder="Вставьте JSON конфигурацию или выберите файл выше..."></textarea>
           </div>
-          <button class="btn btn-success" onclick="importConfig()">Применить конфигурацию</button>
+          <button class="btn btn-success" onclick="importConfig()" data-i18n="btn_apply_config">Применить конфигурацию</button>
         </div>
       </div>
 
       <!-- Tab: Settings -->
       <div id="tab-settings" class="tab-content">
         <div class="section-bar">
-          <h3 class="section-title">Настройки панели</h3>
+          <h3 class="section-title" data-i18n="settings_title">Настройки панели</h3>
         </div>
 
+        <!-- Language Selector -->
         <div class="card settings-card">
-          <h4 style="margin-bottom: 14px;">Учётные данные администратора</h4>
+          <h4 style="margin-bottom: 8px;" data-i18n="settings_lang_title">Язык интерфейса / Interface Language</h4>
+          <p style="color: var(--text-dim); margin-bottom: 16px; font-size: 0.9rem;" data-i18n="settings_lang_desc">
+            Выберите язык для веб-интерфейса панели управления.
+          </p>
+          <div style="max-width: 320px;">
+            <select id="setting-language" class="form-control" onchange="setLanguage(this.value, true)" aria-label="Language / Язык">
+              <option value="ru">Русский (RU)</option>
+              <option value="en">English (EN)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Credentials Form -->
+        <div class="card settings-card">
+          <h4 style="margin-bottom: 14px;" data-i18n="settings_admin_title">Учётные данные администратора</h4>
           <form class="account-form" onsubmit="event.preventDefault(); updateAccountProfile();">
             <div class="form-group">
-              <label for="setting-username">Имя пользователя (Логин)</label>
-              <input type="text" id="setting-username" class="form-control" required placeholder="Имя пользователя" />
+              <label for="setting-username" data-i18n="setting_user_label">Имя пользователя (Логин)</label>
+              <input type="text" id="setting-username" class="form-control" required data-i18n-placeholder="login_user_placeholder" placeholder="Имя пользователя" />
             </div>
             <div class="form-group">
-              <label for="cur-pass">Текущий пароль (для подтверждения)</label>
-              <input type="password" id="cur-pass" class="form-control" required placeholder="Введите текущий пароль" />
+              <label for="cur-pass" data-i18n="setting_cur_pass_label">Текущий пароль (для подтверждения)</label>
+              <input type="password" id="cur-pass" class="form-control" required data-i18n-placeholder="setting_cur_pass_placeholder" placeholder="Введите текущий пароль" />
             </div>
             <div class="form-group">
-              <label for="new-pass">Новый пароль (оставьте пустым, если не меняется)</label>
-              <input type="password" id="new-pass" class="form-control" placeholder="Новый пароль (опционально)" />
+              <label for="new-pass" data-i18n="setting_new_pass_label">Новый пароль (оставьте пустым, если не меняется)</label>
+              <input type="password" id="new-pass" class="form-control" data-i18n-placeholder="setting_new_pass_placeholder" placeholder="Новый пароль (опционально)" />
             </div>
-            <button type="submit" class="btn btn-primary">Сохранить изменения</button>
+            <button type="submit" class="btn btn-primary" data-i18n="btn_save_changes">Сохранить изменения</button>
           </form>
         </div>
 
-
+        <!-- Secret Path -->
         <div class="card">
-          <h4 style="margin-bottom: 8px;">Секретный путь панели</h4>
-          <p style="color: var(--text-dim); margin-bottom: 16px; font-size: 0.9rem;">
+          <h4 style="margin-bottom: 8px;" data-i18n="settings_secret_title">Секретный путь панели</h4>
+          <p style="color: var(--text-dim); margin-bottom: 16px; font-size: 0.9rem;" data-i18n="settings_secret_desc">
             Случайный путь URL обеспечивает защиту от сканеров и ботов. Доступ возможен только по этому пути.
           </p>
           <div class="button-row secret-path-row">
             <input type="text" id="setting-secret-path" class="form-control" readonly aria-label="Секретный путь панели" style="font-family: var(--font-mono);" />
-            <button class="btn btn-outline" onclick="regenerateSecretPath()">Сгенерировать новый</button>
+            <button class="btn btn-outline" onclick="regenerateSecretPath()" data-i18n="btn_regenerate_secret">Сгенерировать новый</button>
           </div>
         </div>
       </div>
@@ -270,7 +296,7 @@
   <div id="tunnel-modal" class="modal-overlay">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="tunnel-modal-title">
       <div class="modal-header">
-        <h4 class="modal-title" id="tunnel-modal-title">Новый туннель</h4>
+        <h4 class="modal-title" id="tunnel-modal-title" data-i18n="modal_new_tunnel">Новый туннель</h4>
         <button class="modal-close" aria-label="Закрыть" onclick="closeTunnelModal()">&times;</button>
       </div>
       <div class="modal-body">
@@ -278,7 +304,7 @@
           <input type="hidden" id="tunnel-id" />
 
           <div class="form-group">
-            <label for="tunnel-name">Название туннеля</label>
+            <label for="tunnel-name" data-i18n="modal_tunnel_name">Название туннеля</label>
             <input type="text" id="tunnel-name" class="form-control" placeholder="Yandex Exit Server" required />
           </div>
 
@@ -286,7 +312,7 @@
 
           <div class="form-row">
             <div class="form-group">
-              <label for="tunnel-transport">Транспорт (Transport)</label>
+              <label for="tunnel-transport" data-i18n="modal_tunnel_transport">Транспорт (Transport)</label>
               <select id="tunnel-transport" class="form-control" onchange="onTransportChange()">
                 <option value="yandex">yandex (Yandex.Docs WebSocket)</option>
                 <option value="vyandex">vyandex (Yandex Volga HTTP relay)</option>
@@ -296,7 +322,7 @@
               </select>
             </div>
             <div class="form-group">
-              <label for="tunnel-mode">Режим выхода (Mode)</label>
+              <label for="tunnel-mode" data-i18n="modal_tunnel_mode">Режим выхода (Mode)</label>
               <select id="tunnel-mode" class="form-control">
                 <option value="l4">l4 / proxy (Stream proxy, gVisor TCP stack)</option>
                 <option value="l3">l3 (Сырой SNAT/DNAT, Linux root)</option>
@@ -306,8 +332,8 @@
 
           <!-- URL / Links -->
           <div id="group-url" class="form-group">
-            <label id="tunnel-url-label" for="tunnel-url">URL документа (--url)</label>
-            <input type="text" id="tunnel-url" class="form-control" placeholder="https://docs.yandex.ru/docs/view?url=..." />
+            <label id="tunnel-url-label" for="tunnel-url" data-i18n="modal_tunnel_url">URL документа (--url)</label>
+            <input type="text" id="tunnel-url" class="form-control" placeholder="https://cloud.mail.ru/public/..." />
           </div>
 
           <!-- OneMe Fields -->
@@ -324,43 +350,43 @@
 
           <div class="form-row">
             <div class="form-group">
-              <label for="tunnel-codec">Кодек (Codec)</label>
+              <label for="tunnel-codec" data-i18n="modal_tunnel_codec">Кодек (Codec)</label>
               <select id="tunnel-codec" class="form-control">
                 <option value="batched">batched (zstd + coalescing)</option>
                 <option value="legacy">legacy (per-packet LZ4)</option>
               </select>
             </div>
             <div class="form-group">
-              <label for="tunnel-local-ip">Egress IP (--local-ip, для L3)</label>
-              <input type="text" id="tunnel-local-ip" class="form-control" placeholder="Автоопределение" />
+              <label for="tunnel-local-ip" data-i18n="modal_tunnel_egress">Egress IP (--local-ip, для L3)</label>
+              <input type="text" id="tunnel-local-ip" class="form-control" data-i18n-placeholder="modal_tunnel_egress_placeholder" placeholder="Автоопределение" />
             </div>
           </div>
 
           <div class="form-group">
-            <label for="tunnel-encryption">Ключ шифрования (AES-256-GCM)</label>
-            <input type="text" id="tunnel-encryption" class="form-control" placeholder="Необязательно (общий секрет)" />
+            <label for="tunnel-encryption" data-i18n="modal_tunnel_key">Ключ шифрования (AES-256-GCM)</label>
+            <input type="text" id="tunnel-encryption" class="form-control" data-i18n-placeholder="modal_tunnel_key_placeholder" placeholder="Необязательно (общий секрет)" />
           </div>
 
           <div class="form-row">
             <div class="form-group">
-              <label for="tunnel-client-limit">Лимит клиентов (0 = без лимита)</label>
+              <label for="tunnel-client-limit" data-i18n="modal_tunnel_clients">Лимит клиентов (0 = без лимита)</label>
               <input type="number" id="tunnel-client-limit" class="form-control" value="0" min="0" />
             </div>
             <div class="form-group">
-              <label for="tunnel-traffic-limit">Лимит трафика в МБ (0 = без лимита)</label>
+              <label for="tunnel-traffic-limit" data-i18n="modal_tunnel_traffic">Лимит трафика в МБ (0 = без лимита)</label>
               <input type="number" id="tunnel-traffic-limit" class="form-control" value="0" min="0" />
             </div>
           </div>
 
           <div class="form-group">
-            <label for="tunnel-extra-args">Дополнительные параметры CLI</label>
+            <label for="tunnel-extra-args" data-i18n="modal_tunnel_extra">Дополнительные параметры CLI</label>
             <input type="text" id="tunnel-extra-args" class="form-control" placeholder="--debug" />
           </div>
         </form>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-outline" onclick="closeTunnelModal()">Отмена</button>
-        <button class="btn btn-primary" onclick="saveTunnel()">Сохранить</button>
+        <button class="btn btn-outline" onclick="closeTunnelModal()" data-i18n="btn_cancel">Отмена</button>
+        <button class="btn btn-primary" onclick="saveTunnel()" data-i18n="btn_save">Сохранить</button>
       </div>
     </div>
   </div>
@@ -369,10 +395,11 @@
   <!-- Toast notifications -->
   <div id="toast-container" role="status" aria-live="polite"></div>
 
-  <script src="js/api.js?v=1.0.8"></script>
-  <script src="js/tunnels.js?v=1.0.8"></script>
-  <script src="js/logs.js?v=1.0.8"></script>
-  <script src="js/settings.js?v=1.0.8"></script>
-  <script src="js/app.js?v=1.0.8"></script>
+  <script src="js/i18n.js?v=1.1.0"></script>
+  <script src="js/api.js?v=1.1.0"></script>
+  <script src="js/tunnels.js?v=1.1.0"></script>
+  <script src="js/logs.js?v=1.1.0"></script>
+  <script src="js/settings.js?v=1.1.0"></script>
+  <script src="js/app.js?v=1.1.0"></script>
 </body>
 </html>

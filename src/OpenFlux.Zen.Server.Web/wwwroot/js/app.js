@@ -7,7 +7,7 @@ async function doLogin() {
   const u = document.getElementById('login-user').value.trim();
   const p = document.getElementById('login-pass').value;
   if (!u || !p) {
-    toast('Введите имя пользователя и пароль', 'danger');
+    toast(t('toast_fill_login'), 'danger');
     return;
   }
 
@@ -22,12 +22,12 @@ async function doLogin() {
     if (res.ok && data.success) {
       localStorage.setItem('zen_token', data.token);
       await initApp();
-      toast('Успешный вход в панель', 'success');
+      toast(t('toast_login_success'), 'success');
     } else {
-      toast(data.message || 'Неверное имя пользователя или пароль', 'danger');
+      toast(data.message || t('toast_invalid_credentials'), 'danger');
     }
   } catch (err) {
-    toast('Ошибка соединения с сервером', 'danger');
+    toast(t('toast_server_error'), 'danger');
   }
 }
 
@@ -79,6 +79,9 @@ async function checkAuth() {
 }
 
 async function initApp() {
+  if (typeof setLanguage === 'function') {
+    setLanguage(currentLanguage, false);
+  }
   const isAuthed = await checkAuth();
   if (!isAuthed) {
     localStorage.removeItem('zen_token');

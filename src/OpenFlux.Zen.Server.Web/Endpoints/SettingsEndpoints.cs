@@ -33,6 +33,12 @@ public static class SettingsEndpoints
             return Results.Ok(new { success = ok, autoStartEnabled = req.Enabled });
         });
 
+        group.MapPost("/settings/language", async (LanguageRequest req, ISettingsService settingsService) =>
+        {
+            var ok = await settingsService.SetLanguageAsync(req.Language);
+            return Results.Ok(new { success = ok, language = req.Language });
+        });
+
         group.MapGet("/config/export", async (IExportImportService exportImport) =>
         {
             var json = await exportImport.ExportConfigurationJsonAsync();
@@ -50,3 +56,6 @@ public static class SettingsEndpoints
         return app;
     }
 }
+
+public record LanguageRequest(string Language);
+

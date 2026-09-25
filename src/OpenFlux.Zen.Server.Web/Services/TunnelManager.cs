@@ -170,7 +170,8 @@ public sealed class TunnelManager : ITunnelManager
         var now = DateTime.UtcNow;
         foreach (var (id, tracker) in _tunnelRateTrackers)
         {
-            if ((now - tracker.LastTime).TotalMilliseconds >= 1200)
+            var elapsedMs = (now - tracker.LastTime).TotalMilliseconds;
+            if (elapsedMs >= 1200)
             {
                 if (_liveTunnels.TryGetValue(id, out var t))
                 {
@@ -178,6 +179,10 @@ public sealed class TunnelManager : ITunnelManager
                     {
                         t.UploadRateBytesPerSec = 0;
                         t.DownloadRateBytesPerSec = 0;
+                    }
+                    if (elapsedMs >= 25000 && t.ConnectedClients > 0)
+                    {
+                        t.ConnectedClients = 0;
                     }
                 }
             }

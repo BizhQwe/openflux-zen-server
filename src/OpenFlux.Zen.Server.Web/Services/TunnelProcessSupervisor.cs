@@ -25,6 +25,7 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         public long PendingDownloadBytes;
         public int LastConnectedSockets;
         public int LastClientCount;
+        public DateTime LastPacketActivity { get; set; } = DateTime.MinValue;
         public readonly ConcurrentDictionary<string, DateTime> ActiveClients = new();
         public ulong LastL3Upload;
         public ulong LastL3Download;
@@ -381,6 +382,7 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
                         var byteSpan = line.AsSpan(arrowIdx + 3, bytesIdx - (arrowIdx + 3));
                         if (long.TryParse(byteSpan, out var byteCount))
                         {
+                            state.LastPacketActivity = DateTime.UtcNow;
                             if (isUpload)
                                 Interlocked.Add(ref state.PendingUploadBytes, byteCount);
                             else
@@ -419,6 +421,10 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
             {
                 int connected = int.Parse(match.Groups[2].Value);
                 state.LastConnectedSockets = connected;
+                if (connected > 0)
+                {
+                    state.LastPacketActivity = DateTime.UtcNow;
+                }
                 return;
             }
 
@@ -427,7 +433,14 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
             if (l3Match.Success)
             {
                 ulong fromTr = ulong.Parse(l3Match.Groups[1].Value);
+                ulong fromTrDelta = ulong.Parse(l3Match.Groups[2].Value);
                 ulong toCli = ulong.Parse(l3Match.Groups[7].Value);
+                ulong toCliDelta = ulong.Parse(l3Match.Groups[8].Value);
+
+                if (fromTrDelta > 0 || toCliDelta > 0)
+                {
+                    state.LastPacketActivity = DateTime.UtcNow;
+                }
 
                 if (fromTr > state.LastL3Upload)
                 {
@@ -442,7 +455,6 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
 
                 state.LastL3Upload = fromTr;
                 state.LastL3Download = toCli;
-                state.LastConnectedSockets = 1;
             }
         }
         catch (Exception ex)
@@ -466,11 +478,11 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
             var up = Interlocked.Exchange(ref state.PendingUploadBytes, 0);
             var down = Interlocked.Exchange(ref state.PendingDownloadBytes, 0);
 
-            // Prune clients not seen in last 60 seconds
+            // Prune clients not seen in last 25 seconds
             var now = DateTime.UtcNow;
             foreach (var (ip, dt) in state.ActiveClients)
             {
-                if ((now - dt).TotalSeconds > 60)
+                if ((now - dt).TotalSeconds > 25)
                 {
                     state.ActiveClients.TryRemove(ip, out _);
                 }
@@ -478,9 +490,18 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
 
             // Calculate unique client device count
             int uniqueClients = state.ActiveClients.Count;
-            if (uniqueClients == 0 && state.LastConnectedSockets > 0)
+            if (uniqueClients == 0)
             {
-                uniqueClients = 1; // Fallback: active sockets detected, so at least 1 device connected
+                // If we have explicit connected sockets count from L4 [STATS], use it only if recent activity exists
+                if (state.LastConnectedSockets > 0 && (now - state.LastPacketActivity).TotalSeconds <= 25)
+                {
+                    uniqueClients = state.LastConnectedSockets;
+                }
+                else
+                {
+                    uniqueClients = 0;
+                    state.LastConnectedSockets = 0;
+                }
             }
 
             if (up > 0 || down > 0 || uniqueClients != state.LastClientCount)

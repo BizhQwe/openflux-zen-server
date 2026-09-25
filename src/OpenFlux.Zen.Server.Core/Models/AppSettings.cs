@@ -15,5 +15,6 @@ public sealed class AppSettings
     public string? ZrokToken { get; set; }
     public string? ZrokShareUrl { get; set; }
     public bool AutoStartEnabled { get; set; } = true;
+    public string Language { get; set; } = "ru"; // ru | en
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

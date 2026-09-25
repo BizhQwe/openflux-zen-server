@@ -17,28 +17,55 @@ GRAY='\033[0;90m'
 BOLD='\033[1m'
 NC='\033[0m' # No Color
 
-# 1. Detect System Language (RU / EN)
-DETECTED_LANG="en"
-if [[ "${LANG:-}" =~ ^(ru|uk|be) ]] || [[ "${LC_ALL:-}" =~ ^(ru|uk|be) ]] || [[ "${LC_MESSAGES:-}" =~ ^(ru|uk|be) ]]; then
-    DETECTED_LANG="ru"
+# 1. Root check
+if [ "$(id -u)" -ne 0 ]; then
+    echo -e "${RED}[ERROR] This script must be run as root. Try: sudo bash install.sh${NC}"
+    exit 1
 fi
 
+HAS_TTY=0
+if [ -r /dev/tty ] && [ -w /dev/tty ]; then
+    HAS_TTY=1
+fi
+
+# 2. Language Selection (Interactive or via Flag / Env)
+# No automatic language guessing — explicitly ask user or read parameter
+CHOSEN_LANG=""
 for arg in "$@"; do
     case "$arg" in
-        --lang=ru|--ru|-ru) DETECTED_LANG="ru" ;;
-        --lang=en|--en|-en) DETECTED_LANG="en" ;;
+        --lang=ru|--ru|-ru) CHOSEN_LANG="ru" ;;
+        --lang=en|--en|-en) CHOSEN_LANG="en" ;;
     esac
 done
 
-if [ -n "${INSTALL_LANG:-}" ]; then
-    DETECTED_LANG="$INSTALL_LANG"
+if [ -z "$CHOSEN_LANG" ] && [ -n "${INSTALL_LANG:-}" ]; then
+    CHOSEN_LANG="$INSTALL_LANG"
+fi
+
+if [ -z "$CHOSEN_LANG" ]; then
+    echo -e "\n${CYAN}${BOLD}==================================================================${NC}"
+    echo -e "${CYAN}${BOLD}  OpenFlux Zen Server — Язык установки / Language Selection${NC}"
+    echo -e "${CYAN}${BOLD}==================================================================${NC}"
+    echo -e "  ${BOLD}1)${NC} Русский (Russian) — веб-интерфейс и установщик"
+    echo -e "  ${BOLD}2)${NC} English — web dashboard and installer"
+    if [ "$HAS_TTY" -eq 1 ]; then
+        read -r -p "Выберите язык / Select language [1/2, default: 1]: " LANG_INPUT < /dev/tty
+    elif [ -t 0 ]; then
+        read -r -p "Выберите язык / Select language [1/2, default: 1]: " LANG_INPUT
+    else
+        LANG_INPUT="1"
+    fi
+
+    case "$LANG_INPUT" in
+        2|[Ee][Nn]*) CHOSEN_LANG="en" ;;
+        *) CHOSEN_LANG="ru" ;;
+    esac
 fi
 
 # Language Dictionary
-if [ "$DETECTED_LANG" = "ru" ]; then
-    TXT_TITLE="          OpenFlux Zen Server — Установка и настройка             "
-    TXT_SUBTITLE="            Универсальная серверная платформа туннелей            "
-    TXT_ERR_ROOT="[ОШИБКА] Этот скрипт должен выполняться от root. Запустите: sudo bash install.sh"
+if [ "$CHOSEN_LANG" = "ru" ]; then
+    TXT_TITLE="OpenFlux Zen Server — Установка и настройка"
+    TXT_SUBTITLE="Универсальная серверная платформа туннелей"
     TXT_ERR_ARCH="[ОШИБКА] Неподдерживаемая архитектура процессора:"
     TXT_STEP1="[1/8] Проверка системных пакетов и зависимостей..."
     TXT_STEP2="[2/8] Проверка и подготовка среды .NET 10..."
@@ -54,26 +81,32 @@ if [ "$DETECTED_LANG" = "ru" ]; then
     TXT_NET_LOCAL_DESC="По умолчанию панель доступна только локально на сервере (127.0.0.1)."
     TXT_NET_PROMPT="Нужна ли сетевая доступность панели из интернета? [y/N]: "
     TXT_PUB_TITLE="Выберите режим публикации:"
-    TXT_PUB_OPT1="  1) Открытые порты (Собственный домен + безопасный HTTPS с авто-сертификатом)"
+    TXT_PUB_OPT1="  1) Открытые порты (Собственный домен + HTTPS с авто-сертификатом)"
     TXT_PUB_OPT2="  2) Через Zrok (Защищённый туннель без открытия портов наружу)"
     TXT_PUB_PROMPT="Ваш выбор [1/2]: "
     TXT_DOMAIN_PROMPT="Введите ваш домен (например, zen.example.com): "
     TXT_DOMAIN_CHECK="Проверка существующих SSL-сертификатов для"
-    TXT_DOMAIN_CERT_FOUND="✓ Обнаружен действующий SSL-сертификат. Переиспользуем без перевыпуска."
+    TXT_DOMAIN_CERT_FOUND="✓ Обнаружен действующий SSL-сертификат. Переиспользуем."
     TXT_ZROK_PROMPT="Введите ваш Zrok токен (Account Token): "
     TXT_ZROK_DOWNLOAD="Скачивание клиента Zrok"
     TXT_ZROK_ENABLE="Активация окружения Zrok..."
-    TXT_STEP7="[7/8] Настройка и запуск системной службы systemd..."
+    TXT_STEP7="[7/8] Настройка автозапуска и системной службы systemd..."
+    TXT_AUTOSTART_PROMPT="Включить автозапуск сервера при загрузке системы? [Y/n]: "
     TXT_STEP8="[8/8] Регистрация команды OpenFluxZenServer в PATH..."
     TXT_WAIT_HEALTH="Ожидание готовности службы OpenFlux Zen Server"
     TXT_HEALTH_OK="Готово!"
     TXT_HEALTH_INIT="(служба ещё инициализируется)"
     TXT_SUCCESS_TITLE="OpenFlux Zen Server — УСПЕШНО УСТАНОВЛЕН И ЗАПУЩЕН!"
-    TXT_LBL_SECRET_URL="Панель управления (Секретная ссылка):"
-    TXT_LBL_LOCAL_URL="Локальный адрес:                     "
-    TXT_LBL_USER="Логин:                               "
-    TXT_LBL_PASS="Пароль:                              "
-    TXT_LBL_SECRET="Секретный путь:                      "
+    TXT_LBL_SECRET_URL="Панель управления (Секретная ссылка)"
+    TXT_LBL_LOCAL_URL="Локальный адрес"
+    TXT_LBL_CREDS_TITLE="Учётные данные"
+    TXT_LBL_USER="Логин"
+    TXT_LBL_PASS="Пароль"
+    TXT_LBL_SECRET="Секретный путь"
+    TXT_LBL_LANG="Язык интерфейса"
+    TXT_LBL_AUTOSTART="Автозапуск"
+    TXT_ENABLED="Включён"
+    TXT_DISABLED="Выключен"
     TXT_LBL_CLI="Управление сервером через команду: OpenFluxZenServer <command>"
     TXT_CLI_START="запуск службы сервера"
     TXT_CLI_STOP="остановка службы сервера"
@@ -84,11 +117,10 @@ if [ "$DETECTED_LANG" = "ru" ]; then
     TXT_CLI_HELP="справка по всем командам"
     TXT_CLI_UNINSTALL="полное удаление панели из системы"
     TXT_SRV_ACTIVE="✓ Служба активна и отвечает на запросы."
-    TXT_SRV_STARTING="! Служба запускается (проверьте статус через: systemctl status openflux-zen-server)."
+    TXT_SRV_STARTING="! Служба запускается (проверьте: systemctl status openflux-zen-server)."
 else
-    TXT_TITLE="           OpenFlux Zen Server — Installer & Setup                "
-    TXT_SUBTITLE="             Universal High-Performance Tunnel Platform           "
-    TXT_ERR_ROOT="[ERROR] This script must be run as root. Try: sudo bash install.sh"
+    TXT_TITLE="OpenFlux Zen Server — Installer & Setup"
+    TXT_SUBTITLE="Universal High-Performance Tunnel Platform"
     TXT_ERR_ARCH="[ERROR] Unsupported CPU architecture:"
     TXT_STEP1="[1/8] Checking prerequisite system packages..."
     TXT_STEP2="[2/8] Checking and preparing .NET 10 environment..."
@@ -113,17 +145,23 @@ else
     TXT_ZROK_PROMPT="Enter your Zrok Account Token: "
     TXT_ZROK_DOWNLOAD="Downloading Zrok client"
     TXT_ZROK_ENABLE="Enabling Zrok environment..."
-    TXT_STEP7="[7/8] Configuring and starting systemd service..."
+    TXT_STEP7="[7/8] Configuring autostart and systemd service..."
+    TXT_AUTOSTART_PROMPT="Enable server autostart on system boot? [Y/n]: "
     TXT_STEP8="[8/8] Installing OpenFluxZenServer CLI command in PATH..."
     TXT_WAIT_HEALTH="Waiting for OpenFlux Zen Server service readiness"
     TXT_HEALTH_OK="Done!"
     TXT_HEALTH_INIT="(service is still initializing)"
     TXT_SUCCESS_TITLE="OpenFlux Zen Server — SUCCESSFULLY INSTALLED & STARTED!"
-    TXT_LBL_SECRET_URL="Web Dashboard URL (Secret link):     "
-    TXT_LBL_LOCAL_URL="Local Access URL:                    "
-    TXT_LBL_USER="Username:                            "
-    TXT_LBL_PASS="Password:                            "
-    TXT_LBL_SECRET="Secret Path:                         "
+    TXT_LBL_SECRET_URL="Web Dashboard URL (Secret link)"
+    TXT_LBL_LOCAL_URL="Local Access URL"
+    TXT_LBL_CREDS_TITLE="Authentication Details"
+    TXT_LBL_USER="Username"
+    TXT_LBL_PASS="Password"
+    TXT_LBL_SECRET="Secret Path"
+    TXT_LBL_LANG="Interface Language"
+    TXT_LBL_AUTOSTART="Autostart"
+    TXT_ENABLED="Enabled"
+    TXT_DISABLED="Disabled"
     TXT_LBL_CLI="CLI command available anywhere: OpenFluxZenServer <command>"
     TXT_CLI_START="start server service"
     TXT_CLI_STOP="stop server service"
@@ -134,26 +172,15 @@ else
     TXT_CLI_HELP="show CLI command help"
     TXT_CLI_UNINSTALL="completely uninstall from system"
     TXT_SRV_ACTIVE="✓ Service is running and responding."
-    TXT_SRV_STARTING="! Service is starting up (check status with: systemctl status openflux-zen-server)."
+    TXT_SRV_STARTING="! Service is starting up (check: systemctl status openflux-zen-server)."
 fi
 
 # Print Header Banner
-echo -e "${CYAN}${BOLD}=================================================================="
-if [ "$DETECTED_LANG" = "ru" ]; then
-    echo -e "   OpenFlux Zen Server — Установка и настройка"
-    echo -e "   Универсальная серверная платформа туннелей"
-else
-    echo -e "   OpenFlux Zen Server — Installer & Setup"
-    echo -e "   Universal High-Performance Tunnel Platform"
-fi
+echo -e "\n${CYAN}${BOLD}=================================================================="
+echo -e "  $TXT_TITLE"
+echo -e "  $TXT_SUBTITLE"
 echo -e "==================================================================${NC}"
-echo -e "${GRAY}Language: [${DETECTED_LANG^^}] (override with --lang=ru or --lang=en)${NC}\n"
-
-# 1. Root check
-if [ "$(id -u)" -ne 0 ]; then
-    echo -e "${RED}${TXT_ERR_ROOT}${NC}"
-    exit 1
-fi
+echo -e "${GRAY}Language: [${CHOSEN_LANG^^}]${NC}\n"
 
 PREFIX="${OPENFLUX_PREFIX:-/opt/openflux-zen-server}"
 REPO_URL="https://github.com/BizhQwe/openflux-zen-server.git"
@@ -254,11 +281,6 @@ PUBLISH_MODE="local"
 PUBLIC_URL=""
 DOMAIN=""
 ZROK_TOKEN=""
-
-HAS_TTY=0
-if [ -r /dev/tty ] && [ -w /dev/tty ]; then
-    HAS_TTY=1
-fi
 
 # Non-interactive overrides via environment variables
 if [ -n "${OPENFLUX_NETWORK_ACCESS:-}" ]; then
@@ -403,6 +425,25 @@ fi
 LOCAL_URL="http://127.0.0.1:$LISTEN_PORT/$SECRET_PATH/"
 FINAL_URL="${PUBLIC_URL:-$LOCAL_URL}"
 
+# 9. Autostart Choice & Setup Systemd Service
+echo -e "${BLUE}${BOLD}${TXT_STEP7}${NC}"
+AUTOSTART_ENABLED=1
+if [ -n "${OPENFLUX_AUTOSTART:-}" ]; then
+    if [[ "$OPENFLUX_AUTOSTART" =~ ^(0|[Nn]|[Ff]alse)$ ]]; then
+        AUTOSTART_ENABLED=0
+    fi
+elif [ "$HAS_TTY" -eq 1 ]; then
+    read -r -p "$TXT_AUTOSTART_PROMPT" AUTOSTART_CHOICE < /dev/tty
+    if [[ "$AUTOSTART_CHOICE" =~ ^[Nn] ]]; then
+        AUTOSTART_ENABLED=0
+    fi
+elif [ -t 0 ]; then
+    read -r -p "$TXT_AUTOSTART_PROMPT" AUTOSTART_CHOICE
+    if [[ "$AUTOSTART_CHOICE" =~ ^[Nn] ]]; then
+        AUTOSTART_ENABLED=0
+    fi
+fi
+
 # Save initial credentials for CLI
 mkdir -p "$PREFIX/app/data"
 cat > "$PREFIX/app/data/.credentials" <<EOF
@@ -411,13 +452,13 @@ cat > "$PREFIX/app/data/.credentials" <<EOF
   "password": "$ADMIN_PASS",
   "secretPath": "$SECRET_PATH",
   "publicUrl": "$FINAL_URL",
+  "language": "$CHOSEN_LANG",
+  "autostart": $AUTOSTART_ENABLED,
   "updatedAt": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 }
 EOF
 chmod 600 "$PREFIX/app/data/.credentials"
 
-# 9. Setup Systemd Service
-echo -e "${BLUE}${BOLD}${TXT_STEP7}${NC}"
 cat > /etc/systemd/system/openflux-zen-server.service <<EOF
 [Unit]
 Description=OpenFlux Zen Server Management Panel
@@ -437,6 +478,7 @@ Environment=OPENFLUX_ADMIN_USER=$ADMIN_USER
 Environment=OPENFLUX_ADMIN_PASSWORD=$ADMIN_PASS
 Environment=OPENFLUX_PUBLIC_URL=$FINAL_URL
 Environment=OPENFLUX_PUBLISH_MODE=$PUBLISH_MODE
+Environment=OPENFLUX_LANGUAGE=$CHOSEN_LANG
 Environment=DOTNET_gcServer=0
 Environment=DOTNET_GCHeapHardLimit=80000000
 
@@ -449,7 +491,11 @@ echo "net.ipv4.ip_forward = 1" > /etc/sysctl.d/99-openflux.conf
 sysctl --system >/dev/null 2>&1 || true
 
 systemctl daemon-reload
-systemctl enable openflux-zen-server.service >/dev/null 2>&1
+if [ "$AUTOSTART_ENABLED" -eq 1 ]; then
+    systemctl enable openflux-zen-server.service >/dev/null 2>&1
+else
+    systemctl disable openflux-zen-server.service >/dev/null 2>&1 || true
+fi
 systemctl restart openflux-zen-server.service --no-block
 
 # 10. Setup CLI Command in PATH
@@ -474,26 +520,36 @@ if [ "$HEALTH_OK" -eq 0 ]; then
     echo -e " ${YELLOW}${TXT_HEALTH_INIT}${NC}"
 fi
 
-# Print Final Summary Card
+# Print Final Summary Card (Compact, cleanly formatted, no wrapping)
 echo -e "\n${GREEN}${BOLD}=================================================================="
 echo -e "  $TXT_SUCCESS_TITLE"
-echo -e "==================================================================${NC}"
-echo -e "${CYAN}  ${TXT_LBL_SECRET_URL}${NC} ${BOLD}$FINAL_URL${NC}"
-echo -e "${CYAN}  ${TXT_LBL_LOCAL_URL}${NC} ${BOLD}$LOCAL_URL${NC}"
-echo -e "${CYAN}  ${TXT_LBL_USER}${NC} ${BOLD}$ADMIN_USER${NC}"
-echo -e "${CYAN}  ${TXT_LBL_PASS}${NC} ${BOLD}$ADMIN_PASS${NC}"
-echo -e "${CYAN}  ${TXT_LBL_SECRET}${NC} ${BOLD}/$SECRET_PATH/${NC}"
-echo -e "${GREEN}${BOLD}------------------------------------------------------------------${NC}"
-echo -e "${YELLOW}  ${TXT_LBL_CLI}${NC}\n"
-echo -e "    ${BOLD}OpenFluxZenServer start${NC}        — ${TXT_CLI_START}"
-echo -e "    ${BOLD}OpenFluxZenServer stop${NC}         — ${TXT_CLI_STOP}"
-echo -e "    ${BOLD}OpenFluxZenServer restart${NC}      — ${TXT_CLI_RESTART}"
+echo -e "==================================================================${NC}\n"
+
+echo -e "${CYAN}${BOLD}  ${TXT_LBL_SECRET_URL}:${NC}"
+echo -e "    ${BOLD}${YELLOW}$FINAL_URL${NC}\n"
+
+echo -e "${CYAN}${BOLD}  ${TXT_LBL_LOCAL_URL}:${NC}"
+echo -e "    ${BOLD}$LOCAL_URL${NC}\n"
+
+echo -e "${CYAN}${BOLD}  ${TXT_LBL_CREDS_TITLE}:${NC}"
+echo -e "    ${TXT_LBL_USER}:            ${BOLD}$ADMIN_USER${NC}"
+echo -e "    ${TXT_LBL_PASS}:          ${BOLD}$ADMIN_PASS${NC}"
+echo -e "    ${TXT_LBL_SECRET}:      ${BOLD}/$SECRET_PATH/${NC}"
+echo -e "    ${TXT_LBL_LANG}:        ${BOLD}${CHOSEN_LANG^^}${NC}"
+if [ "$AUTOSTART_ENABLED" -eq 1 ]; then
+    echo -e "    ${TXT_LBL_AUTOSTART}:           ${GREEN}${BOLD}${TXT_ENABLED}${NC}"
+else
+    echo -e "    ${TXT_LBL_AUTOSTART}:           ${GRAY}${BOLD}${TXT_DISABLED}${NC}"
+fi
+
+echo -e "\n${GREEN}${BOLD}------------------------------------------------------------------${NC}"
+echo -e "${YELLOW}${BOLD}  ${TXT_LBL_CLI}${NC}\n"
 echo -e "    ${BOLD}OpenFluxZenServer status${NC}       — ${TXT_CLI_STATUS}"
-echo -e "    ${BOLD}OpenFluxZenServer autostart${NC}    — ${TXT_CLI_AUTOSTART}"
+echo -e "    ${BOLD}OpenFluxZenServer restart${NC}      — ${TXT_CLI_RESTART}"
 echo -e "    ${BOLD}OpenFluxZenServer credentials${NC}  — ${TXT_CLI_CREDS}"
+echo -e "    ${BOLD}OpenFluxZenServer autostart${NC}    — ${TXT_CLI_AUTOSTART}"
 echo -e "    ${BOLD}OpenFluxZenServer help${NC}         — ${TXT_CLI_HELP}"
-echo -e "    ${BOLD}OpenFluxZenServer uninstall${NC}    — ${TXT_CLI_UNINSTALL}"
-echo -e "${GREEN}${BOLD}==================================================================${NC}\n"
+echo -e "\n${GREEN}${BOLD}==================================================================${NC}\n"
 
 if [ "$HEALTH_OK" -eq 1 ]; then
     echo -e "${GREEN}${TXT_SRV_ACTIVE}${NC}\n"

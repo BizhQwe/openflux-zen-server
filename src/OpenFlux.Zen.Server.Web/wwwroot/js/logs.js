@@ -3,7 +3,7 @@
 function updateLogSelect(list) {
   const sel = document.getElementById('log-target-select');
   const cur = sel.value;
-  sel.innerHTML = '<option value="system">Лог панели (System)</option>' +
+  sel.innerHTML = `<option value="system">${t('logs_panel_system')}</option>` +
     list.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
   if (Array.from(sel.options).some(o => o.value === cur)) sel.value = cur;
 }
@@ -24,7 +24,7 @@ async function loadActiveLogs() {
     if (!res.ok) return;
     const lines = await res.json();
     if (lines.length === 0) {
-      term.innerHTML = '<div class="log-line log-system">Нет записей в журнале логов.</div>';
+      term.innerHTML = `<div class="log-line log-system">${t('logs_empty')}</div>`;
       return;
     }
 
@@ -44,7 +44,7 @@ async function clearCurrentLogs() {
   const target = document.getElementById('log-target-select').value;
   if (target !== 'system') {
     await api(`api/tunnels/${target}/logs`, { method: 'DELETE' });
-    toast('Лог туннеля очищен', 'info');
+    toast(t('toast_logs_cleared'), 'info');
     loadActiveLogs();
   }
 }
@@ -58,12 +58,12 @@ async function downloadCurrentLogs() {
     let url = target === 'system' ? 'api/logs/system?tail=2000' : `api/tunnels/${target}/logs?tail=2000`;
     const res = await api(url);
     if (!res.ok) {
-      toast('Не удалось получить логи для скачивания', 'danger');
+      toast(t('toast_logs_fetch_fail'), 'danger');
       return;
     }
     const lines = await res.json();
     if (!lines || lines.length === 0) {
-      toast('Логи пусты, нечего скачивать', 'warning');
+      toast(t('toast_logs_empty'), 'warning');
       return;
     }
     let textContent = '';
@@ -85,8 +85,8 @@ async function downloadCurrentLogs() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(a.href);
-    toast('Логи успешно сохранены в файл', 'success');
+    toast(t('toast_logs_download_success'), 'success');
   } catch (err) {
-    toast('Ошибка при сохранении логов', 'danger');
+    toast(t('toast_logs_download_error'), 'danger');
   }
 }
