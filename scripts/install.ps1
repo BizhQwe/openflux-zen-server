@@ -3,7 +3,7 @@
 # Multi-language (RU / EN), Auto .NET 10 Install, Auto Git/Zip Fetch, CLI Setup
 # ==============================================================================
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 $Lang = if ($args -and $args.Count -gt 0) { $args[0] } else { "" }
 
 # 1. Administrator Check & Self-Elevation
@@ -29,11 +29,14 @@ function Download-FileWithFallback {
     }
 
     # 1. Native Windows curl.exe (standard on Windows 10/11 & Windows Server 2019/2022/2025)
+    # Using -sSL to suppress stderr progress meter which causes NativeCommandError in PowerShell 5.1
     if (Get-Command curl.exe -ErrorAction SilentlyContinue) {
-        & curl.exe -fL --retry 3 --connect-timeout 20 -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)" "$SourceUrl" -o "$DestFile" 2>$null
-        if ($LASTEXITCODE -eq 0 -and (Test-Path $DestFile) -and ((Get-Item $DestFile).Length -ge $MinBytes)) {
-            return $true
-        }
+        try {
+            & curl.exe -sSL -f --retry 3 --connect-timeout 20 -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)" "$SourceUrl" -o "$DestFile"
+            if ($LASTEXITCODE -eq 0 -and (Test-Path $DestFile) -and ((Get-Item $DestFile).Length -ge $MinBytes)) {
+                return $true
+            }
+        } catch {}
         if (Test-Path $DestFile) { Remove-Item -Path $DestFile -Force -ErrorAction SilentlyContinue }
     }
 
@@ -46,8 +49,8 @@ function Download-FileWithFallback {
         if ((Test-Path $DestFile) -and ((Get-Item $DestFile).Length -ge $MinBytes)) {
             return $true
         }
-        if (Test-Path $DestFile) { Remove-Item -Path $DestFile -Force -ErrorAction SilentlyContinue }
     } catch {}
+    if (Test-Path $DestFile) { Remove-Item -Path $DestFile -Force -ErrorAction SilentlyContinue }
 
     # 3. Invoke-WebRequest with User-Agent
     try {
@@ -57,6 +60,7 @@ function Download-FileWithFallback {
             return $true
         }
     } catch {}
+    if (Test-Path $DestFile) { Remove-Item -Path $DestFile -Force -ErrorAction SilentlyContinue }
 
     return $false
 }
@@ -119,8 +123,9 @@ if (-not $hasDotnet10) {
     $dotnetInstallerScript = Join-Path $env:TEMP "dotnet-install.ps1"
     $dlDotnet = Download-FileWithFallback "https://dot.net/v1/dotnet-install.ps1" $dotnetInstallerScript 5000
     if (-not $dlDotnet) {
-        $msg = if ($chosenLang -eq "ru") { "Не удалось загрузить установщик .NET 10 SDK с https://dot.net" } else { "Failed to download .NET 10 SDK installer from https://dot.net" }
-        throw $msg
+        $msg = if ($chosenLang -eq "ru") { "[ОШИБКА] Не удалось загрузить установщик .NET 10 SDK с https://dot.net" } else { "[ERROR] Failed to download .NET 10 SDK installer from https://dot.net" }
+        Write-Host $msg -ForegroundColor Red
+        exit 1
     }
     & $dotnetInstallerScript -Channel 10.0 -InstallDir (Join-Path $env:ProgramFiles "dotnet")
     $env:DOTNET_ROOT = Join-Path $env:ProgramFiles "dotnet"
@@ -157,7 +162,7 @@ if ($localCsproj -and (Test-Path $localCsproj)) {
     if (Get-Command git -ErrorAction SilentlyContinue) {
         Write-Host "Cloning repository via git..." -ForegroundColor Gray
         try {
-            git clone --depth 1 "https://github.com/BizhQwe/openflux-zen-server.git" $workDir
+            git clone --depth 1 "https://github.com/BizhQwe/openflux-zen-server.git" $workDir *>$null
             if ($LASTEXITCODE -eq 0 -and (Test-Path (Join-Path $workDir "src\OpenFlux.Zen.Server.Web\OpenFlux.Zen.Server.Web.csproj"))) {
                 $cloneSuccess = $true
             }
@@ -176,8 +181,9 @@ if ($localCsproj -and (Test-Path $localCsproj)) {
         $zipPath = Join-Path $env:TEMP "openflux-zen-server.zip"
         $dlOk = Download-FileWithFallback "https://github.com/BizhQwe/openflux-zen-server/archive/refs/heads/main.zip" $zipPath 1000000
         if (-not $dlOk) {
-            $msg = if ($chosenLang -eq "ru") { "Не удалось загрузить архив репозитория OpenFlux Zen Server с GitHub" } else { "Failed to download OpenFlux Zen Server repository archive from GitHub" }
-            throw $msg
+            $msg = if ($chosenLang -eq "ru") { "[ОШИБКА] Не удалось загрузить архив репозитория OpenFlux Zen Server с GitHub" } else { "[ERROR] Failed to download OpenFlux Zen Server repository archive from GitHub" }
+            Write-Host $msg -ForegroundColor Red
+            exit 1
         }
         $extractDir = Join-Path $env:TEMP "openflux_extracted"
         if (Test-Path $extractDir) { Remove-Item -Path $extractDir -Recurse -Force -ErrorAction SilentlyContinue }
@@ -208,6 +214,12 @@ Start-Sleep -Milliseconds 600
 $webProj = Join-Path $workDir "src\OpenFlux.Zen.Server.Web\OpenFlux.Zen.Server.Web.csproj"
 $cliProj = Join-Path $workDir "src\OpenFlux.Zen.Server.Cli\OpenFlux.Zen.Server.Cli.csproj"
 
+if (-not (Test-Path $webProj)) {
+    $msg = if ($chosenLang -eq "ru") { "[ОШИБКА] Проект $webProj не найден." } else { "[ERROR] Project $webProj not found." }
+    Write-Host $msg -ForegroundColor Red
+    exit 1
+}
+
 $dotnetCmd = "dotnet"
 $dotnetDefault = Join-Path $env:ProgramFiles "dotnet\dotnet.exe"
 if (Test-Path $dotnetDefault) {
@@ -220,7 +232,18 @@ $env:DOTNET_NOLOGO = "1"
 $env:DOTNET_CLI_TELEMETRY_OPTOUT = "1"
 
 & $dotnetCmd publish $webProj -c Release -o $InstallDir
+if ($LASTEXITCODE -ne 0) {
+    $msg = if ($chosenLang -eq "ru") { "[ОШИБКА] Сборка Web-панели не удалась." } else { "[ERROR] Failed to compile Web panel." }
+    Write-Host $msg -ForegroundColor Red
+    exit 1
+}
+
 & $dotnetCmd publish $cliProj -c Release -o $InstallDir
+if ($LASTEXITCODE -ne 0) {
+    $msg = if ($chosenLang -eq "ru") { "[ОШИБКА] Сборка CLI не удалась." } else { "[ERROR] Failed to compile CLI." }
+    Write-Host $msg -ForegroundColor Red
+    exit 1
+}
 
 # Copy native runtimes
 $runtimesSrc = Join-Path $workDir "runtimes"
@@ -283,15 +306,15 @@ $credObj = [PSCustomObject]@{
 $credObj | ConvertTo-Json -Depth 4 | Set-Content -Path $credFile -Encoding UTF8
 
 # Configure Windows Scheduled Task
-schtasks.exe /delete /tn "OpenFluxZenServer" /f 2>$null | Out-Null
+schtasks.exe /delete /tn "OpenFluxZenServer" /f *>$null
 $exePath = Join-Path $InstallDir "OpenFlux.Zen.Server.Web.exe"
 $taskAction = '"' + $exePath + '"'
-schtasks.exe /create /tn "OpenFluxZenServer" /tr $taskAction /sc onstart /ru SYSTEM /rl HIGHEST /f 2>$null | Out-Null
+schtasks.exe /create /tn "OpenFluxZenServer" /tr $taskAction /sc onstart /ru SYSTEM /rl HIGHEST /f *>$null
 if ($LASTEXITCODE -ne 0) {
-    schtasks.exe /create /tn "OpenFluxZenServer" /tr $taskAction /sc onlogon /rl HIGHEST /f 2>$null | Out-Null
+    schtasks.exe /create /tn "OpenFluxZenServer" /tr $taskAction /sc onlogon /rl HIGHEST /f *>$null
 }
 if (-not $autostartEnabled) {
-    schtasks.exe /change /tn "OpenFluxZenServer" /disable 2>$null | Out-Null
+    schtasks.exe /change /tn "OpenFluxZenServer" /disable *>$null
 }
 
 # 8. Register CLI in Machine PATH
