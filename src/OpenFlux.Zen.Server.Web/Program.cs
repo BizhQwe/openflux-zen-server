@@ -16,11 +16,25 @@ builder.Logging.AddNLog();
 
 // 2. Configure Host and Port
 var listenPort = 5000;
+string? credHost = null;
+var credPath = AppPaths.GetCredentialsPath();
+if (File.Exists(credPath))
+{
+    try
+    {
+        var credJson = File.ReadAllText(credPath);
+        using var doc = System.Text.Json.JsonDocument.Parse(credJson);
+        if (doc.RootElement.TryGetProperty("host", out var h)) credHost = h.GetString();
+        if (doc.RootElement.TryGetProperty("port", out var p) && p.TryGetInt32(out var pt)) listenPort = pt;
+    }
+    catch { }
+}
+
 if (int.TryParse(Environment.GetEnvironmentVariable("OPENFLUX_PORT"), out var envPort))
 {
     listenPort = envPort;
 }
-var listenHost = Environment.GetEnvironmentVariable("OPENFLUX_HOST") ?? "127.0.0.1";
+var listenHost = Environment.GetEnvironmentVariable("OPENFLUX_HOST") ?? credHost ?? "127.0.0.1";
 builder.WebHost.UseUrls($"http://{listenHost}:{listenPort}");
 
 // 3. Register Database

@@ -270,6 +270,12 @@ public sealed class SettingsService : ISettingsService
         string? credPass = null;
         string? credSecret = null;
         string? credLang = null;
+        string? credHost = null;
+        string? credPubUrl = null;
+        string? credMode = null;
+        string? credDomain = null;
+        string? credZrokToken = null;
+        int? credPort = null;
         if (File.Exists(_credentialsFilePath))
         {
             try
@@ -280,6 +286,12 @@ public sealed class SettingsService : ISettingsService
                 if (doc.TryGetProperty("password", out var pwd)) credPass = pwd.GetString();
                 if (doc.TryGetProperty("secretPath", out var s)) credSecret = s.GetString();
                 if (doc.TryGetProperty("language", out var l)) credLang = l.GetString();
+                if (doc.TryGetProperty("host", out var h)) credHost = h.GetString();
+                if (doc.TryGetProperty("publicUrl", out var pub)) credPubUrl = pub.GetString();
+                if (doc.TryGetProperty("publishMode", out var pm)) credMode = pm.GetString();
+                if (doc.TryGetProperty("domain", out var dm)) credDomain = dm.GetString();
+                if (doc.TryGetProperty("zrokToken", out var zt)) credZrokToken = zt.GetString();
+                if (doc.TryGetProperty("port", out var pt) && pt.TryGetInt32(out var pVal)) credPort = pVal;
             }
             catch { }
         }
@@ -293,6 +305,14 @@ public sealed class SettingsService : ISettingsService
         {
             initialPort = portNum;
         }
+        else if (credPort.HasValue)
+        {
+            initialPort = credPort.Value;
+        }
+
+        var initialHost = Environment.GetEnvironmentVariable("OPENFLUX_HOST") ?? credHost ?? "127.0.0.1";
+        var initialPubUrl = Environment.GetEnvironmentVariable("OPENFLUX_PUBLIC_URL") ?? credPubUrl;
+        var initialMode = Environment.GetEnvironmentVariable("OPENFLUX_PUBLISH_MODE") ?? credMode ?? "local";
 
         var (hash, salt) = AuthService.HashPassword(initialPassword);
         var settings = new AppSettings
@@ -302,9 +322,12 @@ public sealed class SettingsService : ISettingsService
             PasswordHash = hash,
             PasswordSalt = salt,
             SecretPath = initialSecret,
-            ListenHost = "127.0.0.1",
+            ListenHost = initialHost,
             ListenPort = initialPort,
-            PublishMode = "local",
+            PublicUrl = initialPubUrl,
+            PublishMode = initialMode,
+            Domain = credDomain,
+            ZrokToken = credZrokToken,
             AutoStartEnabled = true,
             Language = initialLang,
             UpdatedAt = DateTime.UtcNow
@@ -313,7 +336,7 @@ public sealed class SettingsService : ISettingsService
         db.Settings.Add(settings);
         await db.SaveChangesAsync();
 
-        SaveCredentialsFile(initialUser, initialPassword, initialSecret, null);
+        SaveCredentialsFile(initialUser, initialPassword, initialSecret, initialPubUrl);
         _logger.LogInformation("Initialized default admin settings. Secret path: /{Secret}/", initialSecret);
 
         return settings;

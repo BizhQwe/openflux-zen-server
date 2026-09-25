@@ -1,4 +1,4 @@
-# ==============================================================================
+﻿# ==============================================================================
 # OpenFlux Zen Server - Production 1-Command Installer for Windows (PowerShell)
 # Multi-language (RU / EN), Auto .NET 10 Install, Auto Git/Zip Fetch, CLI Setup
 # ==============================================================================
@@ -29,7 +29,6 @@ function Download-FileWithFallback {
     }
 
     # 1. Native Windows curl.exe (standard on Windows 10/11 & Windows Server 2019/2022/2025)
-    # Using -sSL to suppress stderr progress meter which causes NativeCommandError in PowerShell 5.1
     if (Get-Command curl.exe -ErrorAction SilentlyContinue) {
         try {
             & curl.exe -sSL -f --retry 3 --connect-timeout 20 -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)" "$SourceUrl" -o "$DestFile"
@@ -86,9 +85,9 @@ if (-not $chosenLang) {
 # 3. Check or Install .NET 10 SDK
 Write-Host ""
 if ($chosenLang -eq "ru") {
-    Write-Host "[1/7] Проверка и подготовка среды .NET 10..." -ForegroundColor Cyan
+    Write-Host "[1/8] Проверка и подготовка среды .NET 10..." -ForegroundColor Cyan
 } else {
-    Write-Host "[1/7] Checking and preparing .NET 10 environment..." -ForegroundColor Cyan
+    Write-Host "[1/8] Checking and preparing .NET 10 environment..." -ForegroundColor Cyan
 }
 
 $hasDotnet10 = $false
@@ -140,9 +139,9 @@ if (-not $hasDotnet10) {
 
 # 4. Fetch Repository Source (Git clone or Zip download fallback)
 if ($chosenLang -eq "ru") {
-    Write-Host "[2/7] Получение исходного кода OpenFlux Zen Server..." -ForegroundColor Cyan
+    Write-Host "[2/8] Получение исходного кода OpenFlux Zen Server..." -ForegroundColor Cyan
 } else {
-    Write-Host "[2/7] Fetching OpenFlux Zen Server repository..." -ForegroundColor Cyan
+    Write-Host "[2/8] Fetching OpenFlux Zen Server repository..." -ForegroundColor Cyan
 }
 
 $workDir = Join-Path $env:TEMP "openflux-zen-server-build"
@@ -199,16 +198,16 @@ if ($localCsproj -and (Test-Path $localCsproj)) {
 
 # 5. Build and Publish Web and CLI
 if ($chosenLang -eq "ru") {
-    Write-Host "[3/7] Сборка и публикация компонентов..." -ForegroundColor Cyan
+    Write-Host "[3/8] Сборка и публикация компонентов..." -ForegroundColor Cyan
 } else {
-    Write-Host "[3/7] Building and publishing application components..." -ForegroundColor Cyan
+    Write-Host "[3/8] Building and publishing application components..." -ForegroundColor Cyan
 }
 
 $InstallDir = Join-Path $env:ProgramFiles "OpenFluxZenServer"
 New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
 
 # Terminate existing running processes
-Get-Process -Name "OpenFlux.Zen.Server.Web", "OpenFluxZenServer", "openflux-windows-amd64", "openflux-windows-arm64" -ErrorAction SilentlyContinue | Stop-Process -Force
+Get-Process -Name "OpenFlux.Zen.Server.Web", "OpenFluxZenServer", "openflux-windows-amd64", "openflux-windows-arm64", "zrok", "zrok2" -ErrorAction SilentlyContinue | Stop-Process -Force
 Start-Sleep -Milliseconds 600
 
 $webProj = Join-Path $workDir "src\OpenFlux.Zen.Server.Web\OpenFlux.Zen.Server.Web.csproj"
@@ -255,21 +254,29 @@ if (Test-Path $runtimesSrc) {
 
 # 6. Credentials and Configuration
 if ($chosenLang -eq "ru") {
-    Write-Host "[4/7] Генерация ключей доступа и учётных данных..." -ForegroundColor Cyan
+    Write-Host "[4/8] Генерация ключей доступа и учётных данных..." -ForegroundColor Cyan
 } else {
-    Write-Host "[4/7] Generating security credentials and access keys..." -ForegroundColor Cyan
+    Write-Host "[4/8] Generating security credentials and access keys..." -ForegroundColor Cyan
 }
 
 $credFile = Join-Path $InstallDir "data\.credentials"
 $existingUser = ""
 $existingPass = ""
 $existingSecret = ""
+$existingMode = ""
+$existingDomain = ""
+$existingZrokToken = ""
+$existingHost = ""
 if (Test-Path $credFile) {
     try {
         $json = Get-Content $credFile -Raw | ConvertFrom-Json
         $existingUser = $json.username
         $existingPass = $json.password
         $existingSecret = $json.secretPath
+        $existingMode = $json.publishMode
+        $existingDomain = $json.domain
+        $existingZrokToken = $json.zrokToken
+        $existingHost = $json.host
     } catch {}
 }
 
@@ -280,12 +287,156 @@ $listenPort = 5000
 
 $localUrl = "http://127.0.0.1:$listenPort/$secretPath/"
 $finalUrl = $localUrl
+$publishMode = if ($existingMode) { $existingMode } else { "local" }
+$listenHost = if ($existingHost) { $existingHost } else { "127.0.0.1" }
+$userDomain = if ($existingDomain) { $existingDomain } else { "" }
+$zrokToken = if ($existingZrokToken) { $existingZrokToken } else { "" }
 
-# 7. Autostart Question and Task Scheduler Setup
+# 7. Network Accessibility and Publishing Configuration
+Write-Host ""
 if ($chosenLang -eq "ru") {
-    Write-Host "[5/7] Настройка автозапуска при загрузке системы..." -ForegroundColor Cyan
+    Write-Host "[5/8] Настройка сетевого доступа и публикации..." -ForegroundColor Cyan
+    Write-Host "  По умолчанию панель доступна только локально на сервере (127.0.0.1)." -ForegroundColor Gray
+    $netPrompt = "  Нужна ли сетевая доступность панели из интернета? [y/N]"
 } else {
-    Write-Host "[5/7] Configuring system autostart..." -ForegroundColor Cyan
+    Write-Host "[5/8] Configuring network accessibility and publishing..." -ForegroundColor Cyan
+    Write-Host "  By default, the dashboard is accessible locally only (127.0.0.1)." -ForegroundColor Gray
+    $netPrompt = "  Do you want the dashboard accessible from the internet? [y/N]"
+}
+
+$netAccessInput = if ($env:OPENFLUX_NETWORK_ACCESS) { $env:OPENFLUX_NETWORK_ACCESS } else { Read-Host "$netPrompt [default: N]" }
+$netAccess = ($netAccessInput -match "^[Yy]")
+
+if ($netAccess) {
+    if ($chosenLang -eq "ru") {
+        Write-Host ""
+        Write-Host "  Выберите режим публикации:" -ForegroundColor Cyan
+        Write-Host "    1) Открытые порты (Собственный домен или внешний IP сервера)"
+        Write-Host "    2) Через Zrok (Защищённый туннель без открытия портов наружу)"
+        $pubPrompt = "  Ваш выбор [1/2, default: 1]"
+    } else {
+        Write-Host ""
+        Write-Host "  Select publishing mode:" -ForegroundColor Cyan
+        Write-Host "    1) Open ports (Custom domain or External server IP)"
+        Write-Host "    2) Via Zrok (Encrypted tunnel without exposing inbound ports)"
+        $pubPrompt = "  Your choice [1/2, default: 1]"
+    }
+
+    $pubChoice = if ($env:OPENFLUX_PUBLISH_MODE) { $env:OPENFLUX_PUBLISH_MODE } else { Read-Host "$pubPrompt" }
+
+    if ($pubChoice -match "2|zrok") {
+        $publishMode = "zrok"
+        $listenHost = "127.0.0.1"
+        $tokenPrompt = if ($chosenLang -eq "ru") { "  Введите ваш Zrok токен (Account Token)" } else { "  Enter your Zrok Account Token" }
+        $zrokToken = if ($env:OPENFLUX_ZROK_TOKEN) { $env:OPENFLUX_ZROK_TOKEN } else { (Read-Host "$tokenPrompt").Trim() }
+
+        if ($zrokToken) {
+            $zrokExe = Join-Path $InstallDir "zrok.exe"
+            if (-not (Test-Path $zrokExe)) {
+                $msgDl = if ($chosenLang -eq "ru") { "  Загрузка клиента Zrok для Windows..." } else { "  Downloading Zrok client for Windows..." }
+                Write-Host $msgDl -ForegroundColor Gray
+                $zrokArch = if ([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture -eq "Arm64") { "arm64" } else { "amd64" }
+                $zrokUrl = "https://github.com/openziti/zrok/releases/download/v2.0.4/zrok_2.0.4_windows_${zrokArch}.tar.gz"
+                $zrokArchive = Join-Path $env:TEMP "zrok.tar.gz"
+                $zrokExtractDir = Join-Path $env:TEMP "zrok_extracted"
+                if (Test-Path $zrokExtractDir) { Remove-Item -Path $zrokExtractDir -Recurse -Force -ErrorAction SilentlyContinue }
+                New-Item -ItemType Directory -Path $zrokExtractDir -Force | Out-Null
+
+                $dlZrok = Download-FileWithFallback $zrokUrl $zrokArchive 3000000
+                if ($dlZrok) {
+                    & tar.exe -xzf $zrokArchive -C $zrokExtractDir *>$null
+                    $foundZrok = Get-ChildItem -Path $zrokExtractDir -Recurse -Filter "zrok*.exe" | Select-Object -First 1
+                    if ($foundZrok) {
+                        Copy-Item -Path $foundZrok.FullName -Destination $zrokExe -Force
+                    }
+                    Remove-Item -Path $zrokArchive -Force -ErrorAction SilentlyContinue
+                    Remove-Item -Path $zrokExtractDir -Recurse -Force -ErrorAction SilentlyContinue
+                }
+            }
+
+            if (Test-Path $zrokExe) {
+                $msgEn = if ($chosenLang -eq "ru") { "  Активация окружения Zrok..." } else { "  Enabling Zrok environment..." }
+                Write-Host $msgEn -ForegroundColor Gray
+                & $zrokExe enable $zrokToken *>$null
+
+                schtasks.exe /delete /tn "OpenFluxZrok" /f *>$null
+                $zrokAction = '"' + $zrokExe + '" share public http://127.0.0.1:' + $listenPort + ' --headless'
+                schtasks.exe /create /tn "OpenFluxZrok" /tr $zrokAction /sc onstart /ru SYSTEM /rl HIGHEST /f *>$null
+                if ($LASTEXITCODE -ne 0) {
+                    schtasks.exe /create /tn "OpenFluxZrok" /tr $zrokAction /sc onlogon /rl HIGHEST /f *>$null
+                }
+
+                $zrokPsi = New-Object System.Diagnostics.ProcessStartInfo
+                $zrokPsi.FileName = $zrokExe
+                $zrokPsi.Arguments = "share public http://127.0.0.1:$listenPort --headless"
+                $zrokPsi.UseShellExecute = $false
+                $zrokPsi.CreateNoWindow = $true
+                $zrokPsi.RedirectStandardOutput = $true
+                $zrokPsi.RedirectStandardError = $true
+                [System.Diagnostics.Process]::Start($zrokPsi) | Out-Null
+
+                Start-Sleep -Seconds 4
+                $endpoint = ""
+                try {
+                    $overview = & $zrokExe overview
+                    $endpoint = ($overview | Select-String -Pattern '[a-z0-9]+\.shares?\.zrok\.io' | ForEach-Object { $_.Matches[0].Value } | Select-Object -First 1)
+                } catch {}
+
+                if ($endpoint) {
+                    $finalUrl = "https://$endpoint/$secretPath/"
+                } else {
+                    $finalUrl = "https://<zrok-share-url>/$secretPath/"
+                }
+            }
+        }
+    } else {
+        # Choice 1: Open ports
+        $publishMode = "domain"
+        $listenHost = "0.0.0.0"
+        $domainPrompt = if ($chosenLang -eq "ru") { "  Введите ваш домен (или нажмите Enter для внешнего IP сервера)" } else { "  Enter your domain (or press Enter for external server IP)" }
+        $userDomain = if ($env:OPENFLUX_DOMAIN) { $env:OPENFLUX_DOMAIN } else { (Read-Host "$domainPrompt").Trim() }
+
+        # Configure Windows Firewall
+        netsh advfirewall firewall delete rule name="OpenFluxZenServer" *>$null
+        netsh advfirewall firewall add rule name="OpenFluxZenServer" dir=in action=allow protocol=TCP localport=$listenPort *>$null
+        $msgFw = if ($chosenLang -eq "ru") { "  ✓ Добавлено правило брандмауэра Windows для входящего TCP порта $listenPort" } else { "  ✓ Windows Firewall rule added for incoming TCP port $listenPort" }
+        Write-Host $msgFw -ForegroundColor Green
+
+        if ($userDomain) {
+            $proto = if ($userDomain -match "^https?://") { "" } else { "http://" }
+            $cleanDomain = $userDomain -replace "^https?://", ""
+            $finalUrl = "$proto$cleanDomain`:$listenPort/$secretPath/"
+        } else {
+            $publicIp = ""
+            try {
+                $publicIp = (& curl.exe -sSL --connect-timeout 4 https://api.ipify.org).Trim()
+            } catch {}
+            if (-not $publicIp) {
+                try {
+                    $publicIp = (& curl.exe -sSL --connect-timeout 4 https://ifconfig.me/ip).Trim()
+                } catch {}
+            }
+            if (-not $publicIp) {
+                try {
+                    $wc = New-Object System.Net.WebClient
+                    $publicIp = ($wc.DownloadString("https://api.ipify.org")).Trim()
+                } catch {}
+            }
+            if ($publicIp) {
+                $finalUrl = "http://$publicIp`:$listenPort/$secretPath/"
+            } else {
+                $finalUrl = "http://<server-ip>`:$listenPort/$secretPath/"
+            }
+        }
+    }
+}
+
+# 8. Autostart Question and Task Scheduler Setup
+Write-Host ""
+if ($chosenLang -eq "ru") {
+    Write-Host "[6/8] Настройка автозапуска при загрузке системы..." -ForegroundColor Cyan
+} else {
+    Write-Host "[6/8] Configuring system autostart..." -ForegroundColor Cyan
 }
 
 $autostartPrompt = if ($chosenLang -eq "ru") { "Включить автозапуск сервера при загрузке системы? [Y/n]" } else { "Enable server autostart on system boot? [Y/n]" }
@@ -299,6 +450,11 @@ $credObj = [PSCustomObject]@{
     password = $adminPass
     secretPath = $secretPath
     publicUrl = $finalUrl
+    publishMode = $publishMode
+    host = $listenHost
+    port = $listenPort
+    domain = $userDomain
+    zrokToken = $zrokToken
     language = $chosenLang
     autostart = $autostartEnabled
     updatedAt = (Get-Date).ToUniversalTime().ToString("o")
@@ -317,11 +473,22 @@ if (-not $autostartEnabled) {
     schtasks.exe /change /tn "OpenFluxZenServer" /disable *>$null
 }
 
-# 8. Register CLI in Machine PATH
+# Set persistent Machine environment variables
+[Environment]::SetEnvironmentVariable("OPENFLUX_HOST", $listenHost, "Machine")
+[Environment]::SetEnvironmentVariable("OPENFLUX_PORT", "$listenPort", "Machine")
+[Environment]::SetEnvironmentVariable("OPENFLUX_SECRET_PATH", $secretPath, "Machine")
+[Environment]::SetEnvironmentVariable("OPENFLUX_ADMIN_USER", $adminUser, "Machine")
+[Environment]::SetEnvironmentVariable("OPENFLUX_ADMIN_PASSWORD", $adminPass, "Machine")
+[Environment]::SetEnvironmentVariable("OPENFLUX_LANGUAGE", $chosenLang, "Machine")
+[Environment]::SetEnvironmentVariable("OPENFLUX_PUBLIC_URL", $finalUrl, "Machine")
+[Environment]::SetEnvironmentVariable("OPENFLUX_PUBLISH_MODE", $publishMode, "Machine")
+
+# 9. Register CLI in Machine PATH
+Write-Host ""
 if ($chosenLang -eq "ru") {
-    Write-Host "[6/7] Регистрация OpenFluxZenServer в системном PATH..." -ForegroundColor Cyan
+    Write-Host "[7/8] Регистрация OpenFluxZenServer в системном PATH..." -ForegroundColor Cyan
 } else {
-    Write-Host "[6/7] Registering OpenFluxZenServer CLI command in PATH..." -ForegroundColor Cyan
+    Write-Host "[7/8] Registering OpenFluxZenServer CLI command in PATH..." -ForegroundColor Cyan
 }
 
 $currMachinePath = [Environment]::GetEnvironmentVariable("Path", "Machine")
@@ -330,29 +497,34 @@ if ($currMachinePath -notmatch [regex]::Escape($InstallDir)) {
 }
 $env:PATH = "$InstallDir;$($env:PATH)"
 
-# 9. Start Server Process
+# 10. Start Server Process in background
+Write-Host ""
 if ($chosenLang -eq "ru") {
-    Write-Host "[7/7] Запуск OpenFlux Zen Server..." -ForegroundColor Cyan
+    Write-Host "[8/8] Запуск OpenFlux Zen Server..." -ForegroundColor Cyan
 } else {
-    Write-Host "[7/7] Starting OpenFlux Zen Server..." -ForegroundColor Cyan
+    Write-Host "[8/8] Starting OpenFlux Zen Server..." -ForegroundColor Cyan
 }
 
 $psi = New-Object System.Diagnostics.ProcessStartInfo
 $psi.FileName = $exePath
 $psi.WorkingDirectory = $InstallDir
-$psi.EnvironmentVariables["OPENFLUX_HOST"] = "127.0.0.1"
+$psi.EnvironmentVariables["OPENFLUX_HOST"] = $listenHost
 $psi.EnvironmentVariables["OPENFLUX_PORT"] = "$listenPort"
 $psi.EnvironmentVariables["OPENFLUX_SECRET_PATH"] = $secretPath
 $psi.EnvironmentVariables["OPENFLUX_ADMIN_USER"] = $adminUser
 $psi.EnvironmentVariables["OPENFLUX_ADMIN_PASSWORD"] = $adminPass
 $psi.EnvironmentVariables["OPENFLUX_LANGUAGE"] = $chosenLang
 $psi.EnvironmentVariables["OPENFLUX_PUBLIC_URL"] = $finalUrl
+$psi.EnvironmentVariables["OPENFLUX_PUBLISH_MODE"] = $publishMode
 $psi.UseShellExecute = $false
+$psi.RedirectStandardOutput = $true
+$psi.RedirectStandardError = $true
+$psi.CreateNoWindow = $true
 [System.Diagnostics.Process]::Start($psi) | Out-Null
 
 Start-Sleep -Seconds 2
 
-# 10. Clean, Aligned Summary Card
+# 11. Clean, Aligned Summary Card
 $title = if ($chosenLang -eq "ru") { "OpenFlux Zen Server -- УСПЕШНО УСТАНОВЛЕН И ЗАПУЩЕН!" } else { "OpenFlux Zen Server -- SUCCESSFULLY INSTALLED AND STARTED!" }
 $lblSecret = if ($chosenLang -eq "ru") { "Панель управления (Секретная ссылка)" } else { "Web Dashboard URL (Secret link)" }
 $lblLocal = if ($chosenLang -eq "ru") { "Локальный адрес" } else { "Local Access URL" }
@@ -360,10 +532,24 @@ $lblCreds = if ($chosenLang -eq "ru") { "Учётные данные" } else { "
 $lblUser = if ($chosenLang -eq "ru") { "    Логин:              " } else { "    Username:           " }
 $lblPass = if ($chosenLang -eq "ru") { "    Пароль:             " } else { "    Password:           " }
 $lblSecPath = if ($chosenLang -eq "ru") { "    Секретный путь:     " } else { "    Secret Path:        " }
+$lblPubMode = if ($chosenLang -eq "ru") { "    Режим публикации:   " } else { "    Publish Mode:       " }
 $lblLang = if ($chosenLang -eq "ru") { "    Язык интерфейса:    " } else { "    Interface Language: " }
 $lblAuto = if ($chosenLang -eq "ru") { "    Автозапуск:         " } else { "    Autostart:          " }
 $valEnabled = if ($chosenLang -eq "ru") { "Включён" } else { "Enabled" }
 $valDisabled = if ($chosenLang -eq "ru") { "Выключен" } else { "Disabled" }
+
+$valMode = switch ($publishMode) {
+    "zrok" { if ($chosenLang -eq "ru") { "Через Zrok туннель" } else { "Via Zrok Tunnel" } }
+    "domain" { 
+        if ($userDomain) { 
+            "Domain ($userDomain)" 
+        } else { 
+            if ($chosenLang -eq "ru") { "Открытые порты (Внешний IP)" } else { "Open ports (External IP)" } 
+        } 
+    }
+    default { if ($chosenLang -eq "ru") { "Локальный (127.0.0.1)" } else { "Local only (127.0.0.1)" } }
+}
+
 $lblCli = if ($chosenLang -eq "ru") { "Управление сервером через команду: OpenFluxZenServer <command>" } else { "CLI command available anywhere: OpenFluxZenServer <command>" }
 $lblCliStatus = if ($chosenLang -eq "ru") { "текущий статус сервера" } else { "show server status" }
 $lblCliRestart = if ($chosenLang -eq "ru") { "перезапуск службы сервера" } else { "restart server service" }
@@ -386,6 +572,7 @@ Write-Host "  $($lblCreds):" -ForegroundColor Cyan
 Write-Host "$lblUser$adminUser" -ForegroundColor White
 Write-Host "$lblPass$adminPass" -ForegroundColor White
 Write-Host "$lblSecPath/$secretPath/" -ForegroundColor White
+Write-Host "$lblPubMode$valMode" -ForegroundColor White
 Write-Host "$lblLang$($chosenLang.ToUpper())" -ForegroundColor White
 if ($autostartEnabled) {
     Write-Host "$lblAuto$valEnabled" -ForegroundColor Green
@@ -403,4 +590,5 @@ Write-Host "    OpenFluxZenServer autostart    - $lblCliAuto"
 Write-Host "    OpenFluxZenServer help         - $lblCliHelp"
 Write-Host ""
 Write-Host "==================================================================" -ForegroundColor Green
-Write-Host ""
+Write-Host ""
+
