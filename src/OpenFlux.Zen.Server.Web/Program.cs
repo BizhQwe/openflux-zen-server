@@ -28,6 +28,7 @@ var dbPath = AppPaths.GetDatabasePath();
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
     options.UseSqlite($"Data Source={dbPath}");
+    options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
 });
 
 // 4. Register Application Services (IoC / Dependency Injection)

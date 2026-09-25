@@ -9,6 +9,12 @@ public sealed class AppDbContext : DbContext
     {
     }
 
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        base.OnConfiguring(optionsBuilder);
+        optionsBuilder.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
+    }
+
     public DbSet<Tunnel> Tunnels => Set<Tunnel>();
     public DbSet<AppSettings> Settings => Set<AppSettings>();
 
