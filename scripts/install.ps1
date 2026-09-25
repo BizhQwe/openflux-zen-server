@@ -3,12 +3,8 @@
 # Multi-language (RU / EN), Auto .NET 10 Install, Auto Git/Zip Fetch, CLI Setup
 # ==============================================================================
 
-[CmdletBinding()]
-param(
-    [string]$Lang = ""
-)
-
 $ErrorActionPreference = "Stop"
+$Lang = if ($args -and $args.Count -gt 0) { $args[0] } else { "" }
 
 # 1. Administrator Check & Self-Elevation
 $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
