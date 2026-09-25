@@ -338,10 +338,12 @@ if ($netAccess) {
         $publishMode = "zrok"
         $listenHost = "127.0.0.1"
         if ($chosenLang -eq "ru") {
-            Write-Host "  (Подсказка: нужен Account Token из личного кабинета zrok.io, НЕ пароль от входа)" -ForegroundColor DarkGray
+            Write-Host "  Токен можно получить на сайте: https://api-v1.zrok.io" -ForegroundColor Cyan
+            Write-Host "  (Внимание: тот токен, что работает на Linux, не работает на Windows - требуется отдельный токен)" -ForegroundColor Yellow
             $tokenPrompt = "  Введите ваш Zrok токен (Account Token)"
         } else {
-            Write-Host "  (Note: use your Account Token from zrok.io dashboard, NOT your login password)" -ForegroundColor DarkGray
+            Write-Host "  Token can be obtained at: https://api-v1.zrok.io" -ForegroundColor Cyan
+            Write-Host "  (Notice: a token active on Linux will not work on Windows - a separate token is required)" -ForegroundColor Yellow
             $tokenPrompt = "  Enter your Zrok Account Token"
         }
         $zrokToken = (Read-Host "$tokenPrompt").Trim()
@@ -377,10 +379,12 @@ if ($netAccess) {
                 if ($LASTEXITCODE -ne 0) {
                     if ($chosenLang -eq "ru") {
                         Write-Host "  [ВНИМАНИЕ] Не удалось активировать токен Zrok (ошибка авторизации)." -ForegroundColor Yellow
-                        Write-Host "  Проверьте корректность токена в консоли zrok.io. Переключение на локальный режим." -ForegroundColor DarkGray
+                        Write-Host "  Токен можно получить на сайте https://api-v1.zrok.io. Тот токен, что работает на Linux, не работает на Windows." -ForegroundColor DarkGray
+                        Write-Host "  Переключение на локальный режим (127.0.0.1)." -ForegroundColor DarkGray
                     } else {
                         Write-Host "  [WARNING] Could not enable Zrok token (authorization error)." -ForegroundColor Yellow
-                        Write-Host "  Please verify your token at zrok.io. Falling back to local mode." -ForegroundColor DarkGray
+                        Write-Host "  Token can be obtained at https://api-v1.zrok.io. A token active on Linux cannot be reused on Windows." -ForegroundColor DarkGray
+                        Write-Host "  Falling back to local mode (127.0.0.1)." -ForegroundColor DarkGray
                     }
                     $publishMode = "local"
                     $finalUrl = $localUrl
