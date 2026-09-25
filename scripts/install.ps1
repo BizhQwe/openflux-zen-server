@@ -357,35 +357,46 @@ if ($netAccess) {
             if (Test-Path $zrokExe) {
                 $msgEn = if ($chosenLang -eq "ru") { "  Активация окружения Zrok..." } else { "  Enabling Zrok environment..." }
                 Write-Host $msgEn -ForegroundColor Gray
-                & $zrokExe enable $zrokToken *>$null
-
-                schtasks.exe /delete /tn "OpenFluxZrok" /f *>$null
-                $zrokAction = '"' + $zrokExe + '" share public http://127.0.0.1:' + $listenPort + ' --headless'
-                schtasks.exe /create /tn "OpenFluxZrok" /tr $zrokAction /sc onstart /ru SYSTEM /rl HIGHEST /f *>$null
+                $enableOut = & $zrokExe enable $zrokToken 2>&1
                 if ($LASTEXITCODE -ne 0) {
-                    schtasks.exe /create /tn "OpenFluxZrok" /tr $zrokAction /sc onlogon /rl HIGHEST /f *>$null
-                }
-
-                $zrokPsi = New-Object System.Diagnostics.ProcessStartInfo
-                $zrokPsi.FileName = $zrokExe
-                $zrokPsi.Arguments = "share public http://127.0.0.1:$listenPort --headless"
-                $zrokPsi.UseShellExecute = $false
-                $zrokPsi.CreateNoWindow = $true
-                $zrokPsi.RedirectStandardOutput = $true
-                $zrokPsi.RedirectStandardError = $true
-                [System.Diagnostics.Process]::Start($zrokPsi) | Out-Null
-
-                Start-Sleep -Seconds 4
-                $endpoint = ""
-                try {
-                    $overview = & $zrokExe overview
-                    $endpoint = ($overview | Select-String -Pattern '[a-z0-9]+\.shares?\.zrok\.io' | ForEach-Object { $_.Matches[0].Value } | Select-Object -First 1)
-                } catch {}
-
-                if ($endpoint) {
-                    $finalUrl = "https://$endpoint/$secretPath/"
+                    if ($chosenLang -eq "ru") {
+                        Write-Host "  [ВНИМАНИЕ] Не удалось активировать токен Zrok (ошибка авторизации)." -ForegroundColor Yellow
+                        Write-Host "  Проверьте корректность токена в консоли zrok.io. Переключение на локальный режим." -ForegroundColor DarkGray
+                    } else {
+                        Write-Host "  [WARNING] Could not enable Zrok token (authorization error)." -ForegroundColor Yellow
+                        Write-Host "  Please verify your token at zrok.io. Falling back to local mode." -ForegroundColor DarkGray
+                    }
+                    $publishMode = "local"
+                    $finalUrl = $localUrl
                 } else {
-                    $finalUrl = "https://<zrok-share-url>/$secretPath/"
+                    schtasks.exe /delete /tn "OpenFluxZrok" /f *>$null
+                    $zrokAction = '"' + $zrokExe + '" share public http://127.0.0.1:' + $listenPort + ' --headless'
+                    schtasks.exe /create /tn "OpenFluxZrok" /tr $zrokAction /sc onstart /ru SYSTEM /rl HIGHEST /f *>$null
+                    if ($LASTEXITCODE -ne 0) {
+                        schtasks.exe /create /tn "OpenFluxZrok" /tr $zrokAction /sc onlogon /rl HIGHEST /f *>$null
+                    }
+
+                    $zrokPsi = New-Object System.Diagnostics.ProcessStartInfo
+                    $zrokPsi.FileName = $zrokExe
+                    $zrokPsi.Arguments = "share public http://127.0.0.1:$listenPort --headless"
+                    $zrokPsi.UseShellExecute = $false
+                    $zrokPsi.CreateNoWindow = $true
+                    $zrokPsi.RedirectStandardOutput = $true
+                    $zrokPsi.RedirectStandardError = $true
+                    [System.Diagnostics.Process]::Start($zrokPsi) | Out-Null
+
+                    Start-Sleep -Seconds 4
+                    $endpoint = ""
+                    try {
+                        $overview = & $zrokExe overview 2>$null
+                        $endpoint = ($overview | Select-String -Pattern '[a-z0-9]+\.shares?\.zrok\.io' | ForEach-Object { $_.Matches[0].Value } | Select-Object -First 1)
+                    } catch {}
+
+                    if ($endpoint) {
+                        $finalUrl = "https://$endpoint/$secretPath/"
+                    } else {
+                        $finalUrl = "https://<zrok-share-url>/$secretPath/"
+                    }
                 }
             }
         }
