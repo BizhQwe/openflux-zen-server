@@ -1,4 +1,4 @@
-﻿# ==============================================================================
+# ==============================================================================
 # OpenFlux Zen Server - Production 1-Command Installer for Windows (PowerShell)
 # Multi-language (RU / EN), Auto .NET 10 Install, Auto Git/Zip Fetch, CLI Setup
 # ==============================================================================
