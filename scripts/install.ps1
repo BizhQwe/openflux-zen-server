@@ -293,6 +293,15 @@ $userDomain = if ($existingDomain) { $existingDomain } else { "" }
 $zrokToken = if ($existingZrokToken) { $existingZrokToken } else { "" }
 
 # 7. Network Accessibility and Publishing Configuration
+$env:OPENFLUX_PUBLISH_MODE = $null
+$env:OPENFLUX_NETWORK_ACCESS = $null
+$env:OPENFLUX_DOMAIN = $null
+$env:OPENFLUX_ZROK_TOKEN = $null
+[Environment]::SetEnvironmentVariable("OPENFLUX_PUBLISH_MODE", $null, "Machine")
+[Environment]::SetEnvironmentVariable("OPENFLUX_NETWORK_ACCESS", $null, "Machine")
+[Environment]::SetEnvironmentVariable("OPENFLUX_DOMAIN", $null, "Machine")
+[Environment]::SetEnvironmentVariable("OPENFLUX_ZROK_TOKEN", $null, "Machine")
+
 Write-Host ""
 if ($chosenLang -eq "ru") {
     Write-Host "[5/8] Настройка сетевого доступа и публикации..." -ForegroundColor Cyan
@@ -304,7 +313,7 @@ if ($chosenLang -eq "ru") {
     $netPrompt = "  Do you want the dashboard accessible from the internet? [y/N]"
 }
 
-$netAccessInput = if ($env:OPENFLUX_NETWORK_ACCESS) { $env:OPENFLUX_NETWORK_ACCESS } else { Read-Host "$netPrompt [default: N]" }
+$netAccessInput = Read-Host "$netPrompt [default: N]"
 $netAccess = ($netAccessInput -match "^[Yy]")
 
 if ($netAccess) {
@@ -322,13 +331,14 @@ if ($netAccess) {
         $pubPrompt = "  Your choice [1/2, default: 1]"
     }
 
-    $pubChoice = if ($env:OPENFLUX_PUBLISH_MODE) { $env:OPENFLUX_PUBLISH_MODE } else { Read-Host "$pubPrompt" }
+    $rawChoice = Read-Host "$pubPrompt"
+    $pubChoice = if ($rawChoice) { $rawChoice.Trim() } else { "1" }
 
     if ($pubChoice -match "2|zrok") {
         $publishMode = "zrok"
         $listenHost = "127.0.0.1"
         $tokenPrompt = if ($chosenLang -eq "ru") { "  Введите ваш Zrok токен (Account Token)" } else { "  Enter your Zrok Account Token" }
-        $zrokToken = if ($env:OPENFLUX_ZROK_TOKEN) { $env:OPENFLUX_ZROK_TOKEN } else { (Read-Host "$tokenPrompt").Trim() }
+        $zrokToken = (Read-Host "$tokenPrompt").Trim()
 
         if ($zrokToken) {
             $zrokExe = Join-Path $InstallDir "zrok.exe"
@@ -405,7 +415,7 @@ if ($netAccess) {
         $publishMode = "domain"
         $listenHost = "0.0.0.0"
         $domainPrompt = if ($chosenLang -eq "ru") { "  Введите ваш домен (или нажмите Enter для внешнего IP сервера)" } else { "  Enter your domain (or press Enter for external server IP)" }
-        $userDomain = if ($env:OPENFLUX_DOMAIN) { $env:OPENFLUX_DOMAIN } else { (Read-Host "$domainPrompt").Trim() }
+        $userDomain = (Read-Host "$domainPrompt").Trim()
 
         # Configure Windows Firewall
         netsh advfirewall firewall delete rule name="OpenFluxZenServer" *>$null
@@ -491,8 +501,10 @@ if (-not $autostartEnabled) {
 [Environment]::SetEnvironmentVariable("OPENFLUX_ADMIN_USER", $adminUser, "Machine")
 [Environment]::SetEnvironmentVariable("OPENFLUX_ADMIN_PASSWORD", $adminPass, "Machine")
 [Environment]::SetEnvironmentVariable("OPENFLUX_LANGUAGE", $chosenLang, "Machine")
-[Environment]::SetEnvironmentVariable("OPENFLUX_PUBLIC_URL", $finalUrl, "Machine")
-[Environment]::SetEnvironmentVariable("OPENFLUX_PUBLISH_MODE", $publishMode, "Machine")
+[Environment]::SetEnvironmentVariable("OPENFLUX_PUBLISH_MODE", $null, "Machine")
+[Environment]::SetEnvironmentVariable("OPENFLUX_NETWORK_ACCESS", $null, "Machine")
+[Environment]::SetEnvironmentVariable("OPENFLUX_DOMAIN", $null, "Machine")
+[Environment]::SetEnvironmentVariable("OPENFLUX_ZROK_TOKEN", $null, "Machine")
 
 # 9. Register CLI in Machine PATH
 Write-Host ""
