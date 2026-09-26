@@ -6,20 +6,6 @@ public static class TerminalUi
 
     public static bool IsRussian => string.Equals(Language, "ru", StringComparison.OrdinalIgnoreCase);
 
-    public static void ShowBanner()
-    {
-        Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine();
-        Console.WriteLine("  OpenFlux Zen Server — " + (IsRussian ? "Установщик" : "Installer"));
-        Console.ResetColor();
-    }
-
-    public static void ShowDivider()
-    {
-        Console.ForegroundColor = ConsoleColor.DarkGray;
-        Console.WriteLine(new string('─', 62));
-        Console.ResetColor();
-    }
 
     public static void StartStep(int current, int total, string description)
     {
@@ -81,7 +67,6 @@ public static class TerminalUi
         var hint = defaultYes ? "[Y/n, default: Y]" : "[y/N, default: N]";
         Console.Write($"  {question} {hint}: ");
         var input = Console.ReadLine()?.Trim();
-        Console.WriteLine();
 
         if (string.IsNullOrEmpty(input)) return defaultYes;
         if (input.StartsWith("y", StringComparison.OrdinalIgnoreCase)) return true;

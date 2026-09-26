@@ -65,7 +65,6 @@ public static class Program
         }
         else if (!args.Contains("--silent"))
         {
-            TerminalUi.ShowBanner();
             var langChoice = TerminalUi.AskChoice(
                 "Язык / Language",
                 new[] { "Русский", "English" },
@@ -99,13 +98,13 @@ public static class Program
             var modeOptions = isRu
                 ? new[]
                 {
-                    "Свой домен или открытый порт (внешний IP сервера)",
+                    "Открытый порт со своим доменом (или внешний IP)",
                     "Localtunnel (доступ без белого IP)",
                     "Локальный доступ (только 127.0.0.1)"
                 }
                 : new[]
                 {
-                    "Custom domain or open port (server public IP)",
+                    "Open port with custom domain (or server public IP)",
                     "Localtunnel (access without public IP)",
                     "Local access only (127.0.0.1)"
                 };
@@ -148,8 +147,6 @@ public static class Program
                 : "Enable server autostart on system boot?";
             autostart = TerminalUi.AskYesNo(autoPrompt, defaultYes: true);
         }
-
-        TerminalUi.ShowDivider();
 
         // -------------------------------------------------------------
         // Step 1: Payload extraction
