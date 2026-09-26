@@ -126,7 +126,6 @@ public static class TerminalUi
         Console.ForegroundColor = ConsoleColor.White;
         Console.WriteLine(localUrl);
 
-        Console.WriteLine();
         PrintField(IsRussian ? "Логин:" : "Username:", username);
         PrintField(IsRussian ? "Пароль:" : "Password:", password);
 
