@@ -100,13 +100,13 @@ public static class Program
                 ? new[]
                 {
                     "Свой домен или открытый порт (внешний IP сервера)",
-                    "Localtunnel",
+                    "Localtunnel (доступ без белого IP)",
                     "Локальный доступ (только 127.0.0.1)"
                 }
                 : new[]
                 {
                     "Custom domain or open port (server public IP)",
-                    "Localtunnel",
+                    "Localtunnel (access without public IP)",
                     "Local access only (127.0.0.1)"
                 };
 
