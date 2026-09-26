@@ -27,8 +27,8 @@ esac
 
 INSTALLER_BIN="/tmp/openflux-installer-$RID"
 RELEASE_URL="https://github.com/BizhQwe/openflux-zen-server/releases/latest/download/openflux-installer-$RID"
-TAG_URL="https://github.com/BizhQwe/openflux-zen-server/releases/download/v1.0.15/openflux-installer-$RID"
-FALLBACK_URL="https://github.com/BizhQwe/openflux-zen-server/releases/download/v1.0.14/openflux-installer-$RID"
+TAG_URL="https://github.com/BizhQwe/openflux-zen-server/releases/download/v1.0.16/openflux-installer-$RID"
+FALLBACK_URL="https://github.com/BizhQwe/openflux-zen-server/releases/download/v1.0.15/openflux-installer-$RID"
 
 echo ""
 echo "  OpenFlux Zen Server - Linux ($RID)"
