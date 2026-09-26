@@ -34,6 +34,13 @@ public sealed class HostedRestoreService : IHostedService
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
+            // Clear any stale migration lock left by interrupted processes in SQLite
+            try
+            {
+                await db.Database.ExecuteSqlRawAsync("DELETE FROM \"__EFMigrationsLock\";", cancellationToken);
+            }
+            catch { }
+
             // Apply migrations or ensure schema is created
             await db.Database.MigrateAsync(cancellationToken);
 

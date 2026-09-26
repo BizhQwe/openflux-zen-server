@@ -502,8 +502,8 @@ $psi.EnvironmentVariables["OPENFLUX_LANGUAGE"] = $chosenLang
 $psi.EnvironmentVariables["OPENFLUX_PUBLIC_URL"] = $finalUrl
 $psi.EnvironmentVariables["OPENFLUX_PUBLISH_MODE"] = $publishMode
 $psi.UseShellExecute = $false
-$psi.RedirectStandardOutput = $true
-$psi.RedirectStandardError = $true
+$psi.RedirectStandardOutput = $false
+$psi.RedirectStandardError = $false
 $psi.CreateNoWindow = $true
 [System.Diagnostics.Process]::Start($psi) | Out-Null
 
