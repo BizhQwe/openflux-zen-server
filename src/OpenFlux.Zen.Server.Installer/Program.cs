@@ -67,14 +67,14 @@ public static class Program
         {
             Console.WriteLine();
             var langChoice = TerminalUi.AskChoice(
-                "Язык / Language",
-                new[] { "Русский", "English" },
+                "Language / Язык",
+                new[] { "English", "Русский" },
                 0);
-            TerminalUi.Language = (langChoice == 1) ? "en" : "ru";
+            TerminalUi.Language = (langChoice == 1) ? "ru" : "en";
         }
         else
         {
-            TerminalUi.Language = "ru";
+            TerminalUi.Language = "en";
         }
 
         var isRu = TerminalUi.IsRussian;

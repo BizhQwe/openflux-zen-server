@@ -2,7 +2,7 @@ namespace OpenFlux.Zen.Server.Installer.UI;
 
 public static class TerminalUi
 {
-    public static string Language { get; set; } = "ru";
+    public static string Language { get; set; } = "en";
 
     public static bool IsRussian => string.Equals(Language, "ru", StringComparison.OrdinalIgnoreCase);
 

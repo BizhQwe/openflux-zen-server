@@ -7,7 +7,7 @@
 set -euo pipefail
 
 if [ "$(id -u)" -ne 0 ]; then
-    echo "  [ОШИБКА] Требуются права суперпользователя. Запустите: sudo bash $0"
+    echo "  [ERROR] Root privileges required. Run with: sudo bash $0"
     exit 1
 fi
 
@@ -20,19 +20,19 @@ case "$ARCH" in
         RID="linux-arm64"
         ;;
     *)
-        echo "  [ОШИБКА] Неподдерживаемая архитектура процессора: $ARCH"
+        echo "  [ERROR] Unsupported CPU architecture: $ARCH"
         exit 1
         ;;
 esac
 
 INSTALLER_BIN="/tmp/openflux-installer-$RID"
 RELEASE_URL="https://github.com/BizhQwe/openflux-zen-server/releases/latest/download/openflux-installer-$RID"
-TAG_URL="https://github.com/BizhQwe/openflux-zen-server/releases/download/v1.0.8/openflux-installer-$RID"
-FALLBACK_URL="https://github.com/BizhQwe/openflux-zen-server/releases/download/v1.0.7/openflux-installer-$RID"
+TAG_URL="https://github.com/BizhQwe/openflux-zen-server/releases/download/v1.0.9/openflux-installer-$RID"
+FALLBACK_URL="https://github.com/BizhQwe/openflux-zen-server/releases/download/v1.0.8/openflux-installer-$RID"
 
 echo ""
 echo "  OpenFlux Zen Server - Linux ($RID)"
-echo "  Загрузка установщика..."
+echo "  Downloading installer..."
 
 DOWNLOADED=0
 if curl -# -fSL "$RELEASE_URL" -o "$INSTALLER_BIN" 2>/dev/null && [ -s "$INSTALLER_BIN" ]; then
@@ -53,8 +53,8 @@ if [ "$DOWNLOADED" -eq 1 ]; then
         exec "$INSTALLER_BIN" "$@"
     fi
 else
-    echo "  [ОШИБКА] Не удалось загрузить исполняемый файл установщика для $RID."
-    echo "  Проверьте доступность репозитория или скачайте файл вручную:"
+    echo "  [ERROR] Failed to download installer binary for $RID."
+    echo "  Check repository access or download manually:"
     echo "  $RELEASE_URL"
     exit 1
 fi
