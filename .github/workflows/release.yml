@@ -27,6 +27,11 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      - name: Build OpenFlux Core Binaries
+        shell: pwsh
+        run: |
+          ./scripts/build-openflux.ps1 -OutputDir runtimes
+
       - name: Build All Cross-Platform Installers
         shell: pwsh
         run: |

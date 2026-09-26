@@ -29,10 +29,13 @@ $cliProj = Join-Path $repoRoot "src\OpenFlux.Zen.Server.Cli\OpenFlux.Zen.Server.
 $installerProj = Join-Path $installerProjDir "OpenFlux.Zen.Server.Installer.csproj"
 $runtimesSrc = Join-Path $repoRoot "runtimes"
 
-# Ensure OpenFlux core binaries are compiled from source
+# Ensure OpenFlux core binaries are compiled or verified
 $buildOpenFluxScript = Join-Path $PSScriptRoot "build-openflux.ps1"
 if (Test-Path $buildOpenFluxScript) {
-    & powershell -ExecutionPolicy Bypass -File $buildOpenFluxScript -OutputDir $runtimesSrc
+    & $buildOpenFluxScript -OutputDir $runtimesSrc
+    if ($LASTEXITCODE -ne 0) {
+        throw "build-openflux.ps1 failed with exit code $LASTEXITCODE"
+    }
 }
 
 foreach ($rid in $Targets) {
@@ -67,9 +70,10 @@ foreach ($rid in $Targets) {
         $runtimesDst = Join-Path $tempStage "runtimes"
         New-Item -ItemType Directory -Path $runtimesDst -Force | Out-Null
         $srcNative = Join-Path $runtimesSrc $nativeRuntimeName
-        if (Test-Path $srcNative) {
-            Copy-Item -Path $srcNative -Destination (Join-Path $runtimesDst $nativeRuntimeName) -Force
+        if (-not (Test-Path $srcNative)) {
+            throw "Native OpenFlux binary '$nativeRuntimeName' is missing in $runtimesSrc!"
         }
+        Copy-Item -Path $srcNative -Destination (Join-Path $runtimesDst $nativeRuntimeName) -Force
 
         # Pack payload.zip for standalone distribution and embedding
         $zipDist = Join-Path $OutputDir "openflux-zen-server-$rid.zip"

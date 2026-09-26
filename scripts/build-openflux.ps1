@@ -3,6 +3,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$PSNativeCommandUseErrorActionPreference = $false
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 if ([string]::IsNullOrEmpty($OutputDir)) {
@@ -26,10 +27,22 @@ try {
 } catch { }
 
 if ($hasGo) {
-    $tempDir = Join-Path ([System.IO.Path]::GetTempPath()) "openflux-source-$([System.Guid]::NewGuid().ToString('N').Substring(0, 8))"
+    $tempDir = Join-Path ([System.IO.Path]::GetTempPath()) "openflux-src-$([System.Guid]::NewGuid().ToString('N').Substring(0, 8))"
     try {
         Write-Host "  Cloning repository https://github.com/p1neappleXpress/OpenFlux.git..." -ForegroundColor Gray
-        & git clone --depth 1 https://github.com/p1neappleXpress/OpenFlux.git $tempDir | Out-Null
+        git clone --depth 1 https://github.com/p1neappleXpress/OpenFlux.git $tempDir
+        if ($LASTEXITCODE -ne 0) {
+            throw "Failed to clone OpenFlux repository"
+        }
+
+        Push-Location $tempDir
+        try {
+            Write-Host "  Downloading Go dependencies..." -ForegroundColor Gray
+            & go mod tidy
+            & go mod download
+        } finally {
+            Pop-Location
+        }
 
         $env:CGO_ENABLED = "0"
 
@@ -63,30 +76,18 @@ if ($hasGo) {
         Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue
     }
 } else {
-    Write-Host "  [!] Go compiler not found locally. Checking existing binaries in runtimes/..." -ForegroundColor Yellow
-    $allPresent = $true
-    $expected = @("openflux-windows-amd64.exe", "openflux-windows-arm64.exe", "openflux-linux-amd64", "openflux-linux-arm64")
-    foreach ($f in $expected) {
-        $p = Join-Path $OutputDir $f
-        if (-not (Test-Path $p)) {
-            $allPresent = $false
-            break
-        }
-    }
-
-    if (-not $allPresent) {
-        Write-Host "  Downloading pre-compiled engines from release fallback..." -ForegroundColor Gray
-        foreach ($f in $expected) {
-            $url = "https://github.com/BizhQwe/openflux-zen-server/releases/download/v1.0.3/$f"
-            $dest = Join-Path $OutputDir $f
-            if (-not (Test-Path $dest)) {
-                try {
-                    $wc = New-Object System.Net.WebClient
-                    $wc.DownloadFile($url, $dest)
-                } catch { }
-            }
-        }
-    }
+    Write-Host "  [!] Go compiler not found. Using pre-existing binaries in runtimes/..." -ForegroundColor Yellow
 }
 
-Write-Host "OpenFlux runtimes ready in: $OutputDir" -ForegroundColor Green
+# Verify that all 4 required binaries exist
+$expected = @("openflux-windows-amd64.exe", "openflux-windows-arm64.exe", "openflux-linux-amd64", "openflux-linux-arm64")
+foreach ($f in $expected) {
+    $p = Join-Path $OutputDir $f
+    if (-not (Test-Path $p)) {
+        throw "Required OpenFlux binary is missing: $p"
+    }
+    $sizeMb = [Math]::Round(((Get-Item $p).Length / 1MB), 2)
+    Write-Host "  [OK] Runtime verified: $f ($sizeMb MB)" -ForegroundColor Green
+}
+
+Write-Host "All OpenFlux runtimes verified and ready in: $OutputDir" -ForegroundColor Green
