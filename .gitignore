@@ -19,3 +19,4 @@
 .vscode/
 /dist/
 payload.zip
+/runtimes/

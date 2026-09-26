@@ -11,16 +11,13 @@ public static class TerminalUi
         Console.ForegroundColor = ConsoleColor.Cyan;
         Console.WriteLine();
         Console.WriteLine("  OpenFlux Zen Server — " + (IsRussian ? "Установщик" : "Installer"));
-        Console.ForegroundColor = ConsoleColor.DarkGray;
-        Console.WriteLine("  " + new string('─', 58));
         Console.ResetColor();
-        Console.WriteLine();
     }
 
     public static void ShowDivider()
     {
         Console.ForegroundColor = ConsoleColor.DarkGray;
-        Console.WriteLine("  " + new string('─', 58));
+        Console.WriteLine(new string('─', 62));
         Console.ResetColor();
     }
 
@@ -107,22 +104,22 @@ public static class TerminalUi
     {
         Console.WriteLine();
         Console.ForegroundColor = ConsoleColor.Green;
-        Console.WriteLine("  " + new string('=', 62));
+        Console.WriteLine(new string('=', 62));
         var title = IsRussian 
             ? "OpenFlux Zen Server — УСПЕШНО УСТАНОВЛЕН И ЗАПУЩЕН!" 
             : "OpenFlux Zen Server — SUCCESSFULLY INSTALLED AND STARTED!";
         Console.WriteLine($"  {title}");
-        Console.WriteLine("  " + new string('=', 62));
+        Console.WriteLine(new string('=', 62));
         Console.ResetColor();
         Console.WriteLine();
 
         Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.Write("    " + (IsRussian ? "Панель управления:" : "Web Dashboard:    ").PadRight(22));
+        Console.Write("  " + (IsRussian ? "Панель управления:" : "Web Dashboard:    ").PadRight(22));
         Console.ForegroundColor = ConsoleColor.Yellow;
         Console.WriteLine(publicUrl);
 
         Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.Write("    " + (IsRussian ? "Локальный адрес:" : "Local Access:     ").PadRight(22));
+        Console.Write("  " + (IsRussian ? "Локальный адрес:" : "Local Access:     ").PadRight(22));
         Console.ForegroundColor = ConsoleColor.White;
         Console.WriteLine(localUrl);
 
@@ -131,7 +128,7 @@ public static class TerminalUi
 
         Console.WriteLine();
         Console.ForegroundColor = ConsoleColor.Green;
-        Console.WriteLine("  " + new string('=', 62));
+        Console.WriteLine(new string('=', 62));
         Console.ResetColor();
         Console.WriteLine();
     }
@@ -139,7 +136,7 @@ public static class TerminalUi
     private static void PrintField(string label, string value)
     {
         Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.Write($"    {label,-20}  ");
+        Console.Write("  " + label.PadRight(22));
         Console.ForegroundColor = ConsoleColor.White;
         Console.WriteLine(value);
         Console.ResetColor();

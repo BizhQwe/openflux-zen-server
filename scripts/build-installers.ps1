@@ -29,6 +29,12 @@ $cliProj = Join-Path $repoRoot "src\OpenFlux.Zen.Server.Cli\OpenFlux.Zen.Server.
 $installerProj = Join-Path $installerProjDir "OpenFlux.Zen.Server.Installer.csproj"
 $runtimesSrc = Join-Path $repoRoot "runtimes"
 
+# Ensure OpenFlux core binaries are compiled from source
+$buildOpenFluxScript = Join-Path $PSScriptRoot "build-openflux.ps1"
+if (Test-Path $buildOpenFluxScript) {
+    & powershell -ExecutionPolicy Bypass -File $buildOpenFluxScript -OutputDir $runtimesSrc
+}
+
 foreach ($rid in $Targets) {
     Write-Host "------------------------------------------------------------------" -ForegroundColor Yellow
     Write-Host ">>> Building Target: $rid" -ForegroundColor Yellow
