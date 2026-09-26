@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using OpenFlux.Zen.Server.Installer.Platform;
 
 namespace OpenFlux.Zen.Server.Installer.Packaging;
 
@@ -30,7 +31,7 @@ public static class PayloadExtractor
             onProgress?.Invoke("Unpacking embedded application payload...");
             using var stream = asm.GetManifestResourceStream(resName)!;
             using var archive = new ZipArchive(stream, ZipArchiveMode.Read);
-            archive.ExtractToDirectory(installDir, overwriteFiles: true);
+            ExtractArchiveSafe(archive, installDir);
             EnsureExecutables(installDir);
             return;
         }
@@ -50,7 +51,7 @@ public static class PayloadExtractor
             if (File.Exists(file))
             {
                 onProgress?.Invoke($"Extracting local package: {Path.GetFileName(file)}...");
-                ZipFile.ExtractToDirectory(file, installDir, overwriteFiles: true);
+                ExtractZipSafe(file, installDir);
                 EnsureExecutables(installDir);
                 return;
             }
@@ -80,13 +81,57 @@ public static class PayloadExtractor
                 await s.CopyToAsync(fs);
             }
 
-            ZipFile.ExtractToDirectory(tempZip, installDir, overwriteFiles: true);
+            ExtractZipSafe(tempZip, installDir);
             EnsureExecutables(installDir);
         }
         finally
         {
             try { File.Delete(tempZip); } catch { }
         }
+    }
+
+    private static void ExtractArchiveSafe(ZipArchive archive, string destinationDir)
+    {
+        foreach (var entry in archive.Entries)
+        {
+            if (string.IsNullOrEmpty(entry.Name))
+            {
+                var dirPath = Path.Combine(destinationDir, entry.FullName);
+                Directory.CreateDirectory(dirPath);
+                continue;
+            }
+
+            var destPath = Path.Combine(destinationDir, entry.FullName);
+            var parent = Path.GetDirectoryName(destPath);
+            if (!string.IsNullOrEmpty(parent)) Directory.CreateDirectory(parent);
+
+            bool success = false;
+            for (int attempt = 0; attempt < 5; attempt++)
+            {
+                try
+                {
+                    entry.ExtractToFile(destPath, overwrite: true);
+                    success = true;
+                    break;
+                }
+                catch (IOException)
+                {
+                    SystemOperations.StopExistingServer();
+                    Thread.Sleep(500 * (attempt + 1));
+                }
+            }
+
+            if (!success)
+            {
+                entry.ExtractToFile(destPath, overwrite: true);
+            }
+        }
+    }
+
+    private static void ExtractZipSafe(string zipPath, string destinationDir)
+    {
+        using var archive = ZipFile.OpenRead(zipPath);
+        ExtractArchiveSafe(archive, destinationDir);
     }
 
     private static void EnsureExecutables(string installDir)

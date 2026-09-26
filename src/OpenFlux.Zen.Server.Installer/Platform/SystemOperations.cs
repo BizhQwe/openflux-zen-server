@@ -51,14 +51,30 @@ public static class SystemOperations
     {
         if (OperatingSystem.IsWindows())
         {
-            RunCommand("schtasks.exe", "/end /tn \"OpenFluxZenServer\" >nul 2>&1");
-            RunCommand("taskkill.exe", "/f /im OpenFlux.Zen.Server.Web.exe >nul 2>&1");
-            RunCommand("taskkill.exe", "/f /im OpenFluxZenServer.exe >nul 2>&1");
+            RunCommand("schtasks.exe", "/end /tn \"OpenFluxZenServer\"");
+
+            foreach (var procName in new[] { "OpenFlux.Zen.Server.Web", "OpenFluxZenServer", "openflux" })
+            {
+                foreach (var proc in Process.GetProcessesByName(procName))
+                {
+                    try
+                    {
+                        proc.Kill(true);
+                        proc.WaitForExit(3000);
+                    }
+                    catch { }
+                }
+            }
+
+            RunCommand("taskkill.exe", "/f /t /im OpenFlux.Zen.Server.Web.exe");
+            RunCommand("taskkill.exe", "/f /t /im OpenFluxZenServer.exe");
+            Thread.Sleep(500);
         }
         else
         {
             RunBash("systemctl stop openflux-zen-server.service 2>/dev/null || true");
             RunBash("pkill -9 -f OpenFlux.Zen.Server.Web 2>/dev/null || true");
+            Thread.Sleep(500);
         }
     }
 
@@ -66,8 +82,8 @@ public static class SystemOperations
     {
         if (OperatingSystem.IsWindows())
         {
-            RunCommand("netsh.exe", "advfirewall firewall delete rule name=\"OpenFluxZenServer\" >nul 2>&1");
-            RunCommand("netsh.exe", $"advfirewall firewall add rule name=\"OpenFluxZenServer\" dir=in action=allow protocol=TCP localport={port} >nul 2>&1");
+            RunCommand("netsh.exe", "advfirewall firewall delete rule name=\"OpenFluxZenServer\"");
+            RunCommand("netsh.exe", $"advfirewall firewall add rule name=\"OpenFluxZenServer\" dir=in action=allow protocol=TCP localport={port}");
         }
         else
         {
@@ -117,16 +133,16 @@ public static class SystemOperations
             var exePath = Path.Combine(installDir, "OpenFlux.Zen.Server.Web.exe");
             var taskAction = $"\"{exePath}\"";
 
-            RunCommand("schtasks.exe", "/delete /tn \"OpenFluxZenServer\" /f >nul 2>&1");
-            var res = RunCommand("schtasks.exe", $"/create /tn \"OpenFluxZenServer\" /tr \"{taskAction}\" /sc onstart /ru SYSTEM /rl HIGHEST /f >nul 2>&1");
+            RunCommand("schtasks.exe", "/delete /tn \"OpenFluxZenServer\" /f");
+            var res = RunCommand("schtasks.exe", $"/create /tn \"OpenFluxZenServer\" /tr \"{taskAction}\" /sc onstart /ru SYSTEM /rl HIGHEST /f");
             if (res != 0)
             {
-                RunCommand("schtasks.exe", $"/create /tn \"OpenFluxZenServer\" /tr \"{taskAction}\" /sc onlogon /rl HIGHEST /f >nul 2>&1");
+                RunCommand("schtasks.exe", $"/create /tn \"OpenFluxZenServer\" /tr \"{taskAction}\" /sc onlogon /rl HIGHEST /f");
             }
 
             if (!autostart)
             {
-                RunCommand("schtasks.exe", "/change /tn \"OpenFluxZenServer\" /disable >nul 2>&1");
+                RunCommand("schtasks.exe", "/change /tn \"OpenFluxZenServer\" /disable");
             }
 
             // Set persistent environment variables for the machine
@@ -247,7 +263,9 @@ WantedBy=multi-user.target
                 FileName = fileName,
                 Arguments = args,
                 UseShellExecute = false,
-                CreateNoWindow = true
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
             });
             p?.WaitForExit();
             return p?.ExitCode ?? -1;

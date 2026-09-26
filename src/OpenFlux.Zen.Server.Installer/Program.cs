@@ -302,7 +302,7 @@ public static class Program
         var installDir = SystemOperations.GetDefaultInstallDir();
         if (OperatingSystem.IsWindows())
         {
-            SystemOperations.RunCommand("schtasks.exe", "/delete /tn \"OpenFluxZenServer\" /f >nul 2>&1");
+            SystemOperations.RunCommand("schtasks.exe", "/delete /tn \"OpenFluxZenServer\" /f");
         }
         else
         {
