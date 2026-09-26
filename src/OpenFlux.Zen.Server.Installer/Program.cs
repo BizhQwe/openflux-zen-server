@@ -65,6 +65,7 @@ public static class Program
         }
         else if (!args.Contains("--silent"))
         {
+            Console.WriteLine();
             var langChoice = TerminalUi.AskChoice(
                 "Язык / Language",
                 new[] { "Русский", "English" },
@@ -146,6 +147,7 @@ public static class Program
                 ? "Включить автозапуск службы при загрузке системы?"
                 : "Enable server autostart on system boot?";
             autostart = TerminalUi.AskYesNo(autoPrompt, defaultYes: true);
+            Console.WriteLine();
         }
 
         // -------------------------------------------------------------
