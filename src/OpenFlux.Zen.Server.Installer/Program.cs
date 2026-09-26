@@ -68,7 +68,7 @@ public static class Program
             TerminalUi.ShowBanner();
             var langChoice = TerminalUi.AskChoice(
                 "Язык / Language",
-                new[] { "Русский (панель управления и установщик)", "English (management panel and installer)" },
+                new[] { "Русский", "English" },
                 0);
             TerminalUi.Language = (langChoice == 1) ? "en" : "ru";
         }
@@ -85,7 +85,7 @@ public static class Program
         var existing = CredentialGenerator.LoadExisting(credPath);
 
         // Publish Mode
-        string publishMode = "localtunnel";
+        string publishMode = "domain";
         string? domain = null;
         string? localtunnelPassword = existing.LtPass;
 
@@ -99,26 +99,26 @@ public static class Program
             var modeOptions = isRu
                 ? new[]
                 {
-                    "Localtunnel — доступ через интернет без белого IP и токенов (рекомендуется)",
                     "Свой домен или открытый порт (внешний IP сервера)",
+                    "Localtunnel",
                     "Локальный доступ (только 127.0.0.1)"
                 }
                 : new[]
                 {
-                    "Localtunnel — public web access without open ports or tokens (recommended)",
                     "Custom domain or open port (server public IP)",
+                    "Localtunnel",
                     "Local access only (127.0.0.1)"
                 };
 
             var chosenMode = TerminalUi.AskChoice(
-                isRu ? "Сетевое размещение веб-панели" : "Network accessibility for web panel",
+                isRu ? "Сетевое размещение" : "Network accessibility",
                 modeOptions,
                 0);
 
             publishMode = chosenMode switch
             {
-                0 => "localtunnel",
-                1 => "domain",
+                0 => "domain",
+                1 => "localtunnel",
                 _ => "local"
             };
 
@@ -292,11 +292,7 @@ public static class Program
             publicUrl,
             localUrl,
             username,
-            password,
-            secretPath,
-            publishMode,
-            localtunnelPassword,
-            autostart);
+            password);
 
         return 0;
     }

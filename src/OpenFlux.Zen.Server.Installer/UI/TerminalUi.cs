@@ -61,18 +61,9 @@ public static class TerminalUi
 
         for (int i = 0; i < options.Length; i++)
         {
-            var isDefault = (i == defaultIndex);
             Console.Write($"    {i + 1}) ");
-            if (isDefault)
-            {
-                Console.ForegroundColor = ConsoleColor.White;
-                Console.WriteLine($"{options[i]} " + (IsRussian ? "(по умолчанию)" : "(default)"));
-            }
-            else
-            {
-                Console.ForegroundColor = ConsoleColor.Gray;
-                Console.WriteLine(options[i]);
-            }
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.WriteLine(options[i]);
             Console.ResetColor();
         }
 
@@ -112,11 +103,7 @@ public static class TerminalUi
         string publicUrl,
         string localUrl,
         string username,
-        string password,
-        string secretPath,
-        string publishMode,
-        string? localtunnelPassword,
-        bool autostart)
+        string password)
     {
         Console.WriteLine();
         Console.ForegroundColor = ConsoleColor.Green;
@@ -142,46 +129,8 @@ public static class TerminalUi
         Console.WriteLine();
         PrintField(IsRussian ? "Логин:" : "Username:", username);
         PrintField(IsRussian ? "Пароль:" : "Password:", password);
-        PrintField(IsRussian ? "Секретный путь:" : "Secret Path:", "/" + secretPath.Trim('/') + "/");
-
-        var modeText = publishMode switch
-        {
-            "localtunnel" => IsRussian ? "Localtunnel (доступ без белого IP)" : "Localtunnel (Zero-config tunnel)",
-            "domain" => IsRussian ? "Открытый порт / Свой домен" : "Open port / Custom domain",
-            _ => IsRussian ? "Локальный (127.0.0.1)" : "Local only (127.0.0.1)"
-        };
-        PrintField(IsRussian ? "Режим публикации:" : "Publish Mode:", modeText);
-
-        if (!string.IsNullOrEmpty(localtunnelPassword))
-        {
-            Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.Write("    " + (IsRussian ? "Пароль loca.lt (IP):" : "loca.lt Password:   ").PadRight(22));
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.Write(localtunnelPassword);
-            Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.WriteLine(IsRussian ? " (требуется при первом входе в браузере)" : " (required on first browser visit)");
-            Console.ResetColor();
-        }
-
-        Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.Write("    " + (IsRussian ? "Автозапуск:" : "Autostart:        ").PadRight(22));
-        if (autostart)
-        {
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine(IsRussian ? "Включен (служба активна)" : "Enabled (service active)");
-        }
-        else
-        {
-            Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.WriteLine(IsRussian ? "Выключен" : "Disabled");
-        }
-        Console.ResetColor();
 
         Console.WriteLine();
-        Console.ForegroundColor = ConsoleColor.DarkGray;
-        Console.WriteLine("  " + new string('─', 62));
-        Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.WriteLine("    " + (IsRussian ? "Команда в терминале: OpenFluxZenServer <status | restart | credentials>" : "CLI command anywhere: OpenFluxZenServer <status | restart | credentials>"));
         Console.ForegroundColor = ConsoleColor.Green;
         Console.WriteLine("  " + new string('=', 62));
         Console.ResetColor();
