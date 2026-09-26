@@ -6,6 +6,15 @@
 #Requires -RunAsAdministrator
 $ErrorActionPreference = "Stop"
 
+$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+if (-not $isAdmin) {
+    Write-Host ""
+    Write-Host "  [ERROR] Administrator privileges required." -ForegroundColor Red
+    Write-Host "  Please run PowerShell as Administrator (Right click -> Run as administrator) and retry." -ForegroundColor Yellow
+    Write-Host ""
+    return
+}
+
 $arch = if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq [System.Runtime.InteropServices.Architecture]::Arm64) {
     "win-arm64"
 } else {
@@ -15,8 +24,8 @@ $arch = if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture 
 $tempDir = $env:TEMP
 $installerExe = Join-Path $tempDir "openflux-installer-$arch.exe"
 $releaseUrl = "https://github.com/BizhQwe/openflux-zen-server/releases/latest/download/openflux-installer-$arch.exe"
-$tagUrl = "https://github.com/BizhQwe/openflux-zen-server/releases/download/v1.0.9/openflux-installer-$arch.exe"
-$fallbackUrl = "https://github.com/BizhQwe/openflux-zen-server/releases/download/v1.0.8/openflux-installer-$arch.exe"
+$tagUrl = "https://github.com/BizhQwe/openflux-zen-server/releases/download/v1.0.10/openflux-installer-$arch.exe"
+$fallbackUrl = "https://github.com/BizhQwe/openflux-zen-server/releases/download/v1.0.9/openflux-installer-$arch.exe"
 
 Write-Host ""
 Write-Host "  OpenFlux Zen Server - Windows ($arch)" -ForegroundColor Cyan
@@ -38,10 +47,10 @@ foreach ($url in @($releaseUrl, $tagUrl, $fallbackUrl)) {
 
 if ($downloaded) {
     & $installerExe $args
-    exit $LASTEXITCODE
+    return
 } else {
     Write-Host "  [ERROR] Failed to download installer for $arch." -ForegroundColor Red
     Write-Host "  Please check internet connection or download manually:" -ForegroundColor Yellow
     Write-Host "  $releaseUrl" -ForegroundColor Yellow
-    exit 1
+    return
 }

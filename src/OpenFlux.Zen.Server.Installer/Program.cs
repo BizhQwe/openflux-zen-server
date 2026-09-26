@@ -24,41 +24,25 @@ public static class Program
             return ExecuteUninstall();
         }
 
-        // Elevate or check admin rights
+        // Check admin / root rights
         if (!SystemOperations.IsAdmin())
         {
-            if (OperatingSystem.IsWindows() && !args.Contains("--silent"))
-            {
-                try
-                {
-                    var exePath = Environment.ProcessPath ?? Environment.GetCommandLineArgs()[0];
-                    var psi = new ProcessStartInfo
-                    {
-                        FileName = exePath,
-                        Arguments = string.Join(" ", args),
-                        UseShellExecute = true,
-                        Verb = "runas"
-                    };
-                    Process.Start(psi);
-                    return 0;
-                }
-                catch
-                {
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine("  [ERROR] Please run this installer as Administrator!");
-                    Console.ResetColor();
-                    return 1;
-                }
-            }
-
             Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine("  [ERROR] Root privileges required. Run with: sudo ./openflux-installer");
+            if (OperatingSystem.IsWindows())
+            {
+                Console.WriteLine("  [ERROR] Administrator privileges required.");
+                Console.WriteLine("  Please run PowerShell as Administrator (Right-click -> Run as administrator) and retry.");
+            }
+            else
+            {
+                Console.WriteLine("  [ERROR] Root privileges required. Run with: sudo ./openflux-installer");
+            }
             Console.ResetColor();
             return 1;
         }
 
         // Language selection
-        var langArg = GetArgValue(args, "--lang") ?? Environment.GetEnvironmentVariable("OPENFLUX_LANGUAGE");
+        var langArg = GetArgValue(args, "--lang");
         if (!string.IsNullOrEmpty(langArg))
         {
             TerminalUi.Language = langArg;
@@ -74,7 +58,7 @@ public static class Program
         }
         else
         {
-            TerminalUi.Language = "en";
+            TerminalUi.Language = Environment.GetEnvironmentVariable("OPENFLUX_LANGUAGE") ?? "en";
         }
 
         var isRu = TerminalUi.IsRussian;
@@ -89,7 +73,7 @@ public static class Program
         string? domain = null;
         string? localtunnelPassword = existing.LtPass;
 
-        var modeArg = GetArgValue(args, "--mode") ?? Environment.GetEnvironmentVariable("OPENFLUX_PUBLISH_MODE");
+        var modeArg = GetArgValue(args, "--mode");
         if (!string.IsNullOrEmpty(modeArg))
         {
             publishMode = modeArg.ToLowerInvariant();
@@ -110,10 +94,14 @@ public static class Program
                     "Local access only (127.0.0.1)"
                 };
 
+            int defaultModeIdx = 0;
+            if (existing.PublishMode == "localtunnel") defaultModeIdx = 1;
+            else if (existing.PublishMode == "local") defaultModeIdx = 2;
+
             var chosenMode = TerminalUi.AskChoice(
                 isRu ? "Сетевое размещение" : "Network accessibility",
                 modeOptions,
-                0);
+                defaultModeIdx);
 
             publishMode = chosenMode switch
             {
@@ -129,6 +117,10 @@ public static class Program
                     : "Enter your domain (or press Enter for external server IP)";
                 domain = TerminalUi.AskText(domPrompt, existing.Domain);
             }
+        }
+        else
+        {
+            publishMode = Environment.GetEnvironmentVariable("OPENFLUX_PUBLISH_MODE")?.ToLowerInvariant() ?? "domain";
         }
 
         // Port selection
