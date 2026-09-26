@@ -97,6 +97,7 @@ if [ "$CHOSEN_LANG" = "ru" ]; then
     TXT_AUTOSTART_PROMPT="Включить автозапуск сервера при загрузке системы? [Y/n]: "
     TXT_STEP8="[8/8] Регистрация команды OpenFluxZenServer в PATH..."
     TXT_WAIT_HEALTH="Ожидание готовности службы OpenFlux Zen Server"
+    TXT_WAIT_TUNNEL="Ожидание готовности туннеля Localtunnel"
     TXT_HEALTH_OK="Готово!"
     TXT_HEALTH_INIT="(служба ещё инициализируется)"
     TXT_SUCCESS_TITLE="OpenFlux Zen Server — УСПЕШНО УСТАНОВЛЕН И ЗАПУЩЕН!"
@@ -156,6 +157,7 @@ else
     TXT_AUTOSTART_PROMPT="Enable server autostart on system boot? [Y/n]: "
     TXT_STEP8="[8/8] Installing OpenFluxZenServer CLI command in PATH..."
     TXT_WAIT_HEALTH="Waiting for OpenFlux Zen Server service readiness"
+    TXT_WAIT_TUNNEL="Waiting for Localtunnel readiness"
     TXT_HEALTH_OK="Done!"
     TXT_HEALTH_INIT="(service is still initializing)"
     TXT_SUCCESS_TITLE="OpenFlux Zen Server — SUCCESSFULLY INSTALLED & STARTED!"
@@ -512,16 +514,24 @@ if [ "$HEALTH_OK" -eq 0 ]; then
     echo -e " ${YELLOW}${TXT_HEALTH_INIT}${NC}"
 fi
 
-# Re-read credentials if localtunnel mode was chosen to get live URL
-if [ "$PUBLISH_MODE" = "localtunnel" ] && [ -f "$PREFIX/app/data/.credentials" ]; then
-    LIVE_URL=$(grep -o '"publicUrl": "[^"]*"' "$PREFIX/app/data/.credentials" 2>/dev/null | cut -d'"' -f4 || true)
-    if [ -n "$LIVE_URL" ]; then
-        FINAL_URL="$LIVE_URL"
-    fi
-    LIVE_PASS=$(grep -o '"localtunnelPassword": "[^"]*"' "$PREFIX/app/data/.credentials" 2>/dev/null | cut -d'"' -f4 || true)
-    if [ -n "$LIVE_PASS" ]; then
-        LOCALTUNNEL_PASSWORD="$LIVE_PASS"
-    fi
+# Wait for Localtunnel URL in .credentials if localtunnel mode was chosen
+if [ "$PUBLISH_MODE" = "localtunnel" ]; then
+    echo -ne "${CYAN}  ${TXT_WAIT_TUNNEL}${NC}"
+    for i in {1..30}; do
+        if [ -f "$PREFIX/app/data/.credentials" ]; then
+            LIVE_URL=$(grep -o '"publicUrl": "[^"]*"' "$PREFIX/app/data/.credentials" 2>/dev/null | cut -d'"' -f4 || true)
+            LIVE_PASS=$(grep -o '"localtunnelPassword": "[^"]*"' "$PREFIX/app/data/.credentials" 2>/dev/null | cut -d'"' -f4 || true)
+            if [[ "$LIVE_URL" =~ \.loca\.lt ]] && [ -n "$LIVE_PASS" ]; then
+                FINAL_URL="$LIVE_URL"
+                LOCALTUNNEL_PASSWORD="$LIVE_PASS"
+                echo -e " ${GREEN}✓${NC}"
+                break
+            fi
+        fi
+        echo -ne "${CYAN}.${NC}"
+        sleep 0.5
+    done
+    echo ""
 fi
 
 PUB_MODE_DISPLAY="$TXT_PUB_MODE_LOCAL"

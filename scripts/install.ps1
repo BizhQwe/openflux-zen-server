@@ -464,7 +464,7 @@ if (-not $autostartEnabled) {
 [Environment]::SetEnvironmentVariable("OPENFLUX_ADMIN_USER", $adminUser, "Machine")
 [Environment]::SetEnvironmentVariable("OPENFLUX_ADMIN_PASSWORD", $adminPass, "Machine")
 [Environment]::SetEnvironmentVariable("OPENFLUX_LANGUAGE", $chosenLang, "Machine")
-[Environment]::SetEnvironmentVariable("OPENFLUX_PUBLISH_MODE", $null, "Machine")
+[Environment]::SetEnvironmentVariable("OPENFLUX_PUBLISH_MODE", $publishMode, "Machine")
 [Environment]::SetEnvironmentVariable("OPENFLUX_NETWORK_ACCESS", $null, "Machine")
 [Environment]::SetEnvironmentVariable("OPENFLUX_DOMAIN", $null, "Machine")
 
@@ -507,17 +507,24 @@ $psi.RedirectStandardError = $true
 $psi.CreateNoWindow = $true
 [System.Diagnostics.Process]::Start($psi) | Out-Null
 
-Start-Sleep -Seconds 3
-if ($publishMode -eq "localtunnel" -and (Test-Path $credFile)) {
-    try {
-        $liveCreds = Get-Content $credFile -Raw | ConvertFrom-Json
-        if ($liveCreds.publicUrl -and $liveCreds.publicUrl -ne $finalUrl) {
-            $finalUrl = $liveCreds.publicUrl
+if ($publishMode -eq "localtunnel") {
+    $msgWaitTunnel = if ($chosenLang -eq "ru") { "  Ожидание готовности туннеля Localtunnel..." } else { "  Waiting for Localtunnel readiness..." }
+    Write-Host $msgWaitTunnel -ForegroundColor Cyan
+    for ($i = 0; $i -lt 30; $i++) {
+        Start-Sleep -Milliseconds 500
+        if (Test-Path $credFile) {
+            try {
+                $liveCreds = Get-Content $credFile -Raw | ConvertFrom-Json
+                if ($liveCreds.publicUrl -and $liveCreds.publicUrl -match "\.loca\.lt" -and $liveCreds.localtunnelPassword) {
+                    $finalUrl = $liveCreds.publicUrl
+                    $localtunnelPassword = $liveCreds.localtunnelPassword
+                    break
+                }
+            } catch {}
         }
-        if ($liveCreds.localtunnelPassword) {
-            $localtunnelPassword = $liveCreds.localtunnelPassword
-        }
-    } catch {}
+    }
+} else {
+    Start-Sleep -Seconds 2
 }
 
 # 11. Clean, Aligned Summary Card

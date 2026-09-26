@@ -51,6 +51,50 @@ public sealed class SettingsService : ISettingsService
             {
                 settings = await InitializeDefaultSettingsAsync(db);
             }
+            else
+            {
+                bool changed = false;
+                var envMode = Environment.GetEnvironmentVariable("OPENFLUX_PUBLISH_MODE");
+                if (!string.IsNullOrEmpty(envMode) && !string.Equals(settings.PublishMode, envMode, StringComparison.OrdinalIgnoreCase))
+                {
+                    settings.PublishMode = envMode;
+                    changed = true;
+                }
+
+                if (File.Exists(_credentialsFilePath))
+                {
+                    try
+                    {
+                        var content = await File.ReadAllTextAsync(_credentialsFilePath);
+                        using var doc = JsonDocument.Parse(content);
+                        if (doc.RootElement.TryGetProperty("publishMode", out var pm))
+                        {
+                            var credMode = pm.GetString();
+                            if (!string.IsNullOrEmpty(credMode) && !string.Equals(settings.PublishMode, credMode, StringComparison.OrdinalIgnoreCase))
+                            {
+                                settings.PublishMode = credMode;
+                                changed = true;
+                            }
+                        }
+                        if (doc.RootElement.TryGetProperty("publicUrl", out var pu))
+                        {
+                            var credPub = pu.GetString();
+                            if (!string.IsNullOrEmpty(credPub) && !string.Equals(settings.PublicUrl, credPub, StringComparison.OrdinalIgnoreCase))
+                            {
+                                settings.PublicUrl = credPub;
+                                changed = true;
+                            }
+                        }
+                    }
+                    catch { }
+                }
+
+                if (changed)
+                {
+                    settings.UpdatedAt = DateTime.UtcNow;
+                    await db.SaveChangesAsync();
+                }
+            }
             _cachedSettings = settings;
             return settings;
         }
