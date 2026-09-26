@@ -72,6 +72,11 @@ if ($hasGo) {
             $sizeMb = [Math]::Round(((Get-Item $outFile).Length / 1MB), 2)
             Write-Host "  [OK] Built: $($t.Output) ($sizeMb MB)" -ForegroundColor Green
         }
+
+        Get-ChildItem -Path $tempDir -Filter "cookies-*.json" | ForEach-Object {
+            Copy-Item -Path $_.FullName -Destination (Join-Path $OutputDir $_.Name) -Force
+            Write-Host "  [OK] Bundled: $($_.Name)" -ForegroundColor Green
+        }
     } finally {
         Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue
     }

@@ -162,8 +162,21 @@ public static class PayloadExtractor
         var runtimesDir = Path.Combine(installDir, "runtimes");
         if (Directory.Exists(runtimesDir))
         {
+            var dataDir = Path.Combine(installDir, "data");
+            Directory.CreateDirectory(dataDir);
+
             foreach (var f in Directory.GetFiles(runtimesDir))
             {
+                if (f.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                {
+                    var targetCookie = Path.Combine(dataDir, Path.GetFileName(f));
+                    if (!File.Exists(targetCookie))
+                    {
+                        try { File.Copy(f, targetCookie, overwrite: false); } catch { }
+                    }
+                    continue;
+                }
+
                 try
                 {
                     File.SetUnixFileMode(f, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute |

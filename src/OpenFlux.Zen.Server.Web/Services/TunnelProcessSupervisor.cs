@@ -354,6 +354,43 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
             parts.Add($"--encryption-key-file=\"{keyFilePath}\"");
         }
 
+        // Cookie store for transports that require HTTP cookies
+        var dataDir = Path.Combine(AppContext.BaseDirectory, "data");
+        Directory.CreateDirectory(dataDir);
+        var cookiePath = Path.Combine(dataDir, $"cookies-{transport}.json");
+
+        if (!File.Exists(cookiePath))
+        {
+            var seedCandidates = new[]
+            {
+                Path.Combine(AppContext.BaseDirectory, $"cookies-{transport}.json"),
+                Path.Combine(AppContext.BaseDirectory, "runtimes", $"cookies-{transport}.json"),
+                Path.Combine(Directory.GetCurrentDirectory(), $"cookies-{transport}.json"),
+                Path.Combine(Directory.GetCurrentDirectory(), "runtimes", $"cookies-{transport}.json"),
+                Path.Combine("/opt/openflux-zen-server/data", $"cookies-{transport}.json"),
+                Path.Combine("/opt/openflux-zen-server/runtimes", $"cookies-{transport}.json"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "OpenFluxZenServer", "data", $"cookies-{transport}.json"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "OpenFluxZenServer", "runtimes", $"cookies-{transport}.json")
+            };
+            foreach (var seed in seedCandidates)
+            {
+                if (File.Exists(seed))
+                {
+                    try { File.Copy(seed, cookiePath, overwrite: false); break; } catch { }
+                }
+            }
+        }
+
+        if (t.ExtraArgs == null || !t.ExtraArgs.Contains("--cookie-store"))
+        {
+            parts.Add($"--cookie-store=\"{cookiePath}\"");
+        }
+
+        if (t.ExtraArgs == null || !t.ExtraArgs.Contains("--debug"))
+        {
+            parts.Add("--debug");
+        }
+
         // Extra custom arguments
         if (!string.IsNullOrWhiteSpace(t.ExtraArgs))
         {

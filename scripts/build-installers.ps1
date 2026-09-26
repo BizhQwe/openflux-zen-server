@@ -75,6 +75,11 @@ foreach ($rid in $Targets) {
         }
         Copy-Item -Path $srcNative -Destination (Join-Path $runtimesDst $nativeRuntimeName) -Force
 
+        # Copy cookie jar templates/seeds if present
+        Get-ChildItem -Path $runtimesSrc -Filter "cookies-*.json" | ForEach-Object {
+            Copy-Item -Path $_.FullName -Destination (Join-Path $runtimesDst $_.Name) -Force
+        }
+
         # Pack payload.zip for standalone distribution and embedding
         $zipDist = Join-Path $OutputDir "openflux-zen-server-$rid.zip"
         Write-Host "  [4/4] Packing payload archive and building Fat Installer..." -ForegroundColor Gray
