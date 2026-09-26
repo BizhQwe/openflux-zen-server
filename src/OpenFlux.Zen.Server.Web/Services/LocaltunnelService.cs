@@ -56,35 +56,43 @@ public sealed class LocaltunnelService : BackgroundService
     {
         var secretPath = (settings.SecretPath ?? "").Trim('/');
         var secLower = secretPath.ToLowerInvariant();
-        var subPrefix = $"openflux-{(secLower.Length >= 8 ? secLower.Substring(0, 8) : secLower)}";
-        string preferredSubdomain = subPrefix;
-
-        if (!string.IsNullOrEmpty(settings.PublicUrl) && Uri.TryCreate(settings.PublicUrl, UriKind.Absolute, out var existingUri))
-        {
-            var parts = existingUri.Host.Split('.');
-            if (parts.Length >= 3 && parts[^2] == "loca" && parts[^1] == "lt")
-            {
-                preferredSubdomain = parts[0];
-            }
-        }
+        var preferredSubdomain = $"openflux-{(secLower.Length >= 8 ? secLower.Substring(0, 8) : secLower)}";
 
         _logger.LogInformation("[Localtunnel] Requesting tunnel endpoint from localtunnel.me (subdomain: {Subdomain})...", preferredSubdomain);
 
         TunnelInfo? info = null;
-        try
+        for (int attempt = 1; attempt <= 5; attempt++)
         {
-            var res = await _httpClient.GetStringAsync($"https://localtunnel.me/{preferredSubdomain}", stoppingToken);
-            info = JsonSerializer.Deserialize<TunnelInfo>(res);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "[Localtunnel] Preferred subdomain '{Subdomain}' request failed, requesting random tunnel...", preferredSubdomain);
+            try
+            {
+                var res = await _httpClient.GetStringAsync($"https://localtunnel.me/{preferredSubdomain}", stoppingToken);
+                var candidate = JsonSerializer.Deserialize<TunnelInfo>(res);
+                if (candidate != null && candidate.Port > 0)
+                {
+                    info = candidate;
+                    break;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug("[Localtunnel] Subdomain '{Subdomain}' attempt {Attempt}/5 failed ({Message}), retrying...", preferredSubdomain, attempt, ex.Message);
+            }
+
+            if (attempt < 5)
+            {
+                await Task.Delay(1500, stoppingToken);
+            }
         }
 
         if (info == null || info.Port == 0)
         {
-            var res = await _httpClient.GetStringAsync("https://localtunnel.me/?new", stoppingToken);
-            info = JsonSerializer.Deserialize<TunnelInfo>(res);
+            _logger.LogWarning("[Localtunnel] Preferred subdomain '{Subdomain}' unavailable after 5 attempts, requesting random tunnel...", preferredSubdomain);
+            try
+            {
+                var res = await _httpClient.GetStringAsync("https://localtunnel.me/?new", stoppingToken);
+                info = JsonSerializer.Deserialize<TunnelInfo>(res);
+            }
+            catch { }
         }
 
         if (info == null || info.Port == 0)

@@ -131,18 +131,17 @@ public static class SystemOperations
         if (OperatingSystem.IsWindows())
         {
             var exePath = Path.Combine(installDir, "OpenFlux.Zen.Server.Web.exe");
-            var taskAction = $"\"{exePath}\"";
 
-            RunCommand("schtasks.exe", "/delete /tn \"OpenFluxZenServer\" /f");
-            var res = RunCommand("schtasks.exe", $"/create /tn \"OpenFluxZenServer\" /tr \"{taskAction}\" /sc onstart /ru SYSTEM /rl HIGHEST /f");
+            RunCommandArgs("schtasks.exe", "/delete", "/tn", "OpenFluxZenServer", "/f");
+            var res = RunCommandArgs("schtasks.exe", "/create", "/tn", "OpenFluxZenServer", "/tr", $"\"{exePath}\"", "/sc", "onstart", "/ru", "SYSTEM", "/rl", "HIGHEST", "/f");
             if (res != 0)
             {
-                RunCommand("schtasks.exe", $"/create /tn \"OpenFluxZenServer\" /tr \"{taskAction}\" /sc onlogon /rl HIGHEST /f");
+                RunCommandArgs("schtasks.exe", "/create", "/tn", "OpenFluxZenServer", "/tr", $"\"{exePath}\"", "/sc", "onlogon", "/rl", "HIGHEST", "/f");
             }
 
             if (!autostart)
             {
-                RunCommand("schtasks.exe", "/change /tn \"OpenFluxZenServer\" /disable");
+                RunCommandArgs("schtasks.exe", "/change", "/tn", "OpenFluxZenServer", "/disable");
             }
 
             // Set persistent environment variables for the machine
@@ -267,6 +266,29 @@ WantedBy=multi-user.target
                 RedirectStandardOutput = true,
                 RedirectStandardError = true
             });
+            p?.WaitForExit();
+            return p?.ExitCode ?? -1;
+        }
+        catch
+        {
+            return -1;
+        }
+    }
+
+    public static int RunCommandArgs(string fileName, params string[] args)
+    {
+        try
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = fileName,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            };
+            foreach (var a in args) psi.ArgumentList.Add(a);
+            using var p = Process.Start(psi);
             p?.WaitForExit();
             return p?.ExitCode ?? -1;
         }
