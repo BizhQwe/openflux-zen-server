@@ -1,5 +1,5 @@
 # ==============================================================================
-# OpenFlux Zen Server — Fast 1-Command Bootstrap Installer (Windows)
+# OpenFlux Zen Server - Fast 1-Command Bootstrap Installer (Windows)
 # Supports: Windows x64, Windows ARM64
 # ==============================================================================
 
@@ -15,30 +15,23 @@ $arch = if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture 
 $tempDir = $env:TEMP
 $installerExe = Join-Path $tempDir "openflux-installer-$arch.exe"
 $releaseUrl = "https://github.com/BizhQwe/openflux-zen-server/releases/latest/download/openflux-installer-$arch.exe"
-$fallbackUrl = "https://raw.githubusercontent.com/BizhQwe/openflux-zen-server/main/dist/openflux-installer-$arch.exe"
+$tagUrl = "https://github.com/BizhQwe/openflux-zen-server/releases/download/v1.0.4/openflux-installer-$arch.exe"
+$fallbackUrl = "https://github.com/BizhQwe/openflux-zen-server/releases/download/v1.0.3/openflux-installer-$arch.exe"
 
 Write-Host ""
-Write-Host "  OpenFlux Zen Server — Windows ($arch)" -ForegroundColor Cyan
-Write-Host "  Загрузка установщика..." -ForegroundColor Gray
+Write-Host "  OpenFlux Zen Server - Windows ($arch)" -ForegroundColor Cyan
+Write-Host "  Downloading installer..." -ForegroundColor Gray
 
 $downloaded = $false
-try {
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
-    $wc = New-Object System.Net.WebClient
-    $wc.Headers.Add("User-Agent", "OpenFlux-Bootstrap")
-    $wc.DownloadFile($releaseUrl, $installerExe)
-    if ((Test-Path $installerExe) -and (Get-Item $installerExe).Length -gt 1000000) {
-        $downloaded = $true
-    }
-} catch { }
-
-if (-not $downloaded) {
+foreach ($url in @($releaseUrl, $tagUrl, $fallbackUrl)) {
     try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
         $wc = New-Object System.Net.WebClient
         $wc.Headers.Add("User-Agent", "OpenFlux-Bootstrap")
-        $wc.DownloadFile($fallbackUrl, $installerExe)
+        $wc.DownloadFile($url, $installerExe)
         if ((Test-Path $installerExe) -and (Get-Item $installerExe).Length -gt 1000000) {
             $downloaded = $true
+            break
         }
     } catch { }
 }
@@ -47,18 +40,8 @@ if ($downloaded) {
     & $installerExe $args
     exit $LASTEXITCODE
 } else {
-    Write-Host "  [!] Готовый релиз не найден. Запуск локальной сборки..." -ForegroundColor Yellow
-    # Fallback to local build if repo cloned or SDK installed
-    $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
-    $buildScript = Join-Path $repoRoot "scripts\build-installers.ps1"
-    if (Test-Path $buildScript) {
-        & powershell -ExecutionPolicy Bypass -File $buildScript -Targets @($arch)
-        $builtExe = Join-Path $repoRoot "dist\openflux-installer-$arch.exe"
-        if (Test-Path $builtExe) {
-            & $builtExe $args
-            exit $LASTEXITCODE
-        }
-    }
-    Write-Host "  [ОШИБКА] Не удалось загрузить или собрать установщик." -ForegroundColor Red
+    Write-Host "  [ERROR] Failed to download installer for $arch." -ForegroundColor Red
+    Write-Host "  Please check internet connection or download manually:" -ForegroundColor Yellow
+    Write-Host "  $releaseUrl" -ForegroundColor Yellow
     exit 1
 }
