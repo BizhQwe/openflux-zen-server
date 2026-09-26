@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/OpenFlux.Zen.Server.Cli/OpenFlux.Zen.Server.Cli.csproj" />
     <Project Path="src/OpenFlux.Zen.Server.Core/OpenFlux.Zen.Server.Core.csproj" />
+    <Project Path="src/OpenFlux.Zen.Server.Installer/OpenFlux.Zen.Server.Installer.csproj" />
     <Project Path="src/OpenFlux.Zen.Server.Web/OpenFlux.Zen.Server.Web.csproj" />
   </Folder>
 </Solution>

@@ -17,3 +17,5 @@
 /temp/
 .idea/
 .vscode/
+/dist/
+payload.zip
