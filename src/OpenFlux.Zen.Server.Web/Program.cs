@@ -41,7 +41,7 @@ builder.WebHost.UseUrls($"http://{listenHost}:{listenPort}");
 var dbPath = AppPaths.GetDatabasePath();
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
-    options.UseSqlite($"Data Source={dbPath}");
+    options.UseSqlite($"Data Source={dbPath}", b => b.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName));
     options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
 });
 

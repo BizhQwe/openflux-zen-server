@@ -42,7 +42,26 @@ public sealed class HostedRestoreService : IHostedService
             catch { }
 
             // Apply migrations or ensure schema is created
-            await db.Database.MigrateAsync(cancellationToken);
+            try
+            {
+                await db.Database.MigrateAsync(cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "MigrateAsync encountered an issue, attempting EnsureCreatedAsync fallback");
+                await db.Database.EnsureCreatedAsync(cancellationToken);
+            }
+
+            // Fallback: If tables do not exist (e.g. mismatched migrations assembly), ensure schema exists
+            try
+            {
+                await db.Database.ExecuteSqlRawAsync("SELECT 1 FROM \"Tunnels\" LIMIT 1;", cancellationToken);
+            }
+            catch
+            {
+                _logger.LogWarning("Tunnels table missing after migration; running EnsureCreatedAsync...");
+                await db.Database.EnsureCreatedAsync(cancellationToken);
+            }
 
             // Ensure settings and admin account exist
             var currentSettings = await db.Settings.FirstOrDefaultAsync(s => s.Id == 1, cancellationToken);
