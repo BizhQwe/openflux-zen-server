@@ -145,9 +145,13 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         {
             if (e.Data != null)
             {
-                _logService.AppendLog(tunnel.Id, "stdout", e.Data);
+                var isPacketTrace = e.Data.Contains(" bytes - ");
                 ParseStats(state, e.Data);
-                DetectConnectionStatus(tunnel, e.Data);
+                if (!isPacketTrace)
+                {
+                    _logService.AppendLog(tunnel.Id, "stdout", e.Data);
+                    DetectConnectionStatus(tunnel, e.Data);
+                }
             }
         };
 
@@ -155,9 +159,13 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         {
             if (e.Data != null)
             {
-                _logService.AppendLog(tunnel.Id, "stderr", e.Data);
+                var isPacketTrace = e.Data.Contains(" bytes - ");
                 ParseStats(state, e.Data);
-                DetectConnectionStatus(tunnel, e.Data);
+                if (!isPacketTrace)
+                {
+                    _logService.AppendLog(tunnel.Id, "stderr", e.Data);
+                    DetectConnectionStatus(tunnel, e.Data);
+                }
             }
         };
 

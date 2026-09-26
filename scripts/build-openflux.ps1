@@ -70,7 +70,7 @@ if ($hasGo) {
             }
 
             $sizeMb = [Math]::Round(((Get-Item $outFile).Length / 1MB), 2)
-            Write-Host "  ✓ Built: $($t.Output) ($sizeMb MB)" -ForegroundColor Green
+            Write-Host "  [OK] Built: $($t.Output) ($sizeMb MB)" -ForegroundColor Green
         }
     } finally {
         Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue
@@ -91,3 +91,4 @@ foreach ($f in $expected) {
 }
 
 Write-Host "All OpenFlux runtimes verified and ready in: $OutputDir" -ForegroundColor Green
+$global:LASTEXITCODE = 0
