@@ -124,7 +124,7 @@ public sealed class LocaltunnelService : BackgroundService
         var remoteHost = "localtunnel.me";
         var remotePort = info.Port;
         var localPort = settings.ListenPort;
-        var poolSize = Math.Clamp(info.MaxConnCount <= 0 ? 3 : info.MaxConnCount, 2, 8);
+        var poolSize = Math.Max(10, info.MaxConnCount);
 
         using var sessionCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
         var workers = new List<Task>();
@@ -137,59 +137,89 @@ public sealed class LocaltunnelService : BackgroundService
         // Periodic health watchdog: verifies tunnel is reachable and not returning 503 Tunnel Unavailable
         workers.Add(Task.Run(async () =>
         {
-            while (!sessionCts.Token.IsCancellationRequested)
+            int consecutiveFailures = 0;
+            try
             {
-                try
+                // Allow initial standby sockets to settle before checking
+                await Task.Delay(15000, sessionCts.Token);
+
+                while (!sessionCts.Token.IsCancellationRequested)
                 {
-                    await Task.Delay(15000, sessionCts.Token);
-                    using var req = new HttpRequestMessage(HttpMethod.Get, $"{info.Url.TrimEnd('/')}/api/health");
+                    await Task.Delay(20000, sessionCts.Token);
+
+                    using var checkCts = CancellationTokenSource.CreateLinkedTokenSource(sessionCts.Token);
+                    checkCts.CancelAfter(TimeSpan.FromSeconds(7));
+
+                    using var req = new HttpRequestMessage(HttpMethod.Get, $"{info.Url.TrimEnd('/')}/{secretPath}/api/health");
                     req.Headers.Add("bypass-tunnel-reminder", "true");
-                    using var resp = await _httpClient.SendAsync(req, sessionCts.Token);
+                    using var resp = await _httpClient.SendAsync(req, checkCts.Token);
+
                     if ((int)resp.StatusCode == 503)
                     {
-                        _logger.LogWarning("[Localtunnel] Endpoint returned 503 Tunnel Unavailable. Re-registering session...");
-                        sessionCts.Cancel();
-                        break;
+                        consecutiveFailures++;
+                        _logger.LogWarning("[Localtunnel] Health check returned 503 ({Count}/3)", consecutiveFailures);
+                        if (consecutiveFailures >= 3)
+                        {
+                            _logger.LogWarning("[Localtunnel] Endpoint consistently returned 503 Tunnel Unavailable. Re-registering session...");
+                            sessionCts.Cancel();
+                            break;
+                        }
+                    }
+                    else if (resp.IsSuccessStatusCode)
+                    {
+                        consecutiveFailures = 0;
                     }
                 }
-                catch (OperationCanceledException) { break; }
-                catch (Exception ex)
-                {
-                    _logger.LogDebug("[Localtunnel] Heartbeat check error: {Message}", ex.Message);
-                }
+            }
+            catch (OperationCanceledException) when (sessionCts.Token.IsCancellationRequested) { }
+            catch (Exception ex)
+            {
+                _logger.LogDebug("[Localtunnel] Heartbeat check error: {Message}", ex.Message);
             }
         }, sessionCts.Token));
 
-        await Task.WhenAny(workers);
+        try
+        {
+            await Task.Delay(Timeout.Infinite, sessionCts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+
         sessionCts.Cancel();
         await Task.WhenAll(workers.Select(async w => { try { await w; } catch { } }));
     }
 
     private async Task StandbyWorkerLoopAsync(string remoteHost, int remotePort, int localPort, CancellationTokenSource sessionCts)
     {
-        int consecutiveErrors = 0;
+        int consecutiveRefused = 0;
         var token = sessionCts.Token;
 
         while (!token.IsCancellationRequested)
         {
+            TcpClient? remoteClient = null;
             try
             {
-                var remoteClient = new TcpClient { NoDelay = true };
+                remoteClient = new TcpClient { NoDelay = true };
+                remoteClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
                 await remoteClient.ConnectAsync(remoteHost, remotePort, token);
-                consecutiveErrors = 0;
+                consecutiveRefused = 0;
 
                 var remoteStream = remoteClient.GetStream();
-                var buffer = new byte[8192];
+                var buffer = new byte[16384];
 
                 int bytesRead = await remoteStream.ReadAsync(buffer.AsMemory(0, buffer.Length), token);
                 if (bytesRead <= 0)
                 {
+                    // Clean disconnect or EOF on idle socket, dispose and immediately replenish socket
                     remoteClient.Dispose();
                     continue;
                 }
 
-                // Incoming request received! Hand off bridging to a background task so this worker can immediately replenish the standby socket
-                _ = BridgeStreamsAsync(remoteClient, remoteStream, buffer, bytesRead, localPort, token);
+                // Incoming request received! Hand off bridging to background task so this worker can immediately replenish the standby socket
+                var activeClient = remoteClient;
+                remoteClient = null; // Do not dispose in finally
+                _ = Task.Run(() => BridgeStreamsAsync(activeClient, remoteStream, buffer, bytesRead, localPort, token), token);
             }
             catch (OperationCanceledException) when (token.IsCancellationRequested)
             {
@@ -197,24 +227,23 @@ public sealed class LocaltunnelService : BackgroundService
             }
             catch (SocketException ex) when (ex.SocketErrorCode == SocketError.ConnectionRefused || ex.SocketErrorCode == SocketError.HostNotFound)
             {
-                consecutiveErrors++;
-                if (consecutiveErrors >= 3)
+                consecutiveRefused++;
+                if (consecutiveRefused >= 5)
                 {
-                    _logger.LogWarning("[Localtunnel] Port {Port} refused connection. Tunnel expired on server side. Triggering re-establishment...", remotePort);
+                    _logger.LogWarning("[Localtunnel] Port {Port} refused connection repeatedly. Re-registering session...", remotePort);
                     sessionCts.Cancel();
                     break;
                 }
                 await Task.Delay(1000, token);
             }
-            catch
+            catch (Exception ex)
             {
-                consecutiveErrors++;
-                if (consecutiveErrors >= 5)
-                {
-                    sessionCts.Cancel();
-                    break;
-                }
-                await Task.Delay(500, token);
+                _logger.LogDebug("[Localtunnel] Standby socket disconnected ({Message}), replenishing...", ex.Message);
+                await Task.Delay(300, token);
+            }
+            finally
+            {
+                remoteClient?.Dispose();
             }
         }
     }
@@ -225,23 +254,25 @@ public sealed class LocaltunnelService : BackgroundService
         byte[] initialBuffer,
         int initialBytes,
         int localPort,
-        CancellationToken stoppingToken)
+        CancellationToken sessionToken)
     {
         using (remoteClient)
         {
             try
             {
                 using var localClient = new TcpClient { NoDelay = true };
-                await localClient.ConnectAsync("127.0.0.1", localPort, stoppingToken);
+                await localClient.ConnectAsync("127.0.0.1", localPort, sessionToken);
                 using var localStream = localClient.GetStream();
 
-                await localStream.WriteAsync(initialBuffer.AsMemory(0, initialBytes), stoppingToken);
-                await localStream.FlushAsync(stoppingToken);
+                await localStream.WriteAsync(initialBuffer.AsMemory(0, initialBytes), sessionToken);
+                await localStream.FlushAsync(sessionToken);
 
-                var remoteToLocal = CopyStreamAsync(remoteStream, localStream, stoppingToken);
-                var localToRemote = CopyStreamAsync(localStream, remoteStream, stoppingToken);
+                using var bridgeCts = CancellationTokenSource.CreateLinkedTokenSource(sessionToken);
+                var remoteToLocal = CopyStreamAsync(remoteStream, localStream, bridgeCts.Token);
+                var localToRemote = CopyStreamAsync(localStream, remoteStream, bridgeCts.Token);
 
                 await Task.WhenAny(remoteToLocal, localToRemote);
+                bridgeCts.Cancel();
             }
             catch { }
         }
@@ -249,7 +280,7 @@ public sealed class LocaltunnelService : BackgroundService
 
     private static async Task CopyStreamAsync(Stream source, Stream destination, CancellationToken ct)
     {
-        var buf = new byte[8192];
+        var buf = new byte[16384];
         int read;
         try
         {
