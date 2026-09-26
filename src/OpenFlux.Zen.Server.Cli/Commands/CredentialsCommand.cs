@@ -17,6 +17,7 @@ public static class CredentialsCommand
         string secretPath = "zen-admin";
         int port = 5000;
         string? publicUrl = null;
+        string? localtunnelPassword = null;
 
         if (File.Exists(credPath))
         {
@@ -28,6 +29,7 @@ public static class CredentialsCommand
                 if (doc.TryGetProperty("password", out var p)) password = p.GetString() ?? password;
                 if (doc.TryGetProperty("secretPath", out var s)) secretPath = s.GetString() ?? secretPath;
                 if (doc.TryGetProperty("publicUrl", out var pub)) publicUrl = pub.GetString();
+                if (doc.TryGetProperty("localtunnelPassword", out var lp)) localtunnelPassword = lp.GetString();
             }
             catch { }
         }
@@ -72,6 +74,15 @@ public static class CredentialsCommand
         Console.ForegroundColor = ConsoleColor.White;
         Console.WriteLine($"    {finalUrl}");
         Console.WriteLine();
+
+        if (!string.IsNullOrWhiteSpace(localtunnelPassword) && finalUrl.Contains(".loca.lt"))
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("  Localtunnel Password (Server IP for browser reminder):");
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.WriteLine($"    {localtunnelPassword}");
+            Console.WriteLine();
+        }
         Console.ForegroundColor = ConsoleColor.Cyan;
         Console.WriteLine("  Local Access URL:");
         Console.ForegroundColor = ConsoleColor.White;

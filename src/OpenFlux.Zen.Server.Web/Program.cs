@@ -56,6 +56,7 @@ builder.Services.AddSingleton<IAuthService, AuthService>();
 builder.Services.AddSingleton<IExportImportService, ExportImportService>();
 builder.Services.AddSingleton<IUninstallerService, UninstallerService>();
 builder.Services.AddHostedService<HostedRestoreService>();
+builder.Services.AddHostedService<LocaltunnelService>();
 
 builder.Services.AddRouting();
 

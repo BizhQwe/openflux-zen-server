@@ -36,10 +36,6 @@ public static class ServerCommands
         else
         {
             ProcessHelper.RunBash("systemctl start openflux-zen-server.service");
-            if (File.Exists("/etc/systemd/system/openflux-zrok.service"))
-            {
-                ProcessHelper.RunBash("systemctl start openflux-zrok.service");
-            }
         }
         await Task.Delay(1000);
         await ExecuteStatusAsync();
@@ -60,7 +56,7 @@ public static class ServerCommands
             ProcessHelper.RunBash("systemctl stop openflux-zen-server.service");
             if (File.Exists("/etc/systemd/system/openflux-zrok.service"))
             {
-                ProcessHelper.RunBash("systemctl stop openflux-zrok.service");
+                ProcessHelper.RunBash("systemctl stop openflux-zrok.service 2>/dev/null || true");
             }
         }
         await Task.Delay(1000);
@@ -80,10 +76,6 @@ public static class ServerCommands
         else
         {
             ProcessHelper.RunBash("systemctl restart openflux-zen-server.service");
-            if (File.Exists("/etc/systemd/system/openflux-zrok.service"))
-            {
-                ProcessHelper.RunBash("systemctl restart openflux-zrok.service");
-            }
             await Task.Delay(1000);
             await ExecuteStatusAsync();
         }
@@ -114,12 +106,6 @@ public static class ServerCommands
                 : $"[STATUS] OpenFlux Zen Server: NOT RUNNING ({status})");
             Console.ResetColor();
 
-            if (File.Exists("/etc/systemd/system/openflux-zrok.service"))
-            {
-                var (_, zrokOut) = ProcessHelper.RunBashWithOutput("systemctl is-active openflux-zrok.service 2>/dev/null || true");
-                var zrokStatus = zrokOut.Trim();
-                Console.WriteLine($"[STATUS] Zrok Public Share : {(zrokStatus == "active" ? "RUNNING (active)" : zrokStatus)}");
-            }
         }
         return Task.CompletedTask;
     }
@@ -143,10 +129,6 @@ public static class ServerCommands
                 else
                 {
                     ProcessHelper.RunBash("systemctl enable openflux-zen-server.service 2>/dev/null || true");
-                    if (File.Exists("/etc/systemd/system/openflux-zrok.service"))
-                    {
-                        ProcessHelper.RunBash("systemctl enable openflux-zrok.service 2>/dev/null || true");
-                    }
                 }
                 await UpdateAutostartDbAsync(true);
                 Console.ForegroundColor = ConsoleColor.Green;
@@ -166,10 +148,6 @@ public static class ServerCommands
                 else
                 {
                     ProcessHelper.RunBash("systemctl disable openflux-zen-server.service 2>/dev/null || true");
-                    if (File.Exists("/etc/systemd/system/openflux-zrok.service"))
-                    {
-                        ProcessHelper.RunBash("systemctl disable openflux-zrok.service 2>/dev/null || true");
-                    }
                 }
                 await UpdateAutostartDbAsync(false);
                 Console.ForegroundColor = ConsoleColor.Yellow;

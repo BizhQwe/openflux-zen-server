@@ -10,6 +10,7 @@ public interface ISettingsService
     Task<bool> SetAutoStartAsync(bool enabled);
     Task<bool> SetLanguageAsync(string language);
     void SaveCredentialsFile(string username, string plainPassword, string secretPath, string? publicUrl);
+    void UpdatePublicUrlInCredentials(string publicUrl, string? localtunnelPassword = null);
     void InvalidateCache();
 }
 

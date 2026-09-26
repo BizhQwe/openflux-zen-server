@@ -265,8 +265,8 @@ $existingPass = ""
 $existingSecret = ""
 $existingMode = ""
 $existingDomain = ""
-$existingZrokToken = ""
 $existingHost = ""
+$existingLtPass = ""
 if (Test-Path $credFile) {
     try {
         $json = Get-Content $credFile -Raw | ConvertFrom-Json
@@ -275,8 +275,8 @@ if (Test-Path $credFile) {
         $existingSecret = $json.secretPath
         $existingMode = $json.publishMode
         $existingDomain = $json.domain
-        $existingZrokToken = $json.zrokToken
         $existingHost = $json.host
+        $existingLtPass = $json.localtunnelPassword
     } catch {}
 }
 
@@ -290,7 +290,7 @@ $finalUrl = $localUrl
 $publishMode = if ($existingMode) { $existingMode } else { "local" }
 $listenHost = if ($existingHost) { $existingHost } else { "127.0.0.1" }
 $userDomain = if ($existingDomain) { $existingDomain } else { "" }
-$zrokToken = if ($existingZrokToken) { $existingZrokToken } else { "" }
+$localtunnelPassword = if ($existingLtPass) { $existingLtPass } else { "" }
 
 # 7. Network Accessibility and Publishing Configuration
 $env:OPENFLUX_PUBLISH_MODE = $null
@@ -321,103 +321,56 @@ if ($netAccess) {
         Write-Host ""
         Write-Host "  Выберите режим публикации:" -ForegroundColor Cyan
         Write-Host "    1) Открытые порты (Собственный домен или внешний IP сервера)"
-        Write-Host "    2) Через Zrok (Защищённый туннель без открытия портов наружу)"
+        Write-Host "    2) Через Localtunnel (Защищённый туннель без открытия портов, без токенов)"
         $pubPrompt = "  Ваш выбор [1/2, default: 1]"
     } else {
         Write-Host ""
         Write-Host "  Select publishing mode:" -ForegroundColor Cyan
         Write-Host "    1) Open ports (Custom domain or External server IP)"
-        Write-Host "    2) Via Zrok (Encrypted tunnel without exposing inbound ports)"
+        Write-Host "    2) Via Localtunnel (Encrypted tunnel without open ports, zero-config)"
         $pubPrompt = "  Your choice [1/2, default: 1]"
     }
 
     $rawChoice = Read-Host "$pubPrompt"
     $pubChoice = if ($rawChoice) { $rawChoice.Trim() } else { "1" }
 
-    if ($pubChoice -match "2|zrok") {
-        $publishMode = "zrok"
+    if ($pubChoice -match "2|localtunnel|tunnel") {
+        $publishMode = "localtunnel"
         $listenHost = "127.0.0.1"
-        if ($chosenLang -eq "ru") {
-            Write-Host "  Токен можно получить на сайте: https://api-v1.zrok.io" -ForegroundColor Cyan
-            Write-Host "  (Внимание: тот токен, что работает на Linux, не работает на Windows - требуется отдельный токен)" -ForegroundColor Yellow
-            $tokenPrompt = "  Введите ваш Zrok токен (Account Token)"
-        } else {
-            Write-Host "  Token can be obtained at: https://api-v1.zrok.io" -ForegroundColor Cyan
-            Write-Host "  (Notice: a token active on Linux will not work on Windows - a separate token is required)" -ForegroundColor Yellow
-            $tokenPrompt = "  Enter your Zrok Account Token"
+
+        schtasks.exe /delete /tn "OpenFluxZrok" /f *>$null 2>&1
+
+        $publicIp = ""
+        try {
+            $publicIp = (& curl.exe -sSL --connect-timeout 4 https://api.ipify.org).Trim()
+        } catch {}
+        if (-not $publicIp) {
+            try {
+                $publicIp = (& curl.exe -sSL --connect-timeout 4 https://ifconfig.me/ip).Trim()
+            } catch {}
         }
-        $zrokToken = (Read-Host "$tokenPrompt").Trim()
+        if (-not $publicIp) {
+            try {
+                $wc = New-Object System.Net.WebClient
+                $publicIp = ($wc.DownloadString("https://api.ipify.org")).Trim()
+            } catch {}
+        }
 
-        if ($zrokToken) {
-            $zrokExe = Join-Path $InstallDir "zrok.exe"
-            if (-not (Test-Path $zrokExe)) {
-                $msgDl = if ($chosenLang -eq "ru") { "  Загрузка клиента Zrok для Windows..." } else { "  Downloading Zrok client for Windows..." }
-                Write-Host $msgDl -ForegroundColor Gray
-                $zrokArch = if ([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture -eq "Arm64") { "arm64" } else { "amd64" }
-                $zrokUrl = "https://github.com/openziti/zrok/releases/download/v2.0.4/zrok_2.0.4_windows_${zrokArch}.tar.gz"
-                $zrokArchive = Join-Path $env:TEMP "zrok.tar.gz"
-                $zrokExtractDir = Join-Path $env:TEMP "zrok_extracted"
-                if (Test-Path $zrokExtractDir) { Remove-Item -Path $zrokExtractDir -Recurse -Force -ErrorAction SilentlyContinue }
-                New-Item -ItemType Directory -Path $zrokExtractDir -Force | Out-Null
+        $localtunnelPassword = $publicIp
+        $subPrefix = "openflux-" + $secretPath.Substring(0, 8)
+        $finalUrl = "https://$subPrefix.loca.lt/$secretPath/"
 
-                $dlZrok = Download-FileWithFallback $zrokUrl $zrokArchive 3000000
-                if ($dlZrok) {
-                    & tar.exe -xzf $zrokArchive -C $zrokExtractDir *>$null
-                    $foundZrok = Get-ChildItem -Path $zrokExtractDir -Recurse -Filter "zrok*.exe" | Select-Object -First 1
-                    if ($foundZrok) {
-                        Copy-Item -Path $foundZrok.FullName -Destination $zrokExe -Force
-                    }
-                    Remove-Item -Path $zrokArchive -Force -ErrorAction SilentlyContinue
-                    Remove-Item -Path $zrokExtractDir -Recurse -Force -ErrorAction SilentlyContinue
-                }
+        if ($chosenLang -eq "ru") {
+            Write-Host "  ✓ Выбран Localtunnel: туннель запускается автоматически внутри службы сервера." -ForegroundColor Green
+            Write-Host "    Регистрация и токены не требуются." -ForegroundColor Gray
+            if ($localtunnelPassword) {
+                Write-Host "    Пароль первого входа для loca.lt (IP сервера): $localtunnelPassword" -ForegroundColor Yellow
             }
-
-            if (Test-Path $zrokExe) {
-                $msgEn = if ($chosenLang -eq "ru") { "  Активация окружения Zrok..." } else { "  Enabling Zrok environment..." }
-                Write-Host $msgEn -ForegroundColor Gray
-                $enableOut = & $zrokExe enable $zrokToken 2>&1
-                if ($LASTEXITCODE -ne 0) {
-                    if ($chosenLang -eq "ru") {
-                        Write-Host "  [ВНИМАНИЕ] Не удалось активировать токен Zrok (ошибка авторизации)." -ForegroundColor Yellow
-                        Write-Host "  Токен можно получить на сайте https://api-v1.zrok.io. Тот токен, что работает на Linux, не работает на Windows." -ForegroundColor DarkGray
-                        Write-Host "  Переключение на локальный режим (127.0.0.1)." -ForegroundColor DarkGray
-                    } else {
-                        Write-Host "  [WARNING] Could not enable Zrok token (authorization error)." -ForegroundColor Yellow
-                        Write-Host "  Token can be obtained at https://api-v1.zrok.io. A token active on Linux cannot be reused on Windows." -ForegroundColor DarkGray
-                        Write-Host "  Falling back to local mode (127.0.0.1)." -ForegroundColor DarkGray
-                    }
-                    $publishMode = "local"
-                    $finalUrl = $localUrl
-                } else {
-                    schtasks.exe /delete /tn "OpenFluxZrok" /f *>$null
-                    $zrokAction = '"' + $zrokExe + '" share public http://127.0.0.1:' + $listenPort + ' --headless'
-                    schtasks.exe /create /tn "OpenFluxZrok" /tr $zrokAction /sc onstart /ru SYSTEM /rl HIGHEST /f *>$null
-                    if ($LASTEXITCODE -ne 0) {
-                        schtasks.exe /create /tn "OpenFluxZrok" /tr $zrokAction /sc onlogon /rl HIGHEST /f *>$null
-                    }
-
-                    $zrokPsi = New-Object System.Diagnostics.ProcessStartInfo
-                    $zrokPsi.FileName = $zrokExe
-                    $zrokPsi.Arguments = "share public http://127.0.0.1:$listenPort --headless"
-                    $zrokPsi.UseShellExecute = $false
-                    $zrokPsi.CreateNoWindow = $true
-                    $zrokPsi.RedirectStandardOutput = $true
-                    $zrokPsi.RedirectStandardError = $true
-                    [System.Diagnostics.Process]::Start($zrokPsi) | Out-Null
-
-                    Start-Sleep -Seconds 4
-                    $endpoint = ""
-                    try {
-                        $overview = & $zrokExe overview 2>$null
-                        $endpoint = ($overview | Select-String -Pattern '[a-z0-9]+\.shares?\.zrok\.io' | ForEach-Object { $_.Matches[0].Value } | Select-Object -First 1)
-                    } catch {}
-
-                    if ($endpoint) {
-                        $finalUrl = "https://$endpoint/$secretPath/"
-                    } else {
-                        $finalUrl = "https://<zrok-share-url>/$secretPath/"
-                    }
-                }
+        } else {
+            Write-Host "  ✓ Localtunnel selected: tunnel runs automatically inside server service." -ForegroundColor Green
+            Write-Host "    No registration or tokens required." -ForegroundColor Gray
+            if ($localtunnelPassword) {
+                Write-Host "    First-time loca.lt password (server IP): $localtunnelPassword" -ForegroundColor Yellow
             }
         }
     } else {
@@ -485,7 +438,7 @@ $credObj = [PSCustomObject]@{
     host = $listenHost
     port = $listenPort
     domain = $userDomain
-    zrokToken = $zrokToken
+    localtunnelPassword = $localtunnelPassword
     language = $chosenLang
     autostart = $autostartEnabled
     updatedAt = (Get-Date).ToUniversalTime().ToString("o")
@@ -514,7 +467,6 @@ if (-not $autostartEnabled) {
 [Environment]::SetEnvironmentVariable("OPENFLUX_PUBLISH_MODE", $null, "Machine")
 [Environment]::SetEnvironmentVariable("OPENFLUX_NETWORK_ACCESS", $null, "Machine")
 [Environment]::SetEnvironmentVariable("OPENFLUX_DOMAIN", $null, "Machine")
-[Environment]::SetEnvironmentVariable("OPENFLUX_ZROK_TOKEN", $null, "Machine")
 
 # 9. Register CLI in Machine PATH
 Write-Host ""
@@ -555,7 +507,18 @@ $psi.RedirectStandardError = $true
 $psi.CreateNoWindow = $true
 [System.Diagnostics.Process]::Start($psi) | Out-Null
 
-Start-Sleep -Seconds 2
+Start-Sleep -Seconds 3
+if ($publishMode -eq "localtunnel" -and (Test-Path $credFile)) {
+    try {
+        $liveCreds = Get-Content $credFile -Raw | ConvertFrom-Json
+        if ($liveCreds.publicUrl -and $liveCreds.publicUrl -ne $finalUrl) {
+            $finalUrl = $liveCreds.publicUrl
+        }
+        if ($liveCreds.localtunnelPassword) {
+            $localtunnelPassword = $liveCreds.localtunnelPassword
+        }
+    } catch {}
+}
 
 # 11. Clean, Aligned Summary Card
 $title = if ($chosenLang -eq "ru") { "OpenFlux Zen Server -- УСПЕШНО УСТАНОВЛЕН И ЗАПУЩЕН!" } else { "OpenFlux Zen Server -- SUCCESSFULLY INSTALLED AND STARTED!" }
@@ -572,7 +535,7 @@ $valEnabled = if ($chosenLang -eq "ru") { "Включён" } else { "Enabled" }
 $valDisabled = if ($chosenLang -eq "ru") { "Выключен" } else { "Disabled" }
 
 $valMode = switch ($publishMode) {
-    "zrok" { if ($chosenLang -eq "ru") { "Через Zrok туннель" } else { "Via Zrok Tunnel" } }
+    "localtunnel" { if ($chosenLang -eq "ru") { "Через Localtunnel (Без токенов)" } else { "Via Localtunnel (Zero-config)" } }
     "domain" { 
         if ($userDomain) { 
             "Domain ($userDomain)" 
@@ -606,6 +569,11 @@ Write-Host "$lblUser$adminUser" -ForegroundColor White
 Write-Host "$lblPass$adminPass" -ForegroundColor White
 Write-Host "$lblSecPath/$secretPath/" -ForegroundColor White
 Write-Host "$lblPubMode$valMode" -ForegroundColor White
+if ($publishMode -eq "localtunnel" -and $localtunnelPassword) {
+    $lblLtPass = if ($chosenLang -eq "ru") { "    Пароль loca.lt (IP):" } else { "    loca.lt Password(IP):" }
+    $lblLtHint = if ($chosenLang -eq "ru") { "(требуется при первом открытии в браузере)" } else { "(required on first browser visit)" }
+    Write-Host "$lblLtPass $localtunnelPassword $lblLtHint" -ForegroundColor Yellow
+}
 Write-Host "$lblLang$($chosenLang.ToUpper())" -ForegroundColor White
 if ($autostartEnabled) {
     Write-Host "$lblAuto$valEnabled" -ForegroundColor Green

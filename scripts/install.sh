@@ -86,14 +86,13 @@ if [ "$CHOSEN_LANG" = "ru" ]; then
     TXT_NET_PROMPT="Нужна ли сетевая доступность панели из интернета? [y/N]: "
     TXT_PUB_TITLE="Выберите режим публикации:"
     TXT_PUB_OPT1="  1) Открытые порты (Собственный домен + HTTPS с авто-сертификатом)"
-    TXT_PUB_OPT2="  2) Через Zrok (Защищённый туннель без открытия портов наружу)"
+    TXT_PUB_OPT2="  2) Через Localtunnel (Защищённый туннель без открытия портов, без токенов)"
     TXT_PUB_PROMPT="Ваш выбор [1/2]: "
     TXT_DOMAIN_PROMPT="Введите ваш домен (например, zen.example.com): "
     TXT_DOMAIN_CHECK="Проверка существующих SSL-сертификатов для"
     TXT_DOMAIN_CERT_FOUND="✓ Обнаружен действующий SSL-сертификат. Переиспользуем."
-    TXT_ZROK_PROMPT="Введите ваш Zrok токен (Account Token): "
-    TXT_ZROK_DOWNLOAD="Скачивание клиента Zrok"
-    TXT_ZROK_ENABLE="Активация окружения Zrok..."
+    TXT_LT_SELECTED="✓ Выбран Localtunnel: туннель запускается автоматически внутри службы сервера (без сторонних утилит и токенов)."
+    TXT_LT_PASS_HINT="Пароль первого входа для loca.lt (IP сервера):"
     TXT_STEP7="[7/8] Настройка автозапуска и системной службы systemd..."
     TXT_AUTOSTART_PROMPT="Включить автозапуск сервера при загрузке системы? [Y/n]: "
     TXT_STEP8="[8/8] Регистрация команды OpenFluxZenServer в PATH..."
@@ -107,6 +106,11 @@ if [ "$CHOSEN_LANG" = "ru" ]; then
     TXT_LBL_USER="Логин"
     TXT_LBL_PASS="Пароль"
     TXT_LBL_SECRET="Секретный путь"
+    TXT_LBL_PUBMODE="Режим публикации"
+    TXT_PUB_MODE_LT="Через Localtunnel (Zero-config)"
+    TXT_PUB_MODE_DOMAIN="Открытые порты / Домен"
+    TXT_PUB_MODE_LOCAL="Локальный (127.0.0.1)"
+    TXT_LBL_LT_PASS="Пароль loca.lt (IP)"
     TXT_LBL_LANG="Язык интерфейса"
     TXT_LBL_AUTOSTART="Автозапуск"
     TXT_ENABLED="Включён"
@@ -141,14 +145,13 @@ else
     TXT_NET_PROMPT="Do you want the dashboard accessible from the internet? [y/N]: "
     TXT_PUB_TITLE="Select publishing mode:"
     TXT_PUB_OPT1="  1) Open ports (Custom domain + secure HTTPS with auto-certificate)"
-    TXT_PUB_OPT2="  2) Via Zrok (Encrypted tunnel without exposing inbound ports)"
+    TXT_PUB_OPT2="  2) Via Localtunnel (Encrypted tunnel without open ports, zero-config)"
     TXT_PUB_PROMPT="Your choice [1/2]: "
     TXT_DOMAIN_PROMPT="Enter your domain (e.g. zen.example.com): "
     TXT_DOMAIN_CHECK="Checking existing SSL certificates for"
     TXT_DOMAIN_CERT_FOUND="✓ Valid SSL certificate found. Reusing without reissuing."
-    TXT_ZROK_PROMPT="Enter your Zrok Account Token: "
-    TXT_ZROK_DOWNLOAD="Downloading Zrok client"
-    TXT_ZROK_ENABLE="Enabling Zrok environment..."
+    TXT_LT_SELECTED="✓ Localtunnel selected: tunnel runs automatically inside server service (zero external tools or tokens)."
+    TXT_LT_PASS_HINT="First-time loca.lt password (server IP):"
     TXT_STEP7="[7/8] Configuring autostart and systemd service..."
     TXT_AUTOSTART_PROMPT="Enable server autostart on system boot? [Y/n]: "
     TXT_STEP8="[8/8] Installing OpenFluxZenServer CLI command in PATH..."
@@ -162,6 +165,11 @@ else
     TXT_LBL_USER="Username"
     TXT_LBL_PASS="Password"
     TXT_LBL_SECRET="Secret Path"
+    TXT_LBL_PUBMODE="Publish Mode"
+    TXT_PUB_MODE_LT="Via Localtunnel (Zero-config)"
+    TXT_PUB_MODE_DOMAIN="Open ports / Domain"
+    TXT_PUB_MODE_LOCAL="Local only (127.0.0.1)"
+    TXT_LBL_LT_PASS="loca.lt Password (IP)"
     TXT_LBL_LANG="Interface Language"
     TXT_LBL_AUTOSTART="Autostart"
     TXT_ENABLED="Enabled"
@@ -226,8 +234,8 @@ fi
 # 3. Detect architecture
 ARCH="$(uname -m)"
 case "$ARCH" in
-    x86_64) DOTNET_ARCH="x64"; ZROK_ARCH="amd64" ;;
-    aarch64|arm64) DOTNET_ARCH="arm64"; ZROK_ARCH="arm64" ;;
+    x86_64) DOTNET_ARCH="x64" ;;
+    aarch64|arm64) DOTNET_ARCH="arm64" ;;
     *) echo -e "${RED}${TXT_ERR_ARCH} $ARCH${NC}"; exit 1 ;;
 esac
 
@@ -307,7 +315,7 @@ echo -e "${BLUE}${BOLD}${TXT_STEP6}${NC}"
 PUBLISH_MODE="local"
 PUBLIC_URL=""
 DOMAIN=""
-ZROK_TOKEN=""
+LOCALTUNNEL_PASSWORD=""
 
 # Non-interactive overrides via environment variables
 if [ -n "${OPENFLUX_NETWORK_ACCESS:-}" ]; then
@@ -382,69 +390,24 @@ EOF
         fi
         PUBLIC_URL="https://$DOMAIN/$SECRET_PATH/"
 
-    elif [ "$PUB_CHOICE" = "2" ]; then
-        PUBLISH_MODE="zrok"
-        if [ -n "${OPENFLUX_ZROK_TOKEN:-}" ]; then
-            ZROK_TOKEN="$OPENFLUX_ZROK_TOKEN"
-        elif [ "$HAS_TTY" -eq 1 ]; then
-            read -r -p "$TXT_ZROK_PROMPT" ZROK_TOKEN < /dev/tty
-        else
-            read -r -p "$TXT_ZROK_PROMPT" ZROK_TOKEN
-        fi
+    elif [ "$PUB_CHOICE" = "2" ] || [ "$PUB_CHOICE" = "localtunnel" ] || [ "$PUB_CHOICE" = "tunnel" ]; then
+        PUBLISH_MODE="localtunnel"
 
-        # Check or download zrok
-        if ! command -v zrok >/dev/null 2>&1; then
-            echo -e "${CYAN}${TXT_ZROK_DOWNLOAD} v2.0.4 ($ZROK_ARCH)...${NC}"
-            ZROK_URL="https://github.com/openziti/zrok/releases/download/v2.0.4/zrok_2.0.4_linux_${ZROK_ARCH}.tar.gz"
-            curl -sSL "$ZROK_URL" -o /tmp/zrok.tar.gz
-            mkdir -p /tmp/zrok_ext
-            tar -xzf /tmp/zrok.tar.gz -C /tmp/zrok_ext
-            if [ -f "/tmp/zrok_ext/zrok2" ]; then
-                cp /tmp/zrok_ext/zrok2 /usr/local/bin/zrok2
-                ln -sf /usr/local/bin/zrok2 /usr/local/bin/zrok
-            elif [ -f "/tmp/zrok_ext/zrok" ]; then
-                cp /tmp/zrok_ext/zrok /usr/local/bin/zrok
-            fi
-            chmod +x /usr/local/bin/zrok /usr/local/bin/zrok2 2>/dev/null || true
-            rm -rf /tmp/zrok.tar.gz /tmp/zrok_ext
-        fi
+        # Stop and remove any legacy Zrok service if present
+        systemctl stop openflux-zrok.service 2>/dev/null || true
+        systemctl disable openflux-zrok.service 2>/dev/null || true
+        rm -f /etc/systemd/system/openflux-zrok.service 2>/dev/null || true
 
-        echo -e "${CYAN}${TXT_ZROK_ENABLE}${NC}"
-        export HOME=/root
-        zrok enable "$ZROK_TOKEN" >/dev/null 2>&1 || true
+        # Detect public IP for loca.lt browser friendly reminder
+        SERVER_IP=$(curl -sSL --connect-timeout 4 https://api.ipify.org 2>/dev/null || curl -sSL --connect-timeout 4 https://ifconfig.me/ip 2>/dev/null || echo "")
+        LOCALTUNNEL_PASSWORD="$SERVER_IP"
 
-        # Setup persistent zrok systemd service
-        cat > /etc/systemd/system/openflux-zrok.service <<EOF
-[Unit]
-Description=OpenFlux Zrok Tunnel Service
-After=network.target openflux-zen-server.service
-Wants=openflux-zen-server.service
+        SUBDOMAIN_PREFIX="openflux-${SECRET_PATH:0:8}"
+        PUBLIC_URL="https://${SUBDOMAIN_PREFIX}.loca.lt/${SECRET_PATH}/"
 
-[Service]
-Type=simple
-User=root
-Environment=HOME=/root
-ExecStart=/usr/local/bin/zrok share public http://127.0.0.1:$LISTEN_PORT --headless
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-EOF
-        systemctl daemon-reload
-        systemctl enable --now openflux-zrok.service 2>/dev/null || true
-
-        # Wait a moment for zrok to initialize and parse URL
-        sleep 5
-        ZROK_ENDPOINT=$(journalctl -u openflux-zrok --no-pager -n 50 2>/dev/null | grep -Eo '[a-z0-9]+\.shares?\.zrok\.io' | tail -n1 || true)
-        if [ -z "$ZROK_ENDPOINT" ] && command -v zrok >/dev/null 2>&1; then
-            ZROK_ENDPOINT=$(zrok overview 2>/dev/null | grep -Eo '[a-z0-9]+\.shares?\.zrok\.io' | head -n1 || true)
-        fi
-        if [ -n "$ZROK_ENDPOINT" ]; then
-            ZROK_SHARE_URL="https://$ZROK_ENDPOINT"
-            PUBLIC_URL="$ZROK_SHARE_URL/$SECRET_PATH/"
-        else
-            PUBLIC_URL="https://<zrok-share-url>/$SECRET_PATH/"
+        echo -e "${GREEN}${TXT_LT_SELECTED}${NC}"
+        if [ -n "$LOCALTUNNEL_PASSWORD" ]; then
+            echo -e "${YELLOW}  ${TXT_LT_PASS_HINT} ${LOCALTUNNEL_PASSWORD}${NC}"
         fi
     fi
 fi
@@ -479,6 +442,8 @@ cat > "$PREFIX/app/data/.credentials" <<EOF
   "password": "$ADMIN_PASS",
   "secretPath": "$SECRET_PATH",
   "publicUrl": "$FINAL_URL",
+  "publishMode": "$PUBLISH_MODE",
+  "localtunnelPassword": "$LOCALTUNNEL_PASSWORD",
   "language": "$CHOSEN_LANG",
   "autostart": $AUTOSTART_ENABLED,
   "updatedAt": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
@@ -547,6 +512,29 @@ if [ "$HEALTH_OK" -eq 0 ]; then
     echo -e " ${YELLOW}${TXT_HEALTH_INIT}${NC}"
 fi
 
+# Re-read credentials if localtunnel mode was chosen to get live URL
+if [ "$PUBLISH_MODE" = "localtunnel" ] && [ -f "$PREFIX/app/data/.credentials" ]; then
+    LIVE_URL=$(grep -o '"publicUrl": "[^"]*"' "$PREFIX/app/data/.credentials" 2>/dev/null | cut -d'"' -f4 || true)
+    if [ -n "$LIVE_URL" ]; then
+        FINAL_URL="$LIVE_URL"
+    fi
+    LIVE_PASS=$(grep -o '"localtunnelPassword": "[^"]*"' "$PREFIX/app/data/.credentials" 2>/dev/null | cut -d'"' -f4 || true)
+    if [ -n "$LIVE_PASS" ]; then
+        LOCALTUNNEL_PASSWORD="$LIVE_PASS"
+    fi
+fi
+
+PUB_MODE_DISPLAY="$TXT_PUB_MODE_LOCAL"
+if [ "$PUBLISH_MODE" = "localtunnel" ]; then
+    PUB_MODE_DISPLAY="$TXT_PUB_MODE_LT"
+elif [ "$PUBLISH_MODE" = "domain" ]; then
+    if [ -n "$DOMAIN" ]; then
+        PUB_MODE_DISPLAY="Domain ($DOMAIN)"
+    else
+        PUB_MODE_DISPLAY="$TXT_PUB_MODE_DOMAIN"
+    fi
+fi
+
 # Print Final Summary Card (Pixel-perfect column alignment)
 echo -e "\n${GREEN}${BOLD}=================================================================="
 echo -e "  $TXT_SUCCESS_TITLE"
@@ -562,6 +550,11 @@ echo -e "${CYAN}${BOLD}  ${TXT_LBL_CREDS_TITLE}:${NC}"
 print_kv_row "$TXT_LBL_USER" "${BOLD}$ADMIN_USER${NC}"
 print_kv_row "$TXT_LBL_PASS" "${BOLD}$ADMIN_PASS${NC}"
 print_kv_row "$TXT_LBL_SECRET" "${BOLD}/$SECRET_PATH/${NC}"
+print_kv_row "$TXT_LBL_PUBMODE" "${BOLD}$PUB_MODE_DISPLAY${NC}"
+if [ "$PUBLISH_MODE" = "localtunnel" ] && [ -n "$LOCALTUNNEL_PASSWORD" ]; then
+    LT_VISIT_HINT="(первый вход в браузере / first browser visit)"
+    print_kv_row "$TXT_LBL_LT_PASS" "${YELLOW}${BOLD}$LOCALTUNNEL_PASSWORD${NC} ${GRAY}${LT_VISIT_HINT}${NC}"
+fi
 print_kv_row "$TXT_LBL_LANG" "${BOLD}${CHOSEN_LANG^^}${NC}"
 if [ "$AUTOSTART_ENABLED" -eq 1 ]; then
     print_kv_row "$TXT_LBL_AUTOSTART" "${GREEN}${BOLD}${TXT_ENABLED}${NC}"

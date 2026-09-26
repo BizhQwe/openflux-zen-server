@@ -45,11 +45,13 @@ timeout /t 2 /nobreak >nul
 sc stop OpenFluxZenServer >nul 2>&1
 sc delete OpenFluxZenServer >nul 2>&1
 schtasks /delete /tn ""OpenFluxZenServer"" /f >nul 2>&1
+schtasks /delete /tn ""OpenFluxZrok"" /f >nul 2>&1
 taskkill /f /im OpenFlux.Zen.Server.Web.exe >nul 2>&1
 taskkill /f /im OpenFlux.Zen.Server.exe >nul 2>&1
 taskkill /f /im OpenFluxZenServer.exe >nul 2>&1
 taskkill /f /im openflux-windows-amd64.exe >nul 2>&1
 taskkill /f /im openflux-windows-arm64.exe >nul 2>&1
+taskkill /f /im zrok.exe >nul 2>&1
 rd /s /q ""{baseDir}"" >nul 2>&1
 del ""%~f0"" >nul 2>&1
 ";

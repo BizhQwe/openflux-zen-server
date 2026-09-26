@@ -264,6 +264,35 @@ public sealed class SettingsService : ISettingsService
         }
     }
 
+    public void UpdatePublicUrlInCredentials(string publicUrl, string? localtunnelPassword = null)
+    {
+        try
+        {
+            if (File.Exists(_credentialsFilePath))
+            {
+                var content = File.ReadAllText(_credentialsFilePath);
+                using var doc = JsonDocument.Parse(content);
+                var dict = new Dictionary<string, object?>();
+                foreach (var prop in doc.RootElement.EnumerateObject())
+                {
+                    if (prop.Value.ValueKind == JsonValueKind.Number && prop.Value.TryGetInt32(out var n)) dict[prop.Name] = n;
+                    else if (prop.Value.ValueKind == JsonValueKind.True) dict[prop.Name] = true;
+                    else if (prop.Value.ValueKind == JsonValueKind.False) dict[prop.Name] = false;
+                    else dict[prop.Name] = prop.Value.GetString();
+                }
+                dict["publicUrl"] = publicUrl;
+                if (!string.IsNullOrEmpty(localtunnelPassword)) dict["localtunnelPassword"] = localtunnelPassword;
+                dict["updatedAt"] = DateTime.UtcNow.ToString("o");
+                var json = JsonSerializer.Serialize(dict, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(_credentialsFilePath, json);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to update public URL in credentials file");
+        }
+    }
+
     private async Task<AppSettings> InitializeDefaultSettingsAsync(AppDbContext db)
     {
         string? credUser = null;
