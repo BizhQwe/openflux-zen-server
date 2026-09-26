@@ -22,6 +22,41 @@ public sealed class SystemStatsService : ISystemStatsService
     private long _lastHostCpuIdle;
     private readonly object _cpuLock = new();
 
+    // Windows Native Tracking
+    [StructLayout(LayoutKind.Sequential)]
+    private struct FILETIME
+    {
+        public uint dwLowDateTime;
+        public uint dwHighDateTime;
+        public ulong ToUInt64() => ((ulong)dwHighDateTime << 32) | dwLowDateTime;
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetSystemTimes(out FILETIME lpIdleTime, out FILETIME lpKernelTime, out FILETIME lpUserTime);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MEMORYSTATUSEX
+    {
+        public uint dwLength;
+        public uint dwMemoryLoad;
+        public ulong ullTotalPhys;
+        public ulong ullAvailPhys;
+        public ulong ullTotalPageFile;
+        public ulong ullAvailPageFile;
+        public ulong ullTotalVirtual;
+        public ulong ullAvailVirtual;
+        public ulong ullAvailExtendedVirtual;
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GlobalMemoryStatusEx(ref MEMORYSTATUSEX lpBuffer);
+
+    private ulong _lastWinIdleTime;
+    private ulong _lastWinKernelTime;
+    private ulong _lastWinUserTime;
+
     // Traffic / Network Rate Tracking (from tunnels)
     private long _lastUploadBytes;
     private long _lastDownloadBytes;
@@ -42,6 +77,20 @@ public sealed class SystemStatsService : ISystemStatsService
     {
         _tunnelManager = tunnelManager;
         _lastCpuTime = Process.GetCurrentProcess().TotalProcessorTime;
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            try
+            {
+                if (GetSystemTimes(out var idle, out var kernel, out var user))
+                {
+                    _lastWinIdleTime = idle.ToUInt64();
+                    _lastWinKernelTime = kernel.ToUInt64();
+                    _lastWinUserTime = user.ToUInt64();
+                }
+            }
+            catch { }
+        }
     }
 
     public async Task<SystemStats> GetStatsAsync()
@@ -162,6 +211,28 @@ public sealed class SystemStatsService : ISystemStatsService
 
     private (long used, long total) GetMemoryUsage()
     {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            try
+            {
+                var memStatus = new MEMORYSTATUSEX();
+                memStatus.dwLength = (uint)Marshal.SizeOf<MEMORYSTATUSEX>();
+                if (GlobalMemoryStatusEx(ref memStatus))
+                {
+                    var total = (long)memStatus.ullTotalPhys;
+                    var used = (long)(memStatus.ullTotalPhys - memStatus.ullAvailPhys);
+                    if (total > 0)
+                    {
+                        return (Math.Max(0, used), total);
+                    }
+                }
+            }
+            catch
+            {
+                // Fallback
+            }
+        }
+
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && File.Exists("/proc/meminfo"))
         {
             try
@@ -222,7 +293,50 @@ public sealed class SystemStatsService : ISystemStatsService
                 return _lastCpuUsage;
             }
 
-            // Attempt host CPU from /proc/stat on Linux
+            // 1. Windows: Native GetSystemTimes (Exact Host CPU)
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                try
+                {
+                    if (GetSystemTimes(out var idle, out var kernel, out var user))
+                    {
+                        var idleTime = idle.ToUInt64();
+                        var kernelTime = kernel.ToUInt64();
+                        var userTime = user.ToUInt64();
+
+                        if (_lastWinKernelTime > 0 || _lastWinUserTime > 0)
+                        {
+                            var deltaIdle = idleTime - _lastWinIdleTime;
+                            var deltaKernel = kernelTime - _lastWinKernelTime;
+                            var deltaUser = userTime - _lastWinUserTime;
+                            var totalSys = deltaKernel + deltaUser; // On Windows, kernelTime already includes idleTime
+
+                            if (totalSys > 0)
+                            {
+                                var busy = totalSys > deltaIdle ? totalSys - deltaIdle : 0;
+                                _lastCpuUsage = Math.Clamp(Math.Round(((double)busy / totalSys) * 100.0, 1), 0.0, 100.0);
+                                _lastWinIdleTime = idleTime;
+                                _lastWinKernelTime = kernelTime;
+                                _lastWinUserTime = userTime;
+                                _lastCpuCheck = now;
+                                return _lastCpuUsage;
+                            }
+                        }
+
+                        _lastWinIdleTime = idleTime;
+                        _lastWinKernelTime = kernelTime;
+                        _lastWinUserTime = userTime;
+                        _lastCpuCheck = now;
+                        return _lastCpuUsage;
+                    }
+                }
+                catch
+                {
+                    // Fall back to process CPU
+                }
+            }
+
+            // 2. Attempt host CPU from /proc/stat on Linux
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && File.Exists("/proc/stat"))
             {
                 try

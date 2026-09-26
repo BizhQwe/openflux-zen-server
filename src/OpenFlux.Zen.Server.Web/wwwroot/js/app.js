@@ -144,7 +144,10 @@ async function loadStats() {
     const totalEl = document.getElementById('stat-total-tunnels');
     if (totalEl) totalEl.textContent = s.totalTunnels;
     const cpuEl = document.getElementById('stat-cpu');
-    if (cpuEl) cpuEl.textContent = Math.round(s.cpuUsagePercent) + '%';
+    if (cpuEl) {
+      const cpuVal = typeof s.cpuUsagePercent === 'number' ? s.cpuUsagePercent : 0;
+      cpuEl.textContent = (cpuVal > 0 && cpuVal < 10 ? cpuVal.toFixed(1) : Math.round(cpuVal)) + '%';
+    }
     const ramEl = document.getElementById('stat-ram');
     if (ramEl) {
       if (s.memoryTotalBytes && s.memoryTotalBytes > 0) {
