@@ -72,12 +72,17 @@ echo [3/6] Generating credentials and secret path...
 set "ADMIN_USER=admin"
 if not "%OPENFLUX_ADMIN_USER%"=="" set "ADMIN_USER=%OPENFLUX_ADMIN_USER%"
 
-for /f "tokens=2 delims==" %%a in ('wmic OS Get localdatetime /value 2^>nul') do set "dt=%%a"
-set "RANDOM_HEX=%dt:~8,6%%RANDOM%"
-set "ADMIN_PASS=Zen%RANDOM%#%RANDOM%"
+set "ADMIN_PASS="
 if not "%OPENFLUX_ADMIN_PASSWORD%"=="" set "ADMIN_PASS=%OPENFLUX_ADMIN_PASSWORD%"
-set "SECRET_PATH=zen-%RANDOM_HEX%"
+if "%ADMIN_PASS%"=="" (
+    for /f %%i in ('powershell -NoProfile -Command "$c='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';$b=New-Object byte[] 16;[System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b);-join ($b|ForEach-Object { $c[$_%%$c.Length] })"') do set "ADMIN_PASS=%%i"
+)
+
+set "SECRET_PATH="
 if not "%OPENFLUX_SECRET_PATH%"=="" set "SECRET_PATH=%OPENFLUX_SECRET_PATH%"
+if "%SECRET_PATH%"=="" (
+    for /f %%i in ('powershell -NoProfile -Command "$sb=New-Object byte[] 8;[System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($sb);-join ($sb|ForEach-Object { $_.ToString('x2') })"') do set "SECRET_PATH=%%i"
+)
 set "LISTEN_PORT=5000"
 if not "%OPENFLUX_PORT%"=="" set "LISTEN_PORT=%OPENFLUX_PORT%"
 

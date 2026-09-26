@@ -369,7 +369,7 @@ public sealed class SettingsService : ISettingsService
             catch { }
         }
 
-        var initialUser = Environment.GetEnvironmentVariable("OPENFLUX_ADMIN_USER") ?? credUser ?? ("zen_" + Convert.ToHexString(RandomNumberGenerator.GetBytes(4)).ToLowerInvariant());
+        var initialUser = Environment.GetEnvironmentVariable("OPENFLUX_ADMIN_USER") ?? credUser ?? "admin";
         var initialPassword = Environment.GetEnvironmentVariable("OPENFLUX_ADMIN_PASSWORD") ?? credPass ?? AuthService.GenerateRandomPassword(16);
         var initialSecret = Environment.GetEnvironmentVariable("OPENFLUX_SECRET_PATH") ?? credSecret ?? Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant();
         var initialLang = Environment.GetEnvironmentVariable("OPENFLUX_LANGUAGE") ?? credLang ?? "ru";

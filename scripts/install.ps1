@@ -280,9 +280,34 @@ if (Test-Path $credFile) {
     } catch {}
 }
 
-$adminUser = if ($existingUser) { $existingUser } else { "admin" }
-$adminPass = if ($existingPass) { $existingPass } else { -join ((65..90) + (97..122) + (48..57) | Get-Random -Count 16 | ForEach-Object {[char]$_}) }
-$secretPath = if ($existingSecret) { $existingSecret } else { -join ((97..102) + (48..57) | Get-Random -Count 16 | ForEach-Object {[char]$_}) }
+$adminUser = if ($existingUser) { 
+    $existingUser 
+} elseif ($env:OPENFLUX_ADMIN_USER) { 
+    $env:OPENFLUX_ADMIN_USER 
+} else { 
+    "admin" 
+}
+
+$adminPass = if ($existingPass) { 
+    $existingPass 
+} elseif ($env:OPENFLUX_ADMIN_PASSWORD) { 
+    $env:OPENFLUX_ADMIN_PASSWORD 
+} else { 
+    $chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    $bytes = New-Object byte[] 16
+    [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+    -join ($bytes | ForEach-Object { $chars[$_ % $chars.Length] })
+}
+
+$secretPath = if ($existingSecret) { 
+    $existingSecret 
+} elseif ($env:OPENFLUX_SECRET_PATH) { 
+    $env:OPENFLUX_SECRET_PATH.Trim('/') 
+} else { 
+    $bytes = New-Object byte[] 8
+    [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+    -join ($bytes | ForEach-Object { $_.ToString("x2") })
+}
 $listenPort = 5000
 
 $localUrl = "http://127.0.0.1:$listenPort/$secretPath/"
