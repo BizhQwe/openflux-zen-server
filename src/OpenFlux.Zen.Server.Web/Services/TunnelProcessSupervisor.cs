@@ -29,6 +29,9 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         public readonly ConcurrentDictionary<string, DateTime> ActiveClients = new();
         public ulong LastL3Upload;
         public ulong LastL3Download;
+        public ulong LastCumulativeUpload;
+        public ulong LastCumulativeDownload;
+        public bool HasCumulativeStats;
         public Func<Guid, long, long, int, Task> Callback { get; set; } = null!;
         public volatile bool IsIntentionalStop;
     }
@@ -39,6 +42,9 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
     private readonly ConcurrentDictionary<Guid, TunnelState> _tunnelStates = new();
     private readonly string _keysDirectory;
     private readonly Timer _flushTimer;
+
+    [GeneratedRegex(@"\[ZEN-STATS\]\s+up=(\d+)\s+down=(\d+)\s+pkts_up=(\d+)\s+pkts_down=(\d+)\s+connected=(\d+)\s+established=(\d+)(?:\s+clients=([^\s]*))?(?:\s+mode=(\S+))?", RegexOptions.Compiled)]
+    private static partial Regex ZenStatsRegex();
 
     [GeneratedRegex(@"\[STATS\]\s+uptime=\S+\s+mode=\S+\s+packets=(\d+)\s+connected=(\d+)\s+established=(\d+)", RegexOptions.Compiled)]
     private static partial Regex StatsRegex();
@@ -301,9 +307,6 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
     {
         var parts = new List<string>();
 
-        // Always include --debug flag as strictly required for traffic stats & logs
-        parts.Add("--debug");
-
         // Role on server is strictly EXIT node
         parts.Add("--role=exit");
 
@@ -354,13 +357,7 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         // Extra custom arguments
         if (!string.IsNullOrWhiteSpace(t.ExtraArgs))
         {
-            var extra = t.ExtraArgs.Trim();
-            // Remove any user-supplied debug flags since --debug is already included unconditionally
-            var cleaned = Regex.Replace(extra, @"-?-debug\b", "", RegexOptions.IgnoreCase).Trim();
-            if (!string.IsNullOrWhiteSpace(cleaned))
-            {
-                parts.Add(cleaned);
-            }
+            parts.Add(t.ExtraArgs.Trim());
         }
 
         return string.Join(" ", parts);
@@ -370,7 +367,59 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
     {
         try
         {
-            // 1. Fast packet line parsing in L4 mode:
+            // 1. Native OpenFlux Zen Core high-efficiency telemetry
+            if (line.StartsWith("[ZEN-STATS]", StringComparison.OrdinalIgnoreCase))
+            {
+                var zenMatch = ZenStatsRegex().Match(line);
+                if (zenMatch.Success)
+                {
+                    ulong up = ulong.Parse(zenMatch.Groups[1].Value);
+                    ulong down = ulong.Parse(zenMatch.Groups[2].Value);
+                    int connected = int.Parse(zenMatch.Groups[5].Value);
+                    string clientsStr = zenMatch.Groups[7].Value;
+
+                    state.LastPacketActivity = DateTime.UtcNow;
+                    state.LastConnectedSockets = connected;
+
+                    if (state.HasCumulativeStats)
+                    {
+                        if (up > state.LastCumulativeUpload)
+                        {
+                            long deltaUp = (long)(up - state.LastCumulativeUpload);
+                            Interlocked.Add(ref state.PendingUploadBytes, deltaUp);
+                        }
+                        if (down > state.LastCumulativeDownload)
+                        {
+                            long deltaDown = (long)(down - state.LastCumulativeDownload);
+                            Interlocked.Add(ref state.PendingDownloadBytes, deltaDown);
+                        }
+                    }
+                    else
+                    {
+                        state.HasCumulativeStats = true;
+                    }
+
+                    state.LastCumulativeUpload = up;
+                    state.LastCumulativeDownload = down;
+
+                    if (!string.IsNullOrWhiteSpace(clientsStr))
+                    {
+                        var ips = clientsStr.Split(',', StringSplitOptions.RemoveEmptyEntries);
+                        var now = DateTime.UtcNow;
+                        foreach (var ip in ips)
+                        {
+                            var trimmed = ip.Trim();
+                            if (!string.IsNullOrEmpty(trimmed))
+                            {
+                                state.ActiveClients[trimmed] = now;
+                            }
+                        }
+                    }
+                    return;
+                }
+            }
+
+            // 2. Legacy fallback: fast packet line parsing in L4 mode:
             // "<- 52 bytes - TCP 10.10.10.2:33128 -> 66.90.91.4:8080"
             // "-> 1472 bytes - TCP 62.63.162.194:8080 -> 10.10.10.2:64025"
             if (line.Contains(" bytes - "))

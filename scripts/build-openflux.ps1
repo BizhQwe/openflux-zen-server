@@ -13,8 +13,8 @@ if ([string]::IsNullOrEmpty($OutputDir)) {
 New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
 
 Write-Host "==================================================================" -ForegroundColor Cyan
-Write-Host "  Building OpenFlux Core Engines from Source" -ForegroundColor Cyan
-Write-Host "  Source: https://github.com/p1neappleXpress/OpenFlux" -ForegroundColor Cyan
+Write-Host "  Building OpenFlux Zen Core Engines from Source" -ForegroundColor Cyan
+Write-Host "  Source: https://github.com/BizhQwe/openflux-zen-core" -ForegroundColor Cyan
 Write-Host "==================================================================" -ForegroundColor Cyan
 
 $hasGo = $false
@@ -29,8 +29,8 @@ try {
 if ($hasGo) {
     $tempDir = Join-Path ([System.IO.Path]::GetTempPath()) "openflux-src-$([System.Guid]::NewGuid().ToString('N').Substring(0, 8))"
     try {
-        Write-Host "  Cloning repository https://github.com/p1neappleXpress/OpenFlux.git..." -ForegroundColor Gray
-        git clone --depth 1 https://github.com/p1neappleXpress/OpenFlux.git $tempDir
+        Write-Host "  Cloning repository https://github.com/BizhQwe/openflux-zen-core.git..." -ForegroundColor Gray
+        git clone --depth 1 https://github.com/BizhQwe/openflux-zen-core.git $tempDir
         if ($LASTEXITCODE -ne 0) {
             throw "Failed to clone OpenFlux repository"
         }
