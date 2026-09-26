@@ -63,8 +63,8 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         _keysDirectory = Path.Combine(AppContext.BaseDirectory, "data", "keys");
         Directory.CreateDirectory(_keysDirectory);
 
-        // Periodic flush of accumulated packet bytes & client counts every 250ms for responsive stats
-        _flushTimer = new Timer(OnFlushTimerTick, null, TimeSpan.FromMilliseconds(250), TimeSpan.FromMilliseconds(250));
+        // Periodic flush of accumulated packet bytes & client counts every 1s for low CPU overhead
+        _flushTimer = new Timer(OnFlushTimerTick, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
     }
 
     public bool IsRunning(Guid tunnelId)
@@ -545,20 +545,12 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
                 }
             }
 
-            // Calculate unique client device count
+            // Calculate unique client device count:
+            // Prefer distinct client IP count. If traffic has flowed in the last 30s, at least 1 client is active.
             int uniqueClients = state.ActiveClients.Count;
-            if (uniqueClients == 0)
+            if (uniqueClients == 0 && (now - state.LastPacketActivity).TotalSeconds <= 30 && state.LastPacketActivity != DateTime.MinValue)
             {
-                // If we have explicit connected sockets count from L4 [STATS], use it only if recent activity exists
-                if (state.LastConnectedSockets > 0 && (now - state.LastPacketActivity).TotalSeconds <= 25)
-                {
-                    uniqueClients = state.LastConnectedSockets;
-                }
-                else
-                {
-                    uniqueClients = 0;
-                    state.LastConnectedSockets = 0;
-                }
+                uniqueClients = 1;
             }
 
             if (up > 0 || down > 0 || uniqueClients != state.LastClientCount)
@@ -579,14 +571,20 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
 
     private static void DetectConnectionStatus(Tunnel tunnel, string line)
     {
-        if (line.Contains("showcaptchafast", StringComparison.OrdinalIgnoreCase))
+        if (line.Contains("SmartCaptcha detected", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("captcha required", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("showcaptcha?cc=1", StringComparison.OrdinalIgnoreCase))
         {
-            tunnel.ErrorMessage = "Яндекс требует капчу (showcaptchafast). Документ заблокирован.";
+            tunnel.ErrorMessage = "Яндекс заблокировал документ капчей (SmartCaptcha). Создайте новый документ на Яндекс Диске или используйте Mail.ru / OneMe.";
+        }
+        else if (line.Contains("showcaptchafast", StringComparison.OrdinalIgnoreCase))
+        {
+            tunnel.ErrorMessage = "Яндекс проверяет PoW-капчу...";
         }
         else if (line.Contains("looks like a login page", StringComparison.OrdinalIgnoreCase) || 
                  line.Contains("doc not public", StringComparison.OrdinalIgnoreCase))
         {
-            tunnel.ErrorMessage = "Документ недоступен или требует авторизации.";
+            tunnel.ErrorMessage = "Документ недоступен, закрыт или требует авторизации.";
         }
         else if (line.Contains("WebSocket connected", StringComparison.OrdinalIgnoreCase) ||
                  line.Contains("Auth OK", StringComparison.OrdinalIgnoreCase))

@@ -6,6 +6,7 @@
     <OutputType>Exe</OutputType>
     <ServerGarbageCollection>false</ServerGarbageCollection>
     <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+    <RetainVMGarbageCollection>false</RetainVMGarbageCollection>
     <TieredCompilation>true</TieredCompilation>
     <RootNamespace>OpenFlux.Zen.Server</RootNamespace>
     <NoWarn>$(NoWarn);NU1903;NU1902</NoWarn>

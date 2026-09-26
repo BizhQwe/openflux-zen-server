@@ -67,6 +67,17 @@ function updateTunnelsInPlace(list) {
       }
     }
 
+    const errEl = document.getElementById('tunnel-err-' + t.id);
+    if (errEl) {
+      if (t.errorMessage) {
+        errEl.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span>${escapeHtml(t.errorMessage)}</span>`;
+        errEl.style.display = 'flex';
+      } else {
+        errEl.style.display = 'none';
+        errEl.innerHTML = '';
+      }
+    }
+
     if (t.trafficLimitBytes > 0) {
       const totalBytes = (t.uploadBytes || 0) + (t.downloadBytes || 0);
       const trafficPct = Math.min(100, Math.round(totalBytes / t.trafficLimitBytes * 100));
@@ -135,6 +146,10 @@ function renderTunnels(list) {
               <span class="badge badge-tag">${tItem.codec}</span>
             </div>
           </div>
+        </div>
+
+        <div id="tunnel-err-${tItem.id}" class="tunnel-error-banner" style="margin: 8px 0 12px 0; padding: 7px 10px; background: rgba(239, 68, 68, 0.12); border-left: 3px solid #ef4444; border-radius: 4px; font-size: 0.82rem; color: #fca5a5; display: ${tItem.errorMessage ? 'flex' : 'none'}; align-items: center; gap: 8px;">
+          ${tItem.errorMessage ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span>${escapeHtml(tItem.errorMessage)}</span>` : ''}
         </div>
 
         <div class="tunnel-details">
