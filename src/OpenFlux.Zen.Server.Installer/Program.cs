@@ -123,14 +123,17 @@ public static class Program
                     : "Enter your domain (or press Enter for external server IP)";
                 domain = TerminalUi.AskText(domPrompt, existing.Domain);
 
-                bool hasExistingDecoy = (!OperatingSystem.IsWindows() && File.Exists("/var/www/html/index.html"))
+                // Automatically detect if server or domain already has an existing decoy/website
+                bool hasExistingDecoy = SystemOperations.HasLocalDecoySite()
                                         || existing.DecoyMode == "existing"
                                         || !string.IsNullOrEmpty(existing.DecoyUrl);
-                var decoyPrompt = isRu
-                    ? "На этом сервере/домене уже установлена заглушка (например, от 3x-ui-pro)?"
-                    : "Does this server/domain already have an existing decoy site (e.g. from 3x-ui-pro)?";
-                bool useExisting = TerminalUi.AskYesNo(decoyPrompt, defaultYes: hasExistingDecoy);
-                if (useExisting)
+
+                if (!hasExistingDecoy && !string.IsNullOrWhiteSpace(domain))
+                {
+                    hasExistingDecoy = await SystemOperations.CheckDomainHasLiveSiteAsync(domain);
+                }
+
+                if (hasExistingDecoy)
                 {
                     decoyMode = "existing";
                     if (!string.IsNullOrWhiteSpace(domain))
@@ -151,10 +154,15 @@ public static class Program
         else
         {
             publishMode = Environment.GetEnvironmentVariable("OPENFLUX_PUBLISH_MODE")?.ToLowerInvariant() ?? "domain";
-            if (string.IsNullOrEmpty(decoyMode) && !OperatingSystem.IsWindows() && File.Exists("/var/www/html/index.html"))
+            if (string.IsNullOrEmpty(decoyMode) && SystemOperations.HasLocalDecoySite())
             {
                 decoyMode = "existing";
             }
+        }
+
+        if (publishMode != "domain" && string.IsNullOrEmpty(decoyMode))
+        {
+            decoyMode = SystemOperations.HasLocalDecoySite() ? "existing" : "auto";
         }
 
         // Port selection

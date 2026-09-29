@@ -305,6 +305,68 @@ WantedBy=multi-user.target
         }
     }
 
+    public static bool HasLocalDecoySite()
+    {
+        if (OperatingSystem.IsWindows()) return false;
+        try
+        {
+            if (File.Exists("/var/www/html/index.html") || File.Exists("/var/www/html/index.htm"))
+            {
+                return true;
+            }
+            if (Directory.Exists("/var/www/html") && Directory.EnumerateFileSystemEntries("/var/www/html").Any())
+            {
+                return true;
+            }
+        }
+        catch { }
+        return false;
+    }
+
+    public static async Task<bool> CheckDomainHasLiveSiteAsync(string domain)
+    {
+        if (string.IsNullOrWhiteSpace(domain)) return false;
+        try
+        {
+            var host = domain.Trim().TrimEnd('/');
+            if (host.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+                host = host["http://".Length..];
+            else if (host.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                host = host["https://".Length..];
+
+            if (host.Contains(':')) host = host.Split(':')[0];
+            if (host.Contains('/')) host = host.Split('/')[0];
+            if (string.IsNullOrWhiteSpace(host)) return false;
+
+            using var handler = new HttpClientHandler
+            {
+                ServerCertificateCustomValidationCallback = (_, _, _, _) => true,
+                AllowAutoRedirect = true
+            };
+            using var client = new HttpClient(handler)
+            {
+                Timeout = TimeSpan.FromSeconds(2.5)
+            };
+            client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) OpenFluxDecoyDetector");
+
+            try
+            {
+                var resp = await client.GetAsync($"https://{host}/");
+                if (resp.IsSuccessStatusCode) return true;
+            }
+            catch { }
+
+            try
+            {
+                var resp = await client.GetAsync($"http://{host}/");
+                if (resp.IsSuccessStatusCode) return true;
+            }
+            catch { }
+        }
+        catch { }
+        return false;
+    }
+
     public static int RunCommand(string fileName, string args)
     {
         try

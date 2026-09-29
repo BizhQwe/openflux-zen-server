@@ -155,7 +155,7 @@ public sealed class SecretPathMiddleware
         }
 
         // Check 3x-ui-pro / system decoy directory: /var/www/html/
-        if (fileToServe == null && OperatingSystem.IsLinux() && Directory.Exists("/var/www/html") && File.Exists("/var/www/html/index.html"))
+        if (fileToServe == null && OperatingSystem.IsLinux() && Directory.Exists("/var/www/html"))
         {
             if (!string.IsNullOrEmpty(reqPath))
             {
@@ -164,7 +164,8 @@ public sealed class SecretPathMiddleware
             }
             if (fileToServe == null)
             {
-                fileToServe = "/var/www/html/index.html";
+                if (File.Exists("/var/www/html/index.html")) fileToServe = "/var/www/html/index.html";
+                else if (File.Exists("/var/www/html/index.htm")) fileToServe = "/var/www/html/index.htm";
             }
         }
 
