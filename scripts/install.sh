@@ -31,8 +31,8 @@ if [ ! -w "$TMP_DIR" ]; then
 fi
 INSTALLER_BIN="$TMP_DIR/openflux-installer-$RID"
 RELEASE_URL="https://github.com/BizhQwe/openflux-zen-server/releases/latest/download/openflux-installer-$RID"
-TAG_URL="https://github.com/BizhQwe/openflux-zen-server/releases/download/v1.0.29/openflux-installer-$RID"
-FALLBACK_URL="https://github.com/BizhQwe/openflux-zen-server/releases/download/v1.0.28/openflux-installer-$RID"
+TAG_URL="https://github.com/BizhQwe/openflux-zen-server/releases/download/v1.0.30/openflux-installer-$RID"
+FALLBACK_URL="https://github.com/BizhQwe/openflux-zen-server/releases/download/v1.0.29/openflux-installer-$RID"
 
 echo ""
 echo "  OpenFlux Zen Server - Linux ($RID)"
@@ -49,16 +49,13 @@ fi
 
 if [ "$DOWNLOADED" -eq 1 ]; then
     chmod +x "$INSTALLER_BIN"
-    EXIT_CODE=0
     if [ -t 0 ]; then
-        "$INSTALLER_BIN" "$@" || EXIT_CODE=$?
+        exec "$INSTALLER_BIN" "$@"
     elif [ -c /dev/tty ]; then
-        "$INSTALLER_BIN" "$@" < /dev/tty || EXIT_CODE=$?
+        exec "$INSTALLER_BIN" "$@" < /dev/tty
     else
-        "$INSTALLER_BIN" "$@" || EXIT_CODE=$?
+        exec "$INSTALLER_BIN" "$@"
     fi
-    rm -f "$INSTALLER_BIN"
-    exit $EXIT_CODE
 else
     echo "  [ERROR] Failed to download installer binary for $RID."
     echo "  Check repository access or download manually:"

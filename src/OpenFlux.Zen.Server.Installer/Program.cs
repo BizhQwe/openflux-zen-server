@@ -353,6 +353,20 @@ public static class Program
             password,
             publishMode);
 
+        // Clean up temporary installer binary on Linux
+        if (!OperatingSystem.IsWindows())
+        {
+            try
+            {
+                var myExe = Environment.ProcessPath;
+                if (!string.IsNullOrEmpty(myExe) && (myExe.StartsWith("/var/tmp") || myExe.StartsWith("/tmp")))
+                {
+                    File.Delete(myExe);
+                }
+            }
+            catch { }
+        }
+
         return 0;
     }
 

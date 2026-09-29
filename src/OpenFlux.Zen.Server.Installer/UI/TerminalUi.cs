@@ -59,6 +59,7 @@ public static class TerminalUi
         }
 
         Console.Write($"  " + (IsRussian ? "Выберите вариант" : "Select option") + $" [1-{options.Length}, default: {defaultIndex + 1}]: ");
+        Console.Out.Flush();
         var input = Console.ReadLine()?.Trim();
         if (int.TryParse(input, out var chosen) && chosen >= 1 && chosen <= options.Length)
         {
@@ -74,6 +75,7 @@ public static class TerminalUi
     {
         var hint = defaultYes ? "[Y/n, default: Y]" : "[y/N, default: N]";
         Console.Write($"  {question} {hint}: ");
+        Console.Out.Flush();
         var input = Console.ReadLine()?.Trim();
 
         if (string.IsNullOrEmpty(input)) return defaultYes;
@@ -85,6 +87,7 @@ public static class TerminalUi
     public static string AskText(string prompt, string defaultValue = "")
     {
         Console.Write($"  {prompt}" + (!string.IsNullOrEmpty(defaultValue) ? $" [default: {defaultValue}]: " : ": "));
+        Console.Out.Flush();
         var input = Console.ReadLine()?.Trim();
         return string.IsNullOrEmpty(input) ? defaultValue : input;
     }

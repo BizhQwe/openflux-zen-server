@@ -11,7 +11,7 @@ namespace OpenFlux.Zen.Server.Services;
 public sealed class PanelUpdateService : IPanelUpdateService
 {
     private const string GitHubApiLatestRelease = "https://api.github.com/repos/BizhQwe/openflux-zen-server/releases/latest";
-    private const string FallbackDefaultVersion = "v1.0.29";
+    private const string FallbackDefaultVersion = "v1.0.30";
 
     private readonly ILogger<PanelUpdateService> _logger;
     private readonly HttpClient _httpClient;
