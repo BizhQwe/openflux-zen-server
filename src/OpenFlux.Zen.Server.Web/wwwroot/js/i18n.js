@@ -437,7 +437,7 @@ function setLanguage(lang, syncServer = true) {
 
   const hdrPanel = document.getElementById('header-panel-version');
   if (hdrPanel) {
-    const curV = (typeof panelInfoCache !== 'undefined' && panelInfoCache && panelInfoCache.currentVersion) ? panelInfoCache.currentVersion : 'v1.0.36';
+    const curV = (typeof panelInfoCache !== 'undefined' && panelInfoCache && panelInfoCache.currentVersion) ? panelInfoCache.currentVersion : 'v1.0.37';
     hdrPanel.textContent = `Server: ${curV}`;
   }
 

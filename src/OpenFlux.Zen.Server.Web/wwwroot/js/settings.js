@@ -229,6 +229,7 @@ function renderCoreVersionInfo(info) {
   }
 
   const statusBadge = document.getElementById('core-status-badge');
+  const btnCheck = document.getElementById('btn-check-core');
   const btnUpdate = document.getElementById('btn-update-core');
   const releaseBox = document.getElementById('core-release-notes-box');
   const releaseText = document.getElementById('core-release-notes-text');
@@ -236,13 +237,11 @@ function renderCoreVersionInfo(info) {
 
   if (info.isUpdateAvailable) {
     if (statusBadge) {
-      statusBadge.style.display = 'inline-block';
-      statusBadge.style.background = 'rgba(245, 158, 11, 0.15)';
-      statusBadge.style.border = '1px solid rgba(245, 158, 11, 0.35)';
-      statusBadge.style.color = '#fbbf24';
+      statusBadge.style.display = 'inline-flex';
       statusBadge.textContent = t('core_update_available');
     }
     if (btnUpdate) btnUpdate.style.display = 'inline-flex';
+    if (btnCheck) btnCheck.style.display = 'none';
     if (releaseBox) {
       releaseBox.style.display = 'block';
       if (releaseText) releaseText.textContent = info.releaseNotes || '—';
@@ -254,6 +253,7 @@ function renderCoreVersionInfo(info) {
       statusBadge.textContent = '';
     }
     if (btnUpdate) btnUpdate.style.display = 'none';
+    if (btnCheck) btnCheck.style.display = 'inline-flex';
     if (releaseBox) releaseBox.style.display = 'none';
   }
 }
@@ -342,11 +342,11 @@ function renderPanelVersionInfo(info) {
 
   const curBadge = document.getElementById('panel-current-version-badge');
   if (curBadge) {
-    curBadge.textContent = `Server: ${info.currentVersion || 'v1.0.36'}`;
+    curBadge.textContent = `Server: ${info.currentVersion || 'v1.0.37'}`;
   }
 
   const curVer = document.getElementById('panel-current-version');
-  if (curVer) curVer.textContent = info.currentVersion || 'v1.0.36';
+  if (curVer) curVer.textContent = info.currentVersion || 'v1.0.37';
 
   const latVer = document.getElementById('panel-latest-version');
   if (latVer) latVer.textContent = info.latestVersion || info.currentVersion || '—';
@@ -354,7 +354,7 @@ function renderPanelVersionInfo(info) {
   const hdrPanel = document.getElementById('header-panel-version');
   const hdrVer = document.getElementById('header-version-text');
   if (hdrPanel) {
-    hdrPanel.textContent = `Server: ${info.currentVersion || 'v1.0.36'}`;
+    hdrPanel.textContent = `Server: ${info.currentVersion || 'v1.0.37'}`;
   } else if (hdrVer && info.currentVersion) {
     hdrVer.textContent = info.currentVersion;
   }
@@ -389,6 +389,7 @@ function renderPanelVersionInfo(info) {
   }
 
   const statusBadge = document.getElementById('panel-status-badge');
+  const btnCheck = document.getElementById('btn-check-panel');
   const btnUpdate = document.getElementById('btn-update-panel');
   const releaseBox = document.getElementById('panel-release-notes-box');
   const releaseText = document.getElementById('panel-release-notes-text');
@@ -396,13 +397,11 @@ function renderPanelVersionInfo(info) {
 
   if (info.isUpdateAvailable) {
     if (statusBadge) {
-      statusBadge.style.display = 'inline-block';
-      statusBadge.style.background = 'rgba(245, 158, 11, 0.15)';
-      statusBadge.style.border = '1px solid rgba(245, 158, 11, 0.35)';
-      statusBadge.style.color = '#fbbf24';
+      statusBadge.style.display = 'inline-flex';
       statusBadge.textContent = t('panel_update_available');
     }
     if (btnUpdate) btnUpdate.style.display = 'inline-flex';
+    if (btnCheck) btnCheck.style.display = 'none';
     if (releaseBox) {
       releaseBox.style.display = 'block';
       if (releaseText) releaseText.textContent = info.releaseNotes || '—';
@@ -414,6 +413,7 @@ function renderPanelVersionInfo(info) {
       statusBadge.textContent = '';
     }
     if (btnUpdate) btnUpdate.style.display = 'none';
+    if (btnCheck) btnCheck.style.display = 'inline-flex';
     if (releaseBox) releaseBox.style.display = 'none';
   }
 }
@@ -525,7 +525,7 @@ async function openRollbackModal(type) {
 
   if (type === 'panel') {
     if (titleEl) titleEl.textContent = isRu ? 'Смена версии OpenFlux Zen Server' : 'Change OpenFlux Zen Server Version';
-    const curVer = (panelInfoCache && panelInfoCache.currentVersion) ? panelInfoCache.currentVersion : 'v1.0.36';
+    const curVer = (panelInfoCache && panelInfoCache.currentVersion) ? panelInfoCache.currentVersion : 'v1.0.37';
     if (descEl) {
       descEl.innerHTML = isRu 
         ? `Текущая версия: <strong>${escapeHtml(curVer)}</strong>. Выберите версию из официальных релизов GitHub (BizhQwe/openflux-zen-server) для установки:`

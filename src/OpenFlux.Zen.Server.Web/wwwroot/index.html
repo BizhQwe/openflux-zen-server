@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/app.css?v=1.0.36" />
+  <link rel="stylesheet" href="css/app.css?v=1.0.37" />
 </head>
 <body>
 
@@ -35,10 +35,10 @@
       </nav>
 
       <div class="header-actions" style="display: flex; gap: 8px; align-items: center;">
-        <button class="btn btn-outline btn-sm" id="header-update-badge" onclick="switchTab('settings')" title="OpenFlux Zen Server и OpenFlux" style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; padding: 4px 10px;">
-          <span id="header-update-dot" style="width: 7px; height: 7px; border-radius: 50%; background: #10b981; display: inline-block;"></span>
-          <span id="header-panel-version" style="font-weight: 600;">Server: v1.0.36</span>
-          <span style="opacity: 0.4;">•</span>
+        <button class="btn btn-outline btn-sm" id="header-update-badge" onclick="switchTab('settings')" title="OpenFlux Zen Server и OpenFlux">
+          <span id="header-update-dot" style="width: 7px; height: 7px; border-radius: 50%; background: #10b981; display: inline-block; box-shadow: 0 0 6px rgba(16, 185, 129, 0.5);"></span>
+          <span id="header-panel-version" style="font-weight: 600;">Server: v1.0.37</span>
+          <span style="opacity: 0.35;">•</span>
           <span id="header-core-version" style="font-weight: 600;">OpenFlux: v0.2.0</span>
         </button>
         <button class="btn btn-outline btn-sm" onclick="logout()" data-i18n="nav_logout">Выход</button>
@@ -266,30 +266,30 @@
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
             <h4 data-i18n="settings_panel_title">OpenFlux Zen Server</h4>
             <div style="display: flex; gap: 8px; align-items: center;">
-              <span id="panel-current-version-badge" style="background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #93c5fd; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600;">Server: v1.0.36</span>
-              <span id="panel-status-badge" style="display: none; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600;"></span>
+              <span id="panel-status-badge" class="badge-status-update" style="display: none;"></span>
+              <span id="panel-current-version-badge" style="background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #93c5fd; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600;">Server: v1.0.37</span>
             </div>
           </div>
           <p style="color: var(--text-dim); margin-bottom: 16px; font-size: 0.9rem;" data-i18n="settings_panel_desc">
             Веб-панель управления и служба сервера OpenFlux Zen Server (BizhQwe/openflux-zen-server). Отвечает за интерфейс управления, учётные записи администратора, фоновую службу системы и настройку туннелей.
           </p>
 
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px; padding: 12px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); border-radius: 8px;">
-            <div>
-              <div style="color: var(--text-dim); font-size: 0.8rem;" data-i18n="settings_panel_version">Установленная версия:</div>
-              <div id="panel-current-version" style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-main); font-weight: 600; margin-top: 4px;">—</div>
+          <div class="version-stats-grid">
+            <div class="version-stat-cell">
+              <span class="version-stat-label" data-i18n="settings_panel_version">Установленная версия:</span>
+              <span id="panel-current-version" class="version-stat-val">—</span>
             </div>
-            <div>
-              <div style="color: var(--text-dim); font-size: 0.8rem;" data-i18n="settings_panel_latest_version">Доступная версия:</div>
-              <div id="panel-latest-version" style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-main); font-weight: 600; margin-top: 4px;">—</div>
+            <div class="version-stat-cell">
+              <span class="version-stat-label" data-i18n="settings_panel_latest_version">Доступная версия:</span>
+              <span id="panel-latest-version" class="version-stat-val">—</span>
             </div>
-            <div>
-              <div style="color: var(--text-dim); font-size: 0.8rem;" data-i18n="settings_panel_published">Дата релиза:</div>
-              <div id="panel-release-date" style="font-size: 0.85rem; color: var(--text-main); margin-top: 4px;">—</div>
+            <div class="version-stat-cell">
+              <span class="version-stat-label" data-i18n="settings_panel_published">Дата релиза:</span>
+              <span id="panel-release-date" class="version-stat-val" style="font-family: inherit; font-size: 0.88rem; font-weight: 500;">—</span>
             </div>
-            <div>
-              <div style="color: var(--text-dim); font-size: 0.8rem;" data-i18n="settings_panel_checked">Проверено:</div>
-              <div id="panel-last-checked" style="font-size: 0.85rem; color: var(--text-main); margin-top: 4px;">—</div>
+            <div class="version-stat-cell">
+              <span class="version-stat-label" data-i18n="settings_panel_checked">Проверено:</span>
+              <span id="panel-last-checked" class="version-stat-val" style="font-family: inherit; font-size: 0.88rem; font-weight: 500;">—</span>
             </div>
           </div>
 
@@ -324,30 +324,30 @@
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
             <h4 data-i18n="settings_core_title">OpenFlux</h4>
             <div style="display: flex; gap: 8px; align-items: center;">
+              <span id="core-status-badge" class="badge-status-update" style="display: none;"></span>
               <span id="core-current-version-badge" style="background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #93c5fd; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600;">OpenFlux: v0.2.0</span>
-              <span id="core-status-badge" style="display: none; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600;"></span>
             </div>
           </div>
           <p style="color: var(--text-dim); margin-bottom: 16px; font-size: 0.9rem;" data-i18n="settings_core_desc">
             Официальное ядро сетевого туннелирования OpenFlux (upstream p1neappleXpress/OpenFlux). Отвечает за создание зашифрованных сетевых соединений, туннелей и передачу трафика.
           </p>
 
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px; padding: 12px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); border-radius: 8px;">
-            <div>
-              <div style="color: var(--text-dim); font-size: 0.8rem;" data-i18n="settings_core_version">Установленная версия:</div>
-              <div id="core-current-version" style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-main); font-weight: 600; margin-top: 4px;">—</div>
+          <div class="version-stats-grid">
+            <div class="version-stat-cell">
+              <span class="version-stat-label" data-i18n="settings_core_version">Установленная версия:</span>
+              <span id="core-current-version" class="version-stat-val">—</span>
             </div>
-            <div>
-              <div style="color: var(--text-dim); font-size: 0.8rem;" data-i18n="settings_core_latest_version">Доступная версия:</div>
-              <div id="core-latest-version" style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-main); font-weight: 600; margin-top: 4px;">—</div>
+            <div class="version-stat-cell">
+              <span class="version-stat-label" data-i18n="settings_core_latest_version">Доступная версия:</span>
+              <span id="core-latest-version" class="version-stat-val">—</span>
             </div>
-            <div>
-              <div style="color: var(--text-dim); font-size: 0.8rem;" data-i18n="settings_core_published">Дата релиза:</div>
-              <div id="core-release-date" style="font-size: 0.85rem; color: var(--text-main); margin-top: 4px;">—</div>
+            <div class="version-stat-cell">
+              <span class="version-stat-label" data-i18n="settings_core_published">Дата релиза:</span>
+              <span id="core-release-date" class="version-stat-val" style="font-family: inherit; font-size: 0.88rem; font-weight: 500;">—</span>
             </div>
-            <div>
-              <div style="color: var(--text-dim); font-size: 0.8rem;" data-i18n="settings_core_checked">Проверено:</div>
-              <div id="core-last-checked" style="font-size: 0.85rem; color: var(--text-main); margin-top: 4px;">—</div>
+            <div class="version-stat-cell">
+              <span class="version-stat-label" data-i18n="settings_core_checked">Проверено:</span>
+              <span id="core-last-checked" class="version-stat-val" style="font-family: inherit; font-size: 0.88rem; font-weight: 500;">—</span>
             </div>
           </div>
 
@@ -550,11 +550,11 @@
   <!-- Toast notifications -->
   <div id="toast-container" role="status" aria-live="polite"></div>
 
-  <script src="js/i18n.js?v=1.0.36"></script>
-  <script src="js/api.js?v=1.0.36"></script>
-  <script src="js/tunnels.js?v=1.0.36"></script>
-  <script src="js/logs.js?v=1.0.36"></script>
-  <script src="js/settings.js?v=1.0.36"></script>
-  <script src="js/app.js?v=1.0.36"></script>
+  <script src="js/i18n.js?v=1.0.37"></script>
+  <script src="js/api.js?v=1.0.37"></script>
+  <script src="js/tunnels.js?v=1.0.37"></script>
+  <script src="js/logs.js?v=1.0.37"></script>
+  <script src="js/settings.js?v=1.0.37"></script>
+  <script src="js/app.js?v=1.0.37"></script>
 </body>
 </html>
