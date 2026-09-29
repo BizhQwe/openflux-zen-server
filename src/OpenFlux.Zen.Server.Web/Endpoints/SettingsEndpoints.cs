@@ -67,15 +67,26 @@ public static class SettingsEndpoints
             return Results.Ok(info);
         });
 
+        group.MapGet("/core/releases", async (IOpenFluxCoreUpdateService updateService) =>
+        {
+            var releases = await updateService.GetAvailableReleasesAsync();
+            return Results.Ok(releases);
+        });
+
         group.MapPost("/core/check-update", async (IOpenFluxCoreUpdateService updateService) =>
         {
             var info = await updateService.GetVersionInfoAsync(forceCheck: true);
             return Results.Ok(info);
         });
 
-        group.MapPost("/core/update", async (IOpenFluxCoreUpdateService updateService) =>
+        group.MapPost("/core/update", async (HttpContext ctx, IOpenFluxCoreUpdateService updateService) =>
         {
-            var res = await updateService.UpdateCoreAsync();
+            VersionUpdateRequest? req = null;
+            if (ctx.Request.ContentLength is > 0 && ctx.Request.HasJsonContentType())
+            {
+                try { req = await ctx.Request.ReadFromJsonAsync<VersionUpdateRequest>(); } catch { }
+            }
+            var res = await updateService.UpdateCoreAsync(req?.TargetVersion);
             return Results.Ok(res);
         });
 
@@ -85,15 +96,26 @@ public static class SettingsEndpoints
             return Results.Ok(info);
         });
 
+        group.MapGet("/panel/releases", async (IPanelUpdateService panelService) =>
+        {
+            var releases = await panelService.GetAvailableReleasesAsync();
+            return Results.Ok(releases);
+        });
+
         group.MapPost("/panel/check-update", async (IPanelUpdateService panelService) =>
         {
             var info = await panelService.GetVersionInfoAsync(forceCheck: true);
             return Results.Ok(info);
         });
 
-        group.MapPost("/panel/update", async (IPanelUpdateService panelService) =>
+        group.MapPost("/panel/update", async (HttpContext ctx, IPanelUpdateService panelService) =>
         {
-            var res = await panelService.UpdatePanelAsync();
+            VersionUpdateRequest? req = null;
+            if (ctx.Request.ContentLength is > 0 && ctx.Request.HasJsonContentType())
+            {
+                try { req = await ctx.Request.ReadFromJsonAsync<VersionUpdateRequest>(); } catch { }
+            }
+            var res = await panelService.UpdatePanelAsync(req?.TargetVersion);
             return Results.Ok(res);
         });
 

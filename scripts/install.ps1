@@ -24,11 +24,12 @@ $arch = if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture 
 $tempDir = $env:TEMP
 $installerExe = Join-Path $tempDir "openflux-installer-$arch.exe"
 $releaseUrl = "https://github.com/BizhQwe/openflux-zen-server/releases/latest/download/openflux-installer-$arch.exe"
-$tagUrl = "https://github.com/BizhQwe/openflux-zen-server/releases/download/v1.0.31/openflux-installer-$arch.exe"
-$fallbackUrl = "https://github.com/BizhQwe/openflux-zen-server/releases/download/v1.0.30/openflux-installer-$arch.exe"
+$tagUrl = "https://github.com/BizhQwe/openflux-zen-server/releases/download/v1.0.32/openflux-installer-$arch.exe"
+$fallbackUrl = "https://github.com/BizhQwe/openflux-zen-server/releases/download/v1.0.31/openflux-installer-$arch.exe"
 
 Write-Host ""
 Write-Host "  OpenFlux Zen Server - Windows ($arch)" -ForegroundColor Cyan
+Write-Host "  Core Engine: OpenFlux v0.2.0 (Official)" -ForegroundColor Green
 Write-Host "  Downloading installer..." -ForegroundColor Gray
 
 $downloaded = $false

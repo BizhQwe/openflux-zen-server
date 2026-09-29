@@ -66,9 +66,9 @@ const I18N_DICTIONARY = {
     btn_apply_config: "Применить конфигурацию",
 
     settings_title: "Настройки панели",
-    settings_lang_title: "Язык интерфейса / Interface Language",
+    settings_lang_title: "Язык интерфейса",
     settings_lang_desc: "Выберите язык для веб-интерфейса панели управления.",
-    settings_admin_title: "Учётные данные администратора",
+    settings_admin_title: "Управление учётными записями",
     setting_user_label: "Имя пользователя (Логин)",
     setting_cur_pass_label: "Текущий пароль (для подтверждения)",
     setting_cur_pass_placeholder: "Введите текущий пароль",
@@ -142,6 +142,8 @@ const I18N_DICTIONARY = {
     settings_core_github_link: "Релиз на GitHub ↗",
     btn_check_core_updates: "Проверить обновления",
     btn_update_core: "Обновить ядро OpenFlux",
+    btn_rollback_core: "Сменить версию / Откат ▾",
+    btn_change_version_core: "Сменить версию / Откат ▾",
     btn_view_releases: "Все релизы GitHub ↗",
     core_up_to_date: "Актуальная версия",
     core_update_available: "Доступно обновление",
@@ -161,8 +163,10 @@ const I18N_DICTIONARY = {
     settings_panel_checked: "Проверено:",
     settings_panel_release_notes: "Что нового в обновлении:",
     settings_panel_github_link: "Релиз на GitHub ↗",
-    btn_check_panel_updates: "Проверить обновления панели",
+    btn_check_panel_updates: "Проверить обновления",
     btn_update_panel: "Обновить OpenFlux Zen Server",
+    btn_rollback_panel: "Сменить версию / Откат ▾",
+    btn_change_version_panel: "Сменить версию / Откат ▾",
     btn_view_panel_releases: "Все релизы панели ↗",
     panel_up_to_date: "Актуальная версия",
     panel_update_available: "Доступно обновление",
@@ -175,7 +179,17 @@ const I18N_DICTIONARY = {
     toast_panel_update_failed: "Ошибка при обновлении панели OpenFlux Zen Server",
     toast_panel_restarted: "Сервер успешно обновлён и перезапущен!",
     confirm_update_panel: "Обновить OpenFlux Zen Server до версии {version}? Служба сервера будет автоматически перезапущена с сохранением всех настроек и данных.",
-    confirm_regen_secret: "Сгенерировать новый секретный URL? Вам потребуется перейти по новому адресу."
+    confirm_regen_secret: "Сгенерировать новый секретный URL? Вам потребуется перейти по новому адресу.",
+
+    modal_rollback_title: "Смена / Откат версии",
+    modal_rollback_select_label: "Выберите версию для установки:",
+    modal_rollback_warn_title: "Внимание:",
+    modal_rollback_warn_text: "При смене версии будет загружен и применен выбранный релиз.",
+    btn_apply_version: "Установить выбранную версию",
+    toast_fetching_releases: "Загрузка списка релизов с GitHub...",
+    toast_releases_failed: "Не удалось загрузить список релизов с GitHub",
+    confirm_rollback_core: "Установить ядро OpenFlux версии {version}? Все активные туннели будут перезапущены.",
+    confirm_rollback_panel: "Установить панель OpenFlux Zen Server версии {version}? Служба сервера будет перезапущена с сохранением настроек."
   },
 
   en: {
@@ -243,9 +257,9 @@ const I18N_DICTIONARY = {
     btn_apply_config: "Apply Configuration",
 
     settings_title: "Panel Settings",
-    settings_lang_title: "Interface Language / Язык интерфейса",
+    settings_lang_title: "Interface Language",
     settings_lang_desc: "Choose the display language for the web management panel.",
-    settings_admin_title: "Administrator Credentials",
+    settings_admin_title: "Account Management",
     setting_user_label: "Username (Login)",
     setting_cur_pass_label: "Current Password (to verify)",
     setting_cur_pass_placeholder: "Enter current password",
@@ -319,6 +333,8 @@ const I18N_DICTIONARY = {
     settings_core_github_link: "Release on GitHub ↗",
     btn_check_core_updates: "Check for Updates",
     btn_update_core: "Update OpenFlux Core",
+    btn_rollback_core: "Switch Version / Rollback ▾",
+    btn_change_version_core: "Switch Version / Rollback ▾",
     btn_view_releases: "All GitHub Releases ↗",
     core_up_to_date: "Up to date",
     core_update_available: "Update Available",
@@ -338,8 +354,10 @@ const I18N_DICTIONARY = {
     settings_panel_checked: "Checked:",
     settings_panel_release_notes: "What's new in this release:",
     settings_panel_github_link: "Release on GitHub ↗",
-    btn_check_panel_updates: "Check for Panel Updates",
+    btn_check_panel_updates: "Check for Updates",
     btn_update_panel: "Update OpenFlux Zen Server",
+    btn_rollback_panel: "Switch Version / Rollback ▾",
+    btn_change_version_panel: "Switch Version / Rollback ▾",
     btn_view_panel_releases: "All Panel Releases ↗",
     panel_up_to_date: "Up to date",
     panel_update_available: "Update Available",
@@ -352,7 +370,17 @@ const I18N_DICTIONARY = {
     toast_panel_update_failed: "Failed to update OpenFlux Zen Server panel",
     toast_panel_restarted: "Server successfully updated and restarted!",
     confirm_update_panel: "Update OpenFlux Zen Server to version {version}? The server service will be restarted automatically, preserving all configurations and data.",
-    confirm_regen_secret: "Generate a new secret URL? You will need to reload using the new address."
+    confirm_regen_secret: "Generate a new secret URL? You will need to reload using the new address.",
+
+    modal_rollback_title: "Switch / Rollback Version",
+    modal_rollback_select_label: "Select version to install:",
+    modal_rollback_warn_title: "Warning:",
+    modal_rollback_warn_text: "Switching versions will download and apply the selected release.",
+    btn_apply_version: "Install Selected Version",
+    toast_fetching_releases: "Loading release list from GitHub...",
+    toast_releases_failed: "Failed to load release list from GitHub",
+    confirm_rollback_core: "Install OpenFlux core version {version}? Active tunnels will be restarted.",
+    confirm_rollback_panel: "Install OpenFlux Zen Server panel version {version}? The server service will restart."
   }
 };
 

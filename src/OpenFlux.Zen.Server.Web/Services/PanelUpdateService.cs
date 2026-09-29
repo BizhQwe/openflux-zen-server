@@ -11,7 +11,9 @@ namespace OpenFlux.Zen.Server.Services;
 public sealed class PanelUpdateService : IPanelUpdateService
 {
     private const string GitHubApiLatestRelease = "https://api.github.com/repos/BizhQwe/openflux-zen-server/releases/latest";
-    private const string FallbackDefaultVersion = "v1.0.31";
+    private const string GitHubApiReleases = "https://api.github.com/repos/BizhQwe/openflux-zen-server/releases?per_page=30";
+    private const string GitHubApiReleaseByTag = "https://api.github.com/repos/BizhQwe/openflux-zen-server/releases/tags/";
+    private const string FallbackDefaultVersion = "v1.0.32";
 
     private readonly ILogger<PanelUpdateService> _logger;
     private readonly HttpClient _httpClient;
@@ -27,6 +29,37 @@ public sealed class PanelUpdateService : IPanelUpdateService
         };
         _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("OpenFluxZenServer-PanelUpdater/1.0");
         _httpClient.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github.v3+json");
+    }
+
+    public async Task<List<ReleaseItemDto>> GetAvailableReleasesAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            using var response = await _httpClient.GetAsync(GitHubApiReleases, ct);
+            if (!response.IsSuccessStatusCode) return new List<ReleaseItemDto>();
+            var json = await response.Content.ReadAsStringAsync(ct);
+            var releases = JsonSerializer.Deserialize<List<GitHubRelease>>(json, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+            if (releases == null) return new List<ReleaseItemDto>();
+
+            return releases
+                .Where(r => !string.IsNullOrWhiteSpace(r.TagName))
+                .Select(r => new ReleaseItemDto
+                {
+                    TagName = r.TagName,
+                    Name = string.IsNullOrWhiteSpace(r.Name) ? r.TagName : r.Name,
+                    PublishedAt = r.PublishedAt,
+                    Prerelease = r.Prerelease,
+                    HtmlUrl = r.HtmlUrl
+                }).ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to fetch panel releases list from GitHub");
+            return new List<ReleaseItemDto>();
+        }
     }
 
     public async Task<PanelVersionInfo> GetVersionInfoAsync(bool forceCheck = false, CancellationToken ct = default)
@@ -74,7 +107,7 @@ public sealed class PanelUpdateService : IPanelUpdateService
         };
     }
 
-    public async Task<PanelUpdateResult> UpdatePanelAsync(CancellationToken ct = default)
+    public async Task<PanelUpdateResult> UpdatePanelAsync(string? targetVersion = null, CancellationToken ct = default)
     {
         if (!await _updateLock.WaitAsync(0, ct))
         {
@@ -91,14 +124,26 @@ public sealed class PanelUpdateService : IPanelUpdateService
 
         try
         {
-            _logger.LogInformation("Checking latest OpenFlux Zen Server release package...");
-            var release = await FetchLatestReleaseAsync(ct);
+            GitHubRelease? release;
+            if (!string.IsNullOrWhiteSpace(targetVersion))
+            {
+                _logger.LogInformation("Fetching OpenFlux Zen Server release for tag {Tag}...", targetVersion);
+                release = await FetchReleaseByTagAsync(targetVersion.Trim(), ct);
+            }
+            else
+            {
+                _logger.LogInformation("Checking latest OpenFlux Zen Server release package...");
+                release = await FetchLatestReleaseAsync(ct);
+            }
+
             if (release == null)
             {
                 return new PanelUpdateResult
                 {
                     Success = false,
-                    Message = "Unable to fetch latest release metadata from GitHub.",
+                    Message = !string.IsNullOrWhiteSpace(targetVersion)
+                        ? $"Unable to fetch release metadata for tag '{targetVersion}' from GitHub."
+                        : "Unable to fetch latest release metadata from GitHub.",
                     PreviousVersion = previousVersion
                 };
             }
@@ -322,6 +367,31 @@ del ""%~f0"" >nul 2>&1
         }
     }
 
+    private async Task<GitHubRelease?> FetchReleaseByTagAsync(string tagName, CancellationToken ct)
+    {
+        try
+        {
+            var url = $"{GitHubApiReleaseByTag}{Uri.EscapeDataString(tagName)}";
+            using var response = await _httpClient.GetAsync(url, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("GitHub release check for panel tag {Tag} returned status code: {Code}", tagName, response.StatusCode);
+                return null;
+            }
+
+            var json = await response.Content.ReadAsStringAsync(ct);
+            return JsonSerializer.Deserialize<GitHubRelease>(json, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to fetch panel release for tag {Tag}", tagName);
+            return null;
+        }
+    }
+
     private async Task<PanelVersionMetadata> LoadMetadataAsync()
     {
         var path = AppPaths.GetPanelVersionFilePath();
@@ -427,6 +497,9 @@ del ""%~f0"" >nul 2>&1
 
         [JsonPropertyName("body")]
         public string Body { get; set; } = "";
+
+        [JsonPropertyName("prerelease")]
+        public bool Prerelease { get; set; }
 
         [JsonPropertyName("assets")]
         public List<GitHubAsset>? Assets { get; set; }

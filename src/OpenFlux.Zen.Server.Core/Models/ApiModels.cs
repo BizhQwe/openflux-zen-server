@@ -93,7 +93,7 @@ public sealed class OpenFluxCoreUpdateResult
 
 public sealed class PanelVersionInfo
 {
-    public string CurrentVersion { get; set; } = "v1.0.31";
+    public string CurrentVersion { get; set; } = "v1.0.32";
     public string? LatestVersion { get; set; }
     public bool IsUpdateAvailable { get; set; }
     public string? ReleaseUrl { get; set; }
@@ -109,5 +109,19 @@ public sealed class PanelUpdateResult
     public string Message { get; set; } = "";
     public string PreviousVersion { get; set; } = "";
     public string NewVersion { get; set; } = "";
+}
+
+public sealed class ReleaseItemDto
+{
+    public string TagName { get; set; } = "";
+    public string Name { get; set; } = "";
+    public DateTime? PublishedAt { get; set; }
+    public bool Prerelease { get; set; }
+    public string? HtmlUrl { get; set; }
+}
+
+public sealed class VersionUpdateRequest
+{
+    public string? TargetVersion { get; set; }
 }
 

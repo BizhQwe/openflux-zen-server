@@ -320,11 +320,11 @@ function renderPanelVersionInfo(info) {
 
   const curBadge = document.getElementById('panel-current-version-badge');
   if (curBadge) {
-    curBadge.textContent = info.currentVersion || 'v1.0.31';
+    curBadge.textContent = info.currentVersion || 'v1.0.32';
   }
 
   const curVer = document.getElementById('panel-current-version');
-  if (curVer) curVer.textContent = info.currentVersion || 'v1.0.31';
+  if (curVer) curVer.textContent = info.currentVersion || 'v1.0.32';
 
   const latVer = document.getElementById('panel-latest-version');
   if (latVer) latVer.textContent = info.latestVersion || info.currentVersion || '—';
@@ -479,5 +479,179 @@ async function confirmUpdatePanel() {
     if (spinner) spinner.style.display = 'none';
   }
 }
+
+// Rollback & Version Selection
+let currentRollbackType = 'panel'; // 'panel' or 'core'
+let rollbackReleases = [];
+
+async function openRollbackModal(type) {
+  currentRollbackType = type;
+  const modal = document.getElementById('rollback-modal');
+  if (!modal) return;
+
+  const titleEl = document.getElementById('rollback-modal-title');
+  const descEl = document.getElementById('rollback-modal-desc');
+  const selectEl = document.getElementById('rollback-version-select');
+  const btnSubmit = document.getElementById('btn-submit-rollback');
+  const spinner = document.getElementById('btn-rollback-spinner');
+
+  if (spinner) spinner.style.display = 'none';
+  if (btnSubmit) btnSubmit.disabled = true;
+
+  const isRu = currentLanguage === 'ru';
+
+  if (type === 'panel') {
+    if (titleEl) titleEl.textContent = isRu ? 'Смена / Откат версии панели' : 'Switch / Rollback Panel Version';
+    const curVer = (panelInfoCache && panelInfoCache.currentVersion) ? panelInfoCache.currentVersion : 'v1.0.32';
+    if (descEl) {
+      descEl.innerHTML = isRu 
+        ? `Текущая версия панели: <strong>${escapeHtml(curVer)}</strong>. Выберите версию из официальных релизов GitHub (BizhQwe/openflux-zen-server) для установки или отката:`
+        : `Current panel version: <strong>${escapeHtml(curVer)}</strong>. Select a version from official GitHub releases (BizhQwe/openflux-zen-server) to install or rollback:`;
+    }
+  } else {
+    if (titleEl) titleEl.textContent = isRu ? 'Смена / Откат версии ядра OpenFlux' : 'Switch / Rollback OpenFlux Core Version';
+    const curVer = (coreInfoCache && coreInfoCache.currentVersion) ? coreInfoCache.currentVersion : 'v0.2.0';
+    if (descEl) {
+      descEl.innerHTML = isRu
+        ? `Текущая версия ядра: <strong>${escapeHtml(curVer)}</strong>. Выберите версию из официальных релизов GitHub (p1neappleXpress/OpenFlux) для установки или отката:`
+        : `Current core version: <strong>${escapeHtml(curVer)}</strong>. Select a version from official GitHub releases (p1neappleXpress/OpenFlux) to install or rollback:`;
+    }
+  }
+
+  if (selectEl) {
+    selectEl.innerHTML = `<option value="">${isRu ? 'Загрузка списка версий с GitHub...' : 'Loading release list from GitHub...'}</option>`;
+  }
+
+  modal.classList.add('open');
+
+  try {
+    const endpoint = type === 'panel' ? 'api/panel/releases' : 'api/core/releases';
+    const res = await api(endpoint);
+    if (!res.ok) throw new Error('API returned status ' + res.status);
+    rollbackReleases = await res.json();
+
+    if (!Array.isArray(rollbackReleases) || rollbackReleases.length === 0) {
+      if (selectEl) {
+        selectEl.innerHTML = `<option value="">${isRu ? 'Список релизов пуст' : 'No releases found'}</option>`;
+      }
+      return;
+    }
+
+    if (selectEl) {
+      selectEl.innerHTML = '';
+      const curVer = type === 'panel' 
+        ? ((panelInfoCache && panelInfoCache.currentVersion) || '')
+        : ((coreInfoCache && coreInfoCache.currentVersion) || '');
+
+      rollbackReleases.forEach((rel) => {
+        const opt = document.createElement('option');
+        opt.value = rel.tagName;
+        const dateStr = rel.publishedAt ? new Date(rel.publishedAt).toLocaleDateString() : '';
+        const isCurrent = curVer && (rel.tagName.toLowerCase() === curVer.toLowerCase() || ('v' + rel.tagName.toLowerCase()) === curVer.toLowerCase());
+        const label = `${rel.tagName}${rel.prerelease ? ' (pre-release)' : ''} ${dateStr ? '— ' + dateStr : ''}${isCurrent ? (isRu ? ' [Текущая]' : ' [Current]') : ''}`;
+        opt.textContent = label;
+        selectEl.appendChild(opt);
+      });
+      if (btnSubmit) btnSubmit.disabled = false;
+    }
+  } catch (err) {
+    console.error('Failed to fetch releases:', err);
+    if (selectEl) {
+      selectEl.innerHTML = `<option value="">${isRu ? 'Ошибка загрузки релизов' : 'Failed to load releases'}</option>`;
+    }
+    toast(t('toast_releases_failed'), 'danger');
+  }
+}
+
+function closeRollbackModal() {
+  const modal = document.getElementById('rollback-modal');
+  if (modal) modal.classList.remove('open');
+}
+
+function onRollbackVersionChange() {
+  // Can be used to preview release details
+}
+
+async function submitRollback() {
+  const selectEl = document.getElementById('rollback-version-select');
+  const targetVer = selectEl ? selectEl.value : '';
+  if (!targetVer) return;
+
+  const isRu = currentLanguage === 'ru';
+  const confirmMsg = currentRollbackType === 'panel'
+    ? t('confirm_rollback_panel', { version: targetVer })
+    : t('confirm_rollback_core', { version: targetVer });
+
+  if (!confirm(confirmMsg)) return;
+
+  const btnSubmit = document.getElementById('btn-submit-rollback');
+  const spinner = document.getElementById('btn-rollback-spinner');
+  if (btnSubmit) btnSubmit.disabled = true;
+  if (spinner) spinner.style.display = 'inline-block';
+
+  try {
+    if (currentRollbackType === 'core') {
+      toast(t('toast_core_updating'), 'info');
+      const res = await api('api/core/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetVersion: targetVer })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast(data.message || t('toast_core_update_success'), 'success');
+        closeRollbackModal();
+        await loadCoreVersionInfo(false);
+        if (typeof loadTunnels === 'function') {
+          loadTunnels();
+        }
+      } else {
+        toast(data.message || t('toast_core_update_failed'), 'danger');
+      }
+    } else {
+      // Panel rollback / switch
+      toast(t('toast_panel_updating'), 'info');
+      const res = await api('api/panel/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetVersion: targetVer })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast(data.message || t('toast_panel_update_success'), 'success');
+        closeRollbackModal();
+
+        // Poll until server restarts and comes back online
+        let attempts = 0;
+        const maxAttempts = 30;
+        setTimeout(async function pollServer() {
+          attempts++;
+          try {
+            const checkRes = await fetch('api/panel/version', { cache: 'no-store' });
+            if (checkRes.ok) {
+              toast(t('toast_panel_restarted'), 'success');
+              setTimeout(() => window.location.reload(), 1500);
+              return;
+            }
+          } catch (_) { }
+
+          if (attempts < maxAttempts) {
+            setTimeout(pollServer, 2000);
+          } else {
+            toast(isRu ? 'Пожалуйста, обновите страницу вручную (F5).' : 'Please refresh the page manually (F5).', 'info');
+          }
+        }, 3000);
+      } else {
+        toast(data.message || t('toast_panel_update_failed'), 'danger');
+      }
+    }
+  } catch (err) {
+    toast(t('toast_error'), 'danger');
+  } finally {
+    if (btnSubmit) btnSubmit.disabled = false;
+    if (spinner) spinner.style.display = 'none';
+  }
+}
+
 
 

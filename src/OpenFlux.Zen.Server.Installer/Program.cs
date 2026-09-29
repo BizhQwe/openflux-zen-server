@@ -61,6 +61,8 @@ public static class Program
             TerminalUi.Language = Environment.GetEnvironmentVariable("OPENFLUX_LANGUAGE") ?? "en";
         }
 
+        TerminalUi.ShowBanner("v1.0.32", "v0.2.0");
+
         var isRu = TerminalUi.IsRussian;
         var installDir = SystemOperations.GetDefaultInstallDir();
         var credPath = Path.Combine(installDir, "data", ".credentials");
@@ -191,7 +193,7 @@ public static class Program
         try
         {
             SystemOperations.StopExistingServer();
-            await PayloadExtractor.ExtractPayloadAsync(installDir, msg => TerminalUi.Info(msg));
+            await PayloadExtractor.ExtractPayloadAsync(installDir, null);
             TerminalUi.CompleteStep(true);
         }
         catch (Exception ex)
@@ -351,7 +353,9 @@ public static class Program
             localUrl,
             username,
             password,
-            publishMode);
+            publishMode,
+            "v1.0.32",
+            "v0.2.0");
 
         // Clean up temporary installer binary on Linux
         if (!OperatingSystem.IsWindows())

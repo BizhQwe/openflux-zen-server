@@ -92,12 +92,29 @@ public static class TerminalUi
         return string.IsNullOrEmpty(input) ? defaultValue : input;
     }
 
+    public static void ShowBanner(string panelVersion = "v1.0.32", string coreVersion = "v0.2.0")
+    {
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine();
+        Console.WriteLine("  ==============================================================");
+        Console.WriteLine($"    OpenFlux Zen Server {panelVersion}");
+        Console.ForegroundColor = ConsoleColor.Green;
+        var coreLabel = IsRussian ? "Официальное ядро OpenFlux" : "Official OpenFlux Core";
+        Console.WriteLine($"    {coreLabel}: {coreVersion}");
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine("  ==============================================================");
+        Console.ResetColor();
+        Console.WriteLine();
+    }
+
     public static void ShowSummaryCard(
         string publicUrl,
         string localUrl,
         string username,
         string password,
-        string publishMode = "")
+        string publishMode = "",
+        string panelVersion = "v1.0.32",
+        string coreVersion = "v0.2.0")
     {
         Console.WriteLine();
         Console.ForegroundColor = ConsoleColor.Green;
@@ -109,6 +126,9 @@ public static class TerminalUi
         Console.WriteLine(new string('=', 62));
         Console.ResetColor();
         Console.WriteLine();
+
+        PrintField(IsRussian ? "Версия панели:" : "Panel Version:", panelVersion, ConsoleColor.Green);
+        PrintField(IsRussian ? "Ядро OpenFlux:" : "OpenFlux Core:", $"{coreVersion} (Official)", ConsoleColor.Green);
 
         bool isLan = publishMode == "local" || publishMode == "lan";
         string mainLabel = isLan
@@ -139,7 +159,7 @@ public static class TerminalUi
     private static void PrintField(string label, string value, ConsoleColor valueColor = ConsoleColor.White)
     {
         Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.Write($"  {label} ");
+        Console.Write($"  {label,-22} ");
         Console.ForegroundColor = valueColor;
         Console.WriteLine(value);
         Console.ResetColor();

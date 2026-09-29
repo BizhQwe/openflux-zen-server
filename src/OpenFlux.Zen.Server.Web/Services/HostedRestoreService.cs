@@ -41,7 +41,7 @@ public sealed class HostedRestoreService : IHostedService
             _logger.LogInformation("OpenFlux core binary is not present locally. Downloading official binary from GitHub releases...");
             try
             {
-                var updateRes = await _coreUpdateService.UpdateCoreAsync(cancellationToken);
+                var updateRes = await _coreUpdateService.UpdateCoreAsync(ct: cancellationToken);
                 if (updateRes.Success)
                 {
                     _logger.LogInformation("Successfully downloaded official OpenFlux core engine: {Version}", updateRes.NewVersion);
