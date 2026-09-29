@@ -13,7 +13,7 @@ public sealed class PanelUpdateService : IPanelUpdateService
     private const string GitHubApiLatestRelease = "https://api.github.com/repos/BizhQwe/openflux-zen-server/releases/latest";
     private const string GitHubApiReleases = "https://api.github.com/repos/BizhQwe/openflux-zen-server/releases?per_page=30";
     private const string GitHubApiReleaseByTag = "https://api.github.com/repos/BizhQwe/openflux-zen-server/releases/tags/";
-    private const string FallbackDefaultVersion = "v1.0.34";
+    private const string FallbackDefaultVersion = "v1.0.35";
 
     private readonly ILogger<PanelUpdateService> _logger;
     private readonly HttpClient _httpClient;
@@ -203,27 +203,28 @@ public sealed class PanelUpdateService : IPanelUpdateService
                 try { Directory.Delete(stageData, true); } catch { }
             }
 
-            var appDir = AppPaths.ResolveAppDirectory();
+            var appDir = Path.TrimEndingDirectorySeparator(AppPaths.ResolveAppDirectory());
             _logger.LogInformation("Applying update to target application directory: {AppDir}...", appDir);
 
-            // Update metadata before restarting
-            meta.CurrentVersion = release.TagName;
-            meta.LatestVersion = release.TagName;
-            meta.InstalledAt = DateTime.UtcNow;
-            meta.LastCheckedAt = DateTime.UtcNow;
-            meta.ReleaseUrl = release.HtmlUrl;
-            meta.ReleaseNotes = release.Body;
-            meta.PublishedAt = release.PublishedAt;
-            await SaveMetadataAsync(meta);
-
-            // Launch detached self-updater script
+            // Launch updater based on OS platform
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
+                // Update metadata before restarting
+                meta.CurrentVersion = release.TagName;
+                meta.LatestVersion = release.TagName;
+                meta.InstalledAt = DateTime.UtcNow;
+                meta.LastCheckedAt = DateTime.UtcNow;
+                meta.ReleaseUrl = release.HtmlUrl;
+                meta.ReleaseNotes = release.Body;
+                meta.PublishedAt = release.PublishedAt;
+                await SaveMetadataAsync(meta);
+
                 LaunchWindowsUpdaterScript(tempZip, stageDir, appDir);
             }
             else
             {
-                LaunchLinuxUpdaterScript(tempZip, stageDir, appDir);
+                // In Linux, safely replace all files in-place using POSIX unlink, then schedule restart
+                await ApplyLinuxUpdateInProcessAsync(tempZip, stageDir, appDir, meta, release);
             }
 
             return new PanelUpdateResult
@@ -251,95 +252,233 @@ public sealed class PanelUpdateService : IPanelUpdateService
         }
     }
 
-    private void LaunchLinuxUpdaterScript(string tempZip, string stageDir, string appDir)
+    private async Task ApplyLinuxUpdateInProcessAsync(
+        string tempZip,
+        string stageDir,
+        string appDir,
+        PanelVersionMetadata meta,
+        GitHubRelease release)
     {
-        var scriptPath = Path.Combine(Path.GetTempPath(), $"oflux_apply_panel_{Guid.NewGuid():N}.sh");
-        var logPath = "/tmp/oflux_apply_panel.log";
-        var scriptContent = $@"#!/bin/bash
-exec > {logPath} 2>&1
-echo ""=== OpenFlux Zen Server Updater Started ===""
-echo ""Date: $(date)""
-echo ""StageDir: {stageDir}""
-echo ""AppDir: {appDir}""
-
-sleep 1
-
-# 1. Stop systemd service so processes release file handles and inodes
-echo ""Stopping openflux-zen-server.service...""
-systemctl stop openflux-zen-server.service 2>/dev/null || true
-
-# 2. Ensure all server web processes are stopped
-pkill -9 -f OpenFlux.Zen.Server.Web 2>/dev/null || true
-sleep 1
-
-# 3. Remove old binary to ensure no inode lock remains
-rm -f ""{appDir}/OpenFlux.Zen.Server.Web"" ""{appDir}/OpenFluxZenServer"" 2>/dev/null || true
-
-# 4. Copy all new files, assets, and wwwroot from stageDir to appDir
-echo ""Copying all application files...""
-cp -rf ""{stageDir}/."" ""{appDir}/""
-
-# 5. Set executable permissions on binaries
-chmod +x ""{appDir}/OpenFlux.Zen.Server.Web"" ""{appDir}/OpenFluxZenServer"" 2>/dev/null || true
-if [ -d ""/usr/local/bin"" ]; then
-    cp -f ""{appDir}/OpenFluxZenServer"" ""/usr/local/bin/OpenFluxZenServer"" 2>/dev/null || true
-    chmod +x ""/usr/local/bin/OpenFluxZenServer"" 2>/dev/null || true
-fi
-
-# 6. Clean up temporary staging files
-rm -rf ""{stageDir}"" ""{tempZip}""
-
-# 7. Start the systemd service
-echo ""Starting openflux-zen-server.service...""
-systemctl daemon-reload 2>/dev/null || true
-systemctl start openflux-zen-server.service 2>/dev/null || true
-
-# Fallback: if not running under systemd, launch binary in background
-if ! systemctl is-active --quiet openflux-zen-server.service 2>/dev/null; then
-    echo ""Service not active via systemd, starting binary in background...""
-    cd ""{appDir}"" && nohup ""{appDir}/OpenFlux.Zen.Server.Web"" </dev/null >/dev/null 2>&1 &
-fi
-
-echo ""=== OpenFlux Zen Server Updater Finished Successfully ===""
-rm -f ""$0""
-";
-        File.WriteAllText(scriptPath, scriptContent);
-        if (!OperatingSystem.IsWindows())
-        {
-            try
-            {
-                File.SetUnixFileMode(scriptPath,
-                    UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute |
-                    UnixFileMode.GroupRead | UnixFileMode.GroupExecute |
-                    UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
-            }
-            catch { }
-        }
+        _logger.LogInformation("Applying Linux update in-place from {StageDir} to {AppDir}...", stageDir, appDir);
 
         try
         {
-            // Launch outside of the systemd service's cgroup so stopping the service doesn't kill the updater
-            var psi = new ProcessStartInfo
+            CopyDirectorySafe(stageDir, appDir);
+            UpdateLinuxGlobalCli(appDir);
+        }
+        finally
+        {
+            try { Directory.Delete(stageDir, true); } catch { }
+            try { File.Delete(tempZip); } catch { }
+        }
+
+        // Persist new version metadata now that files have been successfully replaced
+        meta.CurrentVersion = release.TagName;
+        meta.LatestVersion = release.TagName;
+        meta.InstalledAt = DateTime.UtcNow;
+        meta.LastCheckedAt = DateTime.UtcNow;
+        meta.ReleaseUrl = release.HtmlUrl;
+        meta.ReleaseNotes = release.Body;
+        meta.PublishedAt = release.PublishedAt;
+        await SaveMetadataAsync(meta);
+
+        // Schedule delayed restart to allow the HTTP response to be flushed to the browser
+        _ = Task.Run(async () =>
+        {
+            try
             {
-                FileName = "bash",
-                Arguments = $"-c \"(systemd-run --unit=oflux-update-$(date +%s) /bin/bash '{scriptPath}' 2>/dev/null || nohup setsid /bin/bash '{scriptPath}' </dev/null >/dev/null 2>&1 &)\"",
+                await Task.Delay(2500);
+                RestartLinuxService(appDir);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Delayed Linux server restart failed");
+            }
+        });
+    }
+
+    private void CopyDirectorySafe(string sourceDir, string targetDir)
+    {
+        Directory.CreateDirectory(targetDir);
+
+        foreach (var file in Directory.GetFiles(sourceDir, "*", SearchOption.AllDirectories))
+        {
+            var relativePath = Path.GetRelativePath(sourceDir, file);
+
+            // Never overwrite data directory (databases, credentials, configs)
+            if (relativePath.StartsWith("data" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
+                relativePath.StartsWith("data" + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(relativePath, "data", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var destFile = Path.Combine(targetDir, relativePath);
+            var destDir = Path.GetDirectoryName(destFile);
+            if (!string.IsNullOrEmpty(destDir) && !Directory.Exists(destDir))
+            {
+                Directory.CreateDirectory(destDir);
+            }
+
+            if (File.Exists(destFile))
+            {
+                try
+                {
+                    // POSIX unlink: safely removes file name from directory while running process keeps its inode
+                    File.Delete(destFile);
+                }
+                catch
+                {
+                    try
+                    {
+                        var backup = destFile + ".old." + Guid.NewGuid().ToString("N");
+                        File.Move(destFile, backup);
+                        try { File.Delete(backup); } catch { }
+                    }
+                    catch { }
+                }
+            }
+
+            File.Copy(file, destFile, overwrite: true);
+
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                var fileName = Path.GetFileName(destFile);
+                if (fileName == "OpenFlux.Zen.Server.Web" || fileName == "OpenFluxZenServer" || fileName.StartsWith("openflux"))
+                {
+                    try
+                    {
+                        File.SetUnixFileMode(destFile,
+                            UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute |
+                            UnixFileMode.GroupRead | UnixFileMode.GroupExecute |
+                            UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
+                    }
+                    catch { }
+
+                    try
+                    {
+                        using var proc = Process.Start(new ProcessStartInfo
+                        {
+                            FileName = "chmod",
+                            Arguments = $"+x \"{destFile}\"",
+                            UseShellExecute = false,
+                            CreateNoWindow = true
+                        });
+                        proc?.WaitForExit(2000);
+                    }
+                    catch { }
+                }
+            }
+        }
+    }
+
+    private static void UpdateLinuxGlobalCli(string appDir)
+    {
+        var cliSrc = Path.Combine(appDir, "OpenFluxZenServer");
+        if (!File.Exists(cliSrc) || !Directory.Exists("/usr/local/bin"))
+        {
+            return;
+        }
+
+        var links = new[]
+        {
+            "/usr/local/bin/OpenFluxZenServer",
+            "/usr/local/bin/openfluxzenserver",
+            "/usr/local/bin/openflux",
+            "/usr/local/bin/openflux-zen-server"
+        };
+
+        foreach (var link in links)
+        {
+            try
+            {
+                if (File.Exists(link))
+                {
+                    File.Delete(link);
+                }
+                File.Copy(cliSrc, link, overwrite: true);
+                if (!OperatingSystem.IsWindows())
+                {
+                    File.SetUnixFileMode(link,
+                        UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute |
+                        UnixFileMode.GroupRead | UnixFileMode.GroupExecute |
+                        UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
+                }
+            }
+            catch { }
+        }
+    }
+
+    private void RestartLinuxService(string appDir)
+    {
+        _logger.LogInformation("Executing restart of OpenFlux Zen Server Linux service...");
+
+        // 1. Try systemctl daemon-reload and restart with --no-block
+        try
+        {
+            var reloadPsi = new ProcessStartInfo
+            {
+                FileName = "systemctl",
+                Arguments = "daemon-reload",
                 UseShellExecute = false,
                 CreateNoWindow = true
             };
-            Process.Start(psi);
-            _logger.LogInformation("Detached Linux update script launched: {Script}", scriptPath);
+            var reloadProc = Process.Start(reloadPsi);
+            reloadProc?.WaitForExit(2000);
+
+            var restartPsi = new ProcessStartInfo
+            {
+                FileName = "systemctl",
+                Arguments = "restart --no-block openflux-zen-server.service",
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            var restartProc = Process.Start(restartPsi);
+            restartProc?.WaitForExit(3000);
+
+            if (restartProc != null && restartProc.ExitCode == 0)
+            {
+                _logger.LogInformation("systemctl restart --no-block dispatched successfully. Terminating process to allow systemd to spin up new version.");
+                Thread.Sleep(500);
+                Environment.Exit(0);
+                return;
+            }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to execute detached Linux update script");
+            _logger.LogWarning(ex, "systemctl restart --no-block invocation failed");
         }
+
+        // 2. Fallback: if not running under systemd or systemctl failed
+        try
+        {
+            var exePath = Path.Combine(appDir, "OpenFlux.Zen.Server.Web");
+            if (File.Exists(exePath))
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = "nohup",
+                    Arguments = $"\"{exePath}\" >/dev/null 2>&1 &",
+                    WorkingDirectory = appDir,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+                Process.Start(psi);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to spawn server process in fallback restart");
+        }
+
+        Environment.Exit(0);
     }
 
     private void LaunchWindowsUpdaterScript(string tempZip, string stageDir, string appDir)
     {
         var scriptPath = Path.Combine(Path.GetTempPath(), $"oflux_apply_panel_{Guid.NewGuid():N}.bat");
         var scriptContent = $@"@echo off
-timeout /t 1 /nobreak >nul
+timeout /t 2 /nobreak >nul
 taskkill /f /im OpenFlux.Zen.Server.Web.exe >nul 2>&1
 timeout /t 1 /nobreak >nul
 del /f /q ""{appDir}\OpenFlux.Zen.Server.Web.exe"" >nul 2>&1

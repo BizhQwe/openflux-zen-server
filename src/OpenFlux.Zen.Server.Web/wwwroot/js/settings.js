@@ -338,11 +338,11 @@ function renderPanelVersionInfo(info) {
 
   const curBadge = document.getElementById('panel-current-version-badge');
   if (curBadge) {
-    curBadge.textContent = `${isRu ? 'Панель' : 'Panel'}: ${info.currentVersion || 'v1.0.34'}`;
+    curBadge.textContent = `${isRu ? 'Панель' : 'Panel'}: ${info.currentVersion || 'v1.0.35'}`;
   }
 
   const curVer = document.getElementById('panel-current-version');
-  if (curVer) curVer.textContent = info.currentVersion || 'v1.0.34';
+  if (curVer) curVer.textContent = info.currentVersion || 'v1.0.35';
 
   const latVer = document.getElementById('panel-latest-version');
   if (latVer) latVer.textContent = info.latestVersion || info.currentVersion || '—';
@@ -350,7 +350,7 @@ function renderPanelVersionInfo(info) {
   const hdrPanel = document.getElementById('header-panel-version');
   const hdrVer = document.getElementById('header-version-text');
   if (hdrPanel) {
-    hdrPanel.textContent = `${isRu ? 'Панель' : 'Panel'}: ${info.currentVersion || 'v1.0.34'}`;
+    hdrPanel.textContent = `${isRu ? 'Панель' : 'Panel'}: ${info.currentVersion || 'v1.0.35'}`;
   } else if (hdrVer && info.currentVersion) {
     hdrVer.textContent = info.currentVersion;
   }
@@ -521,7 +521,7 @@ async function openRollbackModal(type) {
 
   if (type === 'panel') {
     if (titleEl) titleEl.textContent = isRu ? 'Смена версии панели' : 'Change Panel Version';
-    const curVer = (panelInfoCache && panelInfoCache.currentVersion) ? panelInfoCache.currentVersion : 'v1.0.34';
+    const curVer = (panelInfoCache && panelInfoCache.currentVersion) ? panelInfoCache.currentVersion : 'v1.0.35';
     if (descEl) {
       descEl.innerHTML = isRu 
         ? `Текущая версия панели: <strong>${escapeHtml(curVer)}</strong>. Выберите версию из официальных релизов GitHub (BizhQwe/openflux-zen-server) для установки:`
