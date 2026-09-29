@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using OpenFlux.Zen.Server.Cli.UI;
 using OpenFlux.Zen.Server.Common;
 using OpenFlux.Zen.Server.Data;
 
@@ -65,50 +66,44 @@ public static class CredentialsCommand
 
         var localUrl = $"http://127.0.0.1:{port}/{secretPath.Trim('/')}/";
         var finalUrl = !string.IsNullOrWhiteSpace(publicUrl) ? publicUrl : localUrl;
-
+        var isRu = CliUi.IsRussian;
         bool isLan = publishMode == "local" || publishMode == "lan";
-        string dashLabel = isLan ? "  Web Dashboard URL (LAN / Wi-Fi):" : "  Web Dashboard URL:";
 
-        Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine("==================================================================");
-        Console.WriteLine("                 OpenFlux Zen Server — Credentials                ");
-        Console.WriteLine("==================================================================");
-        Console.ResetColor();
-        Console.WriteLine();
-        Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine(dashLabel);
-        Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.WriteLine($"    {finalUrl}");
-        Console.WriteLine();
+        CliUi.Header(isRu 
+            ? "OpenFlux Zen Server — Учётные данные и доступ" 
+            : "OpenFlux Zen Server — Credentials & Access");
 
-        if (!string.IsNullOrWhiteSpace(localtunnelPassword) && finalUrl.Contains(".loca.lt"))
-        {
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine("  Localtunnel Password (Server IP for browser reminder):");
-            Console.ForegroundColor = ConsoleColor.White;
-            Console.WriteLine($"    {localtunnelPassword}");
-            Console.WriteLine();
-        }
+        string mainLabel = isLan
+            ? (isRu ? "Вход по LAN / Wi-Fi:" : "LAN / Wi-Fi Access:")
+            : (isRu ? "Панель управления:" : "Web Dashboard:");
+
+        string localLabel = isLan
+            ? (isRu ? "Этот ПК (localhost):" : "This PC (localhost):")
+            : (isRu ? "Локальный адрес:" : "Local Access:");
+
+        CliUi.Field(mainLabel, finalUrl, ConsoleColor.Yellow);
 
         if (finalUrl != localUrl)
         {
-            string localLabel = isLan ? "  Local Access URL (This PC / localhost):" : "  Local Access URL:";
-            Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine(localLabel);
-            Console.ForegroundColor = ConsoleColor.White;
-            Console.WriteLine($"    {localUrl}");
-            Console.WriteLine();
+            CliUi.Field(localLabel, localUrl, ConsoleColor.White);
         }
 
-        Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine("  Authentication Details:");
-        Console.ResetColor();
-        Console.WriteLine($"    Username: {username}");
-        Console.WriteLine($"    Password: {password}");
-        Console.WriteLine($"    Secret Path: /{secretPath.Trim('/')}/");
+        if (!string.IsNullOrWhiteSpace(localtunnelPassword) && finalUrl.Contains(".loca.lt"))
+        {
+            string ltLabel = isRu ? "Пароль Localtunnel (IP):" : "Localtunnel Password (IP):";
+            CliUi.Field(ltLabel, localtunnelPassword, ConsoleColor.Yellow);
+        }
+
+        string userLabel = isRu ? "Логин:" : "Username:";
+        string passLabel = isRu ? "Пароль:" : "Password:";
+        string pathLabel = isRu ? "Секретный путь:" : "Secret Path:";
+
+        CliUi.Field(userLabel, username);
+        CliUi.Field(passLabel, password);
+        CliUi.Field(pathLabel, $"/{secretPath.Trim('/')}/");
+
         Console.WriteLine();
-        Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine("==================================================================");
-        Console.ResetColor();
+        CliUi.Divider();
+        Console.WriteLine();
     }
 }

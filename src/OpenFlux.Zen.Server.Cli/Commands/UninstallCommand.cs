@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
+using OpenFlux.Zen.Server.Cli.UI;
 using OpenFlux.Zen.Server.Common;
 
 namespace OpenFlux.Zen.Server.Cli.Commands;
@@ -33,15 +34,18 @@ public static class UninstallCommand
 
     public static async Task ExecuteUninstallAsync(string[] cliArgs)
     {
+        var isRu = CliUi.IsRussian;
         var isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
         bool force = cliArgs.Any(a => a == "-y" || a == "--yes" || a == "--force");
 
         if (isWindows && !IsAdmin())
         {
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine("[INFO] Administrator privileges required to stop system services and delete files.");
-            Console.WriteLine("[INFO] Elevating permissions via UAC...");
-            Console.ResetColor();
+            CliUi.Info(isRu 
+                ? "Требуются права Администратора для остановки системных служб и удаления файлов." 
+                : "Administrator privileges required to stop system services and delete files.");
+            CliUi.Info(isRu 
+                ? "Запрос прав через UAC..." 
+                : "Elevating permissions via UAC...");
 
             try
             {
@@ -59,37 +63,44 @@ public static class UninstallCommand
             }
             catch
             {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("[ERROR] Administrator privileges are required to uninstall OpenFlux Zen Server.");
-                Console.WriteLine("Please run PowerShell as Administrator (Right-click -> Run as administrator) and retry.");
-                Console.ResetColor();
+                CliUi.Error(isRu 
+                    ? "Требуются права Администратора для полного удаления." 
+                    : "Administrator privileges are required to uninstall OpenFlux Zen Server.");
+                Console.WriteLine(isRu 
+                    ? "  Запустите PowerShell от имени Администратора (ПКМ -> Запуск от имени администратора) и повторите." 
+                    : "  Please run PowerShell as Administrator (Right-click -> Run as administrator) and retry.");
                 return;
             }
         }
         else if (!isWindows && !IsAdmin())
         {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine("[ERROR] Root privileges required to uninstall system service. Run with: sudo OpenFluxZenServer uninstall");
-            Console.ResetColor();
+            CliUi.Error(isRu 
+                ? "Требуются права root для удаления системной службы. Запустите: sudo openflux uninstall" 
+                : "Root privileges required to uninstall system service. Run with: sudo openflux uninstall");
             return;
         }
 
         if (!force)
         {
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.Write("Are you sure you want to completely uninstall OpenFlux Zen Server? [y/N]: ");
-            Console.ResetColor();
-            var ans = Console.ReadLine()?.Trim().ToLowerInvariant();
-            if (ans != "y" && ans != "yes")
+            var confirm = CliUi.AskYesNo(isRu 
+                ? "Вы уверены, что хотите полностью удалить OpenFlux Zen Server из системы?" 
+                : "Are you sure you want to completely uninstall OpenFlux Zen Server from system?", 
+                defaultYes: false);
+
+            if (!confirm)
             {
-                Console.WriteLine("Uninstallation cancelled.");
+                CliUi.Warn(isRu ? "Удаление отменено." : "Uninstallation cancelled.");
                 return;
             }
         }
 
-        Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine("[INFO] Stopping OpenFlux Zen Server services and processes...");
-        Console.ResetColor();
+        CliUi.Header(isRu 
+            ? "OpenFlux Zen Server — Полное удаление" 
+            : "OpenFlux Zen Server — Full Uninstallation");
+
+        CliUi.Info(isRu 
+            ? "Остановка служб и завершение фоновых процессов..." 
+            : "Stopping OpenFlux Zen Server services and processes...");
 
         var appDir = AppPaths.ResolveAppDirectory();
 
@@ -134,7 +145,10 @@ public static class UninstallCommand
             }
             catch { }
 
-            Console.WriteLine("[INFO] Completely removing application directories and data...");
+            CliUi.Info(isRu 
+                ? "Удаление файлов, конфигураций и баз данных..." 
+                : "Completely removing application directories and data...");
+
             var progFilesDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "OpenFluxZenServer");
             var localAppDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OpenFluxZenServer");
 
@@ -181,12 +195,20 @@ del ""%~f0"" >nul 2>&1
             ProcessHelper.RunBash("rm -f /usr/local/bin/OpenFluxZenServer /usr/local/bin/openfluxzenserver /usr/local/bin/openflux /usr/local/bin/openflux-zen-server /usr/bin/OpenFluxZenServer /usr/bin/openflux* /tmp/openflux*");
             ProcessHelper.RunBash("rm -f /etc/nginx/conf.d/openflux*.conf /etc/nginx/sites-enabled/openflux* 2>/dev/null; systemctl reload nginx 2>/dev/null || true");
 
-            Console.WriteLine("[INFO] Completely removing application directories and data...");
+            CliUi.Info(isRu 
+                ? "Удаление файлов, конфигураций и баз данных..." 
+                : "Completely removing application directories and data...");
+
             ProcessHelper.RunBash("rm -rf /opt/openflux-zen-server /tmp/openflux*");
         }
 
-        Console.ForegroundColor = ConsoleColor.Green;
-        Console.WriteLine("[SUCCESS] OpenFlux Zen Server has been completely uninstalled from the system.");
-        Console.ResetColor();
+        Console.WriteLine();
+        CliUi.Success(isRu 
+            ? "OpenFlux Zen Server полностью удален из системы." 
+            : "OpenFlux Zen Server has been completely uninstalled from the system.");
+
+        Console.WriteLine();
+        CliUi.Divider();
+        Console.WriteLine();
     }
 }
