@@ -304,11 +304,11 @@ function renderPanelVersionInfo(info) {
 
   const curBadge = document.getElementById('panel-current-version-badge');
   if (curBadge) {
-    curBadge.textContent = info.currentVersion || 'v1.0.28';
+    curBadge.textContent = info.currentVersion || 'v1.0.29';
   }
 
   const curVer = document.getElementById('panel-current-version');
-  if (curVer) curVer.textContent = info.currentVersion || 'v1.0.28';
+  if (curVer) curVer.textContent = info.currentVersion || 'v1.0.29';
 
   const latVer = document.getElementById('panel-latest-version');
   if (latVer) latVer.textContent = info.latestVersion || info.currentVersion || '—';

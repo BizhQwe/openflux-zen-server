@@ -31,8 +31,8 @@ if [ ! -w "$TMP_DIR" ]; then
 fi
 INSTALLER_BIN="$TMP_DIR/openflux-installer-$RID"
 RELEASE_URL="https://github.com/BizhQwe/openflux-zen-server/releases/latest/download/openflux-installer-$RID"
-TAG_URL="https://github.com/BizhQwe/openflux-zen-server/releases/download/v1.0.28/openflux-installer-$RID"
-FALLBACK_URL="https://github.com/BizhQwe/openflux-zen-server/releases/download/v1.0.27/openflux-installer-$RID"
+TAG_URL="https://github.com/BizhQwe/openflux-zen-server/releases/download/v1.0.29/openflux-installer-$RID"
+FALLBACK_URL="https://github.com/BizhQwe/openflux-zen-server/releases/download/v1.0.28/openflux-installer-$RID"
 
 echo ""
 echo "  OpenFlux Zen Server - Linux ($RID)"
