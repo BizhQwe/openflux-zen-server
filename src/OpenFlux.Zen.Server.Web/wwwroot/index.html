@@ -31,7 +31,11 @@
         <button class="nav-btn" onclick="switchTab('settings')" data-i18n="nav_settings">Настройки</button>
       </nav>
 
-      <div class="header-actions">
+      <div class="header-actions" style="display: flex; gap: 8px; align-items: center;">
+        <button class="btn btn-outline btn-sm" id="header-update-badge" onclick="switchTab('settings')" title="Обновления и система" style="display: inline-flex; align-items: center; gap: 6px;">
+          <span id="header-update-dot" style="width: 7px; height: 7px; border-radius: 50%; background: #10b981; display: inline-block;"></span>
+          <span id="header-version-text">v1.0.31</span>
+        </button>
         <button class="btn btn-outline btn-sm" onclick="logout()" data-i18n="nav_logout">Выход</button>
       </div>
     </div>
@@ -232,64 +236,6 @@
           <h3 class="section-title" data-i18n="settings_title">Настройки панели</h3>
         </div>
 
-        <!-- Language Selector -->
-        <div class="card settings-card">
-          <h4 style="margin-bottom: 8px;" data-i18n="settings_lang_title">Язык интерфейса / Interface Language</h4>
-          <p style="color: var(--text-dim); margin-bottom: 16px; font-size: 0.9rem;" data-i18n="settings_lang_desc">
-            Выберите язык для веб-интерфейса панели управления.
-          </p>
-          <div style="max-width: 320px;">
-            <select id="setting-language" class="form-control" onchange="setLanguage(this.value, true)" aria-label="Language / Язык">
-              <option value="ru">Русский (RU)</option>
-              <option value="en">English (EN)</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- Credentials Form -->
-        <div class="card settings-card">
-          <h4 style="margin-bottom: 14px;" data-i18n="settings_admin_title">Учётные данные администратора</h4>
-          <form class="account-form" onsubmit="event.preventDefault(); updateAccountProfile();">
-            <div class="form-group">
-              <label for="setting-username" data-i18n="setting_user_label">Имя пользователя (Логин)</label>
-              <input type="text" id="setting-username" class="form-control" required data-i18n-placeholder="login_user_placeholder" placeholder="Имя пользователя" />
-            </div>
-            <div class="form-group">
-              <label for="cur-pass" data-i18n="setting_cur_pass_label">Текущий пароль (для подтверждения)</label>
-              <input type="password" id="cur-pass" class="form-control" required data-i18n-placeholder="setting_cur_pass_placeholder" placeholder="Введите текущий пароль" />
-            </div>
-            <div class="form-group">
-              <label for="new-pass" data-i18n="setting_new_pass_label">Новый пароль (оставьте пустым, если не меняется)</label>
-              <input type="password" id="new-pass" class="form-control" data-i18n-placeholder="setting_new_pass_placeholder" placeholder="Новый пароль (опционально)" />
-            </div>
-            <button type="submit" class="btn btn-primary" data-i18n="btn_save_changes">Сохранить изменения</button>
-          </form>
-        </div>
-
-        <!-- Secret Path -->
-        <div class="card settings-card">
-          <h4 style="margin-bottom: 8px;" data-i18n="settings_secret_title">Секретный путь панели</h4>
-          <p style="color: var(--text-dim); margin-bottom: 16px; font-size: 0.9rem;" data-i18n="settings_secret_desc">
-            Случайный путь URL обеспечивает защиту от сканеров и ботов. Доступ возможен только по этому пути.
-          </p>
-          <div class="button-row secret-path-row">
-            <input type="text" id="setting-secret-path" class="form-control" readonly aria-label="Секретный путь панели" style="font-family: var(--font-mono);" />
-            <button class="btn btn-outline" onclick="regenerateSecretPath()" data-i18n="btn_regenerate_secret">Сгенерировать новый</button>
-          </div>
-        </div>
-
-        <!-- Network Placement Info -->
-        <div class="card settings-card">
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-            <h4 data-i18n="settings_network_title">Сетевое размещение</h4>
-            <span id="setting-network-mode" style="background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #93c5fd; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600;">—</span>
-          </div>
-          <p style="color: var(--text-dim); margin-bottom: 12px; font-size: 0.9rem;" data-i18n="settings_network_desc">
-            Текущий режим сетевого размещения панели и сервера.
-          </p>
-          <div id="setting-network-url" style="color: var(--text-dim); font-size: 0.88rem; font-family: var(--font-mono); word-break: break-all;"></div>
-        </div>
-
         <!-- OpenFlux Zen Server Panel & Updates -->
         <div class="card settings-card" id="panel-update-card">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
@@ -331,17 +277,17 @@
           </div>
 
           <div class="button-row" style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <button id="btn-check-panel" class="btn btn-outline" onclick="checkForPanelUpdates()">
+            <button id="btn-check-panel" class="btn btn-outline" type="button" onclick="checkForPanelUpdates()">
               <span id="btn-check-panel-spinner" style="display: none;" class="spinner-inline"></span>
               <span data-i18n="btn_check_panel_updates">Проверить обновления панели</span>
             </button>
-            <button id="btn-update-panel" class="btn btn-primary" onclick="confirmUpdatePanel()" style="display: none; background: #7c3aed; border-color: #6d28d9;">
+            <button id="btn-update-panel" class="btn btn-primary" type="button" onclick="confirmUpdatePanel()" style="display: none; background: #7c3aed; border-color: #6d28d9;">
               <span id="btn-update-panel-spinner" style="display: none;" class="spinner-inline"></span>
               <span data-i18n="btn_update_panel">Обновить OpenFlux Zen Server</span>
             </button>
-            <a href="https://github.com/BizhQwe/openflux-zen-server/releases" target="_blank" rel="noopener noreferrer" class="btn btn-outline" style="text-decoration: none;" data-i18n="btn_view_panel_releases">
-              Все релизы панели ↗
-            </a>
+            <button type="button" class="btn btn-outline" onclick="window.open('https://github.com/BizhQwe/openflux-zen-server/releases', '_blank')">
+              <span data-i18n="btn_view_panel_releases">Все релизы панели ↗</span>
+            </button>
           </div>
         </div>
 
@@ -386,17 +332,83 @@
           </div>
 
           <div class="button-row" style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <button id="btn-check-core" class="btn btn-outline" onclick="checkForCoreUpdates()">
+            <button id="btn-check-core" class="btn btn-outline" type="button" onclick="checkForCoreUpdates()">
               <span id="btn-check-core-spinner" style="display: none;" class="spinner-inline"></span>
               <span data-i18n="btn_check_core_updates">Проверить обновления</span>
             </button>
-            <button id="btn-update-core" class="btn btn-primary" onclick="confirmUpdateCore()" style="display: none;">
+            <button id="btn-update-core" class="btn btn-primary" type="button" onclick="confirmUpdateCore()" style="display: none;">
               <span id="btn-update-core-spinner" style="display: none;" class="spinner-inline"></span>
               <span data-i18n="btn_update_core">Обновить ядро OpenFlux</span>
             </button>
-            <a href="https://github.com/p1neappleXpress/OpenFlux/releases" target="_blank" rel="noopener noreferrer" class="btn btn-outline" style="text-decoration: none;" data-i18n="btn_view_releases">
-              Все релизы GitHub ↗
-            </a>
+            <button type="button" class="btn btn-outline" onclick="window.open('https://github.com/p1neappleXpress/OpenFlux/releases', '_blank')">
+              <span data-i18n="btn_view_releases">Все релизы GitHub ↗</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Network Placement & Secret Path (Combined) -->
+        <div class="card settings-card" id="network-access-card">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <h4 data-i18n="settings_network_access_title">Сетевое размещение и доступ к панели</h4>
+            <span id="setting-network-mode" style="background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #93c5fd; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600;">—</span>
+          </div>
+          <p style="color: var(--text-dim); margin-bottom: 16px; font-size: 0.9rem;" data-i18n="settings_network_access_desc">
+            Текущий адрес веб-панели и секретный путь URL для защиты от сетевых сканеров и ботов. Доступ возможен только по этому пути.
+          </p>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+            <div>
+              <label for="setting-network-url-input" style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;" data-i18n="settings_network_url_label">Полный адрес панели (URL)</label>
+              <div style="display: flex; gap: 8px;">
+                <input type="text" id="setting-network-url-input" class="form-control" readonly style="font-family: var(--font-mono); font-size: 0.85rem;" />
+                <button type="button" class="btn btn-outline" onclick="copyNetworkUrl()" title="Копировать URL" style="padding: 0 14px; min-height: 42px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                </button>
+              </div>
+              <div id="setting-network-url" style="display: none;"></div>
+            </div>
+
+            <div>
+              <label for="setting-secret-path" style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;" data-i18n="settings_secret_path_label">Секретный путь URL</label>
+              <div style="display: flex; gap: 8px;">
+                <input type="text" id="setting-secret-path" class="form-control" readonly aria-label="Секретный путь панели" style="font-family: var(--font-mono); font-size: 0.85rem;" />
+                <button type="button" class="btn btn-outline" onclick="regenerateSecretPath()" data-i18n="btn_regenerate_secret" style="white-space: nowrap; min-height: 42px;">Сгенерировать новый</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Credentials Form -->
+        <div class="card settings-card">
+          <h4 style="margin-bottom: 14px;" data-i18n="settings_admin_title">Учётные данные администратора</h4>
+          <form class="account-form" onsubmit="event.preventDefault(); updateAccountProfile();">
+            <div class="form-group">
+              <label for="setting-username" data-i18n="setting_user_label">Имя пользователя (Логин)</label>
+              <input type="text" id="setting-username" class="form-control" required data-i18n-placeholder="login_user_placeholder" placeholder="Имя пользователя" />
+            </div>
+            <div class="form-group">
+              <label for="cur-pass" data-i18n="setting_cur_pass_label">Текущий пароль (для подтверждения)</label>
+              <input type="password" id="cur-pass" class="form-control" required data-i18n-placeholder="setting_cur_pass_placeholder" placeholder="Введите текущий пароль" />
+            </div>
+            <div class="form-group">
+              <label for="new-pass" data-i18n="setting_new_pass_label">Новый пароль (оставьте пустым, если не меняется)</label>
+              <input type="password" id="new-pass" class="form-control" data-i18n-placeholder="setting_new_pass_placeholder" placeholder="Новый пароль (опционально)" />
+            </div>
+            <button type="submit" class="btn btn-primary" data-i18n="btn_save_changes">Сохранить изменения</button>
+          </form>
+        </div>
+
+        <!-- Language Selector -->
+        <div class="card settings-card">
+          <h4 style="margin-bottom: 8px;" data-i18n="settings_lang_title">Язык интерфейса / Interface Language</h4>
+          <p style="color: var(--text-dim); margin-bottom: 16px; font-size: 0.9rem;" data-i18n="settings_lang_desc">
+            Выберите язык для веб-интерфейса панели управления.
+          </p>
+          <div style="max-width: 320px;">
+            <select id="setting-language" class="form-control" onchange="setLanguage(this.value, true)" aria-label="Language / Язык">
+              <option value="ru">Русский (RU)</option>
+              <option value="en">English (EN)</option>
+            </select>
           </div>
         </div>
       </div>

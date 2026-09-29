@@ -101,6 +101,9 @@ async function initApp() {
 
   loadStats();
   loadTunnels();
+  if (typeof loadPanelVersionInfo === 'function') {
+    loadPanelVersionInfo(false);
+  }
   if (!statsInterval) {
     let isPolling = false;
     statsInterval = setInterval(async () => {

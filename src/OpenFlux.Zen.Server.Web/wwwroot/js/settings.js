@@ -62,6 +62,7 @@ async function loadSettings() {
     }
     const modeBadge = document.getElementById('setting-network-mode');
     const modeUrl = document.getElementById('setting-network-url');
+    const modeUrlInput = document.getElementById('setting-network-url-input');
     if (modeBadge) {
       const mode = s.publishMode || 'local';
       let modeText = t('mode_local');
@@ -70,8 +71,9 @@ async function loadSettings() {
       else if (mode === 'localhost') modeText = t('mode_localhost');
       modeBadge.textContent = modeText;
     }
-    if (modeUrl && s.publicUrl) {
-      modeUrl.textContent = 'URL: ' + s.publicUrl;
+    if (s.publicUrl) {
+      if (modeUrl) modeUrl.textContent = 'URL: ' + s.publicUrl;
+      if (modeUrlInput) modeUrlInput.value = s.publicUrl;
     }
     const decoyInput = document.getElementById('setting-decoy-redirect');
     if (decoyInput) {
@@ -81,6 +83,20 @@ async function loadSettings() {
 
   await loadPanelVersionInfo(false);
   await loadCoreVersionInfo(false);
+}
+
+async function copyNetworkUrl() {
+  const inp = document.getElementById('setting-network-url-input');
+  if (inp && inp.value) {
+    try {
+      await navigator.clipboard.writeText(inp.value);
+      toast(t('toast_copied'), 'success');
+    } catch (_) {
+      inp.select();
+      document.execCommand('copy');
+      toast(t('toast_copied'), 'success');
+    }
+  }
 }
 
 async function updateAccountProfile() {
@@ -198,9 +214,9 @@ function renderCoreVersionInfo(info) {
   if (info.isUpdateAvailable) {
     if (statusBadge) {
       statusBadge.style.display = 'inline-block';
-      statusBadge.style.background = 'rgba(16, 185, 129, 0.2)';
-      statusBadge.style.border = '1px solid rgba(16, 185, 129, 0.4)';
-      statusBadge.style.color = '#34d399';
+      statusBadge.style.background = 'rgba(245, 158, 11, 0.15)';
+      statusBadge.style.border = '1px solid rgba(245, 158, 11, 0.35)';
+      statusBadge.style.color = '#fbbf24';
       statusBadge.textContent = t('core_update_available');
     }
     if (btnUpdate) btnUpdate.style.display = 'inline-flex';
@@ -212,9 +228,9 @@ function renderCoreVersionInfo(info) {
   } else {
     if (statusBadge) {
       statusBadge.style.display = 'inline-block';
-      statusBadge.style.background = 'rgba(107, 114, 128, 0.2)';
-      statusBadge.style.border = '1px solid rgba(107, 114, 128, 0.4)';
-      statusBadge.style.color = '#9ca3af';
+      statusBadge.style.background = 'rgba(16, 185, 129, 0.15)';
+      statusBadge.style.border = '1px solid rgba(16, 185, 129, 0.35)';
+      statusBadge.style.color = '#34d399';
       statusBadge.textContent = t('core_up_to_date');
     }
     if (btnUpdate) btnUpdate.style.display = 'none';
@@ -304,14 +320,29 @@ function renderPanelVersionInfo(info) {
 
   const curBadge = document.getElementById('panel-current-version-badge');
   if (curBadge) {
-    curBadge.textContent = info.currentVersion || 'v1.0.30';
+    curBadge.textContent = info.currentVersion || 'v1.0.31';
   }
 
   const curVer = document.getElementById('panel-current-version');
-  if (curVer) curVer.textContent = info.currentVersion || 'v1.0.30';
+  if (curVer) curVer.textContent = info.currentVersion || 'v1.0.31';
 
   const latVer = document.getElementById('panel-latest-version');
   if (latVer) latVer.textContent = info.latestVersion || info.currentVersion || '—';
+
+  const hdrVer = document.getElementById('header-version-text');
+  const hdrDot = document.getElementById('header-update-dot');
+  if (hdrVer && info.currentVersion) {
+    hdrVer.textContent = info.currentVersion;
+  }
+  if (hdrDot) {
+    if (info.isUpdateAvailable) {
+      hdrDot.style.background = '#fbbf24';
+      hdrDot.title = t('panel_update_available');
+    } else {
+      hdrDot.style.background = '#10b981';
+      hdrDot.title = t('panel_up_to_date');
+    }
+  }
 
   const relDate = document.getElementById('panel-release-date');
   if (relDate) {
@@ -342,9 +373,9 @@ function renderPanelVersionInfo(info) {
   if (info.isUpdateAvailable) {
     if (statusBadge) {
       statusBadge.style.display = 'inline-block';
-      statusBadge.style.background = 'rgba(16, 185, 129, 0.2)';
-      statusBadge.style.border = '1px solid rgba(16, 185, 129, 0.4)';
-      statusBadge.style.color = '#34d399';
+      statusBadge.style.background = 'rgba(245, 158, 11, 0.15)';
+      statusBadge.style.border = '1px solid rgba(245, 158, 11, 0.35)';
+      statusBadge.style.color = '#fbbf24';
       statusBadge.textContent = t('panel_update_available');
     }
     if (btnUpdate) btnUpdate.style.display = 'inline-flex';
@@ -356,9 +387,9 @@ function renderPanelVersionInfo(info) {
   } else {
     if (statusBadge) {
       statusBadge.style.display = 'inline-block';
-      statusBadge.style.background = 'rgba(107, 114, 128, 0.2)';
-      statusBadge.style.border = '1px solid rgba(107, 114, 128, 0.4)';
-      statusBadge.style.color = '#9ca3af';
+      statusBadge.style.background = 'rgba(16, 185, 129, 0.15)';
+      statusBadge.style.border = '1px solid rgba(16, 185, 129, 0.35)';
+      statusBadge.style.color = '#34d399';
       statusBadge.textContent = t('panel_up_to_date');
     }
     if (btnUpdate) btnUpdate.style.display = 'none';
