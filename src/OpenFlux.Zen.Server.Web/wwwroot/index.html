@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/app.css?v=1.0.35" />
+  <link rel="stylesheet" href="css/app.css?v=1.0.36" />
 </head>
 <body>
 
@@ -35,9 +35,9 @@
       </nav>
 
       <div class="header-actions" style="display: flex; gap: 8px; align-items: center;">
-        <button class="btn btn-outline btn-sm" id="header-update-badge" onclick="switchTab('settings')" title="Панель OpenFlux Zen Server и Ядро OpenFlux" style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; padding: 4px 10px;">
+        <button class="btn btn-outline btn-sm" id="header-update-badge" onclick="switchTab('settings')" title="OpenFlux Zen Server и OpenFlux" style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; padding: 4px 10px;">
           <span id="header-update-dot" style="width: 7px; height: 7px; border-radius: 50%; background: #10b981; display: inline-block;"></span>
-          <span id="header-panel-version" style="font-weight: 600;">Панель: v1.0.35</span>
+          <span id="header-panel-version" style="font-weight: 600;">Server: v1.0.36</span>
           <span style="opacity: 0.4;">•</span>
           <span id="header-core-version" style="font-weight: 600;">OpenFlux: v0.2.0</span>
         </button>
@@ -261,12 +261,12 @@
           </form>
         </div>
 
-        <!-- 2. OpenFlux Zen Server Panel & Updates -->
+        <!-- 2. OpenFlux Zen Server Updates -->
         <div class="card settings-card" id="panel-update-card">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-            <h4 data-i18n="settings_panel_title">Панель OpenFlux Zen Server</h4>
+            <h4 data-i18n="settings_panel_title">OpenFlux Zen Server</h4>
             <div style="display: flex; gap: 8px; align-items: center;">
-              <span id="panel-current-version-badge" style="background: rgba(139, 92, 246, 0.15); border: 1px solid rgba(139, 92, 246, 0.3); color: #c4b5fd; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600;">Панель: v1.0.35</span>
+              <span id="panel-current-version-badge" style="background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #93c5fd; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600;">Server: v1.0.36</span>
               <span id="panel-status-badge" style="display: none; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600;"></span>
             </div>
           </div>
@@ -293,10 +293,10 @@
             </div>
           </div>
 
-          <div id="panel-release-notes-box" style="display: none; margin-bottom: 16px; padding: 12px; background: rgba(139, 92, 246, 0.06); border: 1px solid rgba(139, 92, 246, 0.2); border-radius: 8px;">
+          <div id="panel-release-notes-box" style="display: none; margin-bottom: 16px; padding: 12px; background: rgba(59, 130, 246, 0.06); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 8px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-              <strong style="font-size: 0.85rem; color: #c4b5fd;" data-i18n="settings_panel_release_notes">Что нового в обновлении:</strong>
-              <a id="panel-release-link" href="https://github.com/BizhQwe/openflux-zen-server/releases" target="_blank" rel="noopener noreferrer" style="font-size: 0.82rem; color: #a78bfa; text-decoration: underline;" data-i18n="settings_panel_github_link">Релиз на GitHub ↗</a>
+              <strong style="font-size: 0.85rem; color: #93c5fd;" data-i18n="settings_panel_release_notes">Что нового в обновлении:</strong>
+              <a id="panel-release-link" href="https://github.com/BizhQwe/openflux-zen-server/releases" target="_blank" rel="noopener noreferrer" style="font-size: 0.82rem; color: #60a5fa; text-decoration: underline;" data-i18n="settings_panel_github_link">Релиз на GitHub ↗</a>
             </div>
             <pre id="panel-release-notes-text" style="max-height: 140px; overflow-y: auto; font-size: 0.82rem; color: var(--text-dim); white-space: pre-wrap; font-family: var(--font-mono); margin: 0;"></pre>
           </div>
@@ -306,7 +306,7 @@
               <span id="btn-check-panel-spinner" style="display: none;" class="spinner-inline"></span>
               <span data-i18n="btn_check_panel_updates">Проверить обновления</span>
             </button>
-            <button id="btn-update-panel" class="btn btn-primary" type="button" onclick="confirmUpdatePanel()" style="display: none; background: #7c3aed; border-color: #6d28d9;">
+            <button id="btn-update-panel" class="btn btn-primary" type="button" onclick="confirmUpdatePanel()" style="display: none;">
               <span id="btn-update-panel-spinner" style="display: none;" class="spinner-inline"></span>
               <span data-i18n="btn_update_panel">Обновить OpenFlux Zen Server</span>
             </button>
@@ -319,10 +319,10 @@
           </div>
         </div>
 
-        <!-- 3. OpenFlux Core Engine & Updates -->
+        <!-- 3. OpenFlux Engine & Updates -->
         <div class="card settings-card" id="core-update-card">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-            <h4 data-i18n="settings_core_title">Ядро OpenFlux</h4>
+            <h4 data-i18n="settings_core_title">OpenFlux</h4>
             <div style="display: flex; gap: 8px; align-items: center;">
               <span id="core-current-version-badge" style="background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #93c5fd; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600;">OpenFlux: v0.2.0</span>
               <span id="core-status-badge" style="display: none; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600;"></span>
@@ -334,16 +334,16 @@
 
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px; padding: 12px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); border-radius: 8px;">
             <div>
-              <div style="color: var(--text-dim); font-size: 0.8rem;" data-i18n="settings_core_binary">Бинарный файл:</div>
-              <div id="core-binary-name" style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-main); font-weight: 600; margin-top: 4px;">—</div>
+              <div style="color: var(--text-dim); font-size: 0.8rem;" data-i18n="settings_core_version">Установленная версия:</div>
+              <div id="core-current-version" style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-main); font-weight: 600; margin-top: 4px;">—</div>
             </div>
             <div>
               <div style="color: var(--text-dim); font-size: 0.8rem;" data-i18n="settings_core_latest_version">Доступная версия:</div>
               <div id="core-latest-version" style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-main); font-weight: 600; margin-top: 4px;">—</div>
             </div>
             <div>
-              <div style="color: var(--text-dim); font-size: 0.8rem;" data-i18n="settings_core_size">Размер файла:</div>
-              <div id="core-binary-size" style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-main); font-weight: 600; margin-top: 4px;">—</div>
+              <div style="color: var(--text-dim); font-size: 0.8rem;" data-i18n="settings_core_published">Дата релиза:</div>
+              <div id="core-release-date" style="font-size: 0.85rem; color: var(--text-main); margin-top: 4px;">—</div>
             </div>
             <div>
               <div style="color: var(--text-dim); font-size: 0.8rem;" data-i18n="settings_core_checked">Проверено:</div>
@@ -366,7 +366,7 @@
             </button>
             <button id="btn-update-core" class="btn btn-primary" type="button" onclick="confirmUpdateCore()" style="display: none;">
               <span id="btn-update-core-spinner" style="display: none;" class="spinner-inline"></span>
-              <span data-i18n="btn_update_core">Обновить ядро OpenFlux</span>
+              <span data-i18n="btn_update_core">Обновить OpenFlux</span>
             </button>
             <button id="btn-rollback-core" class="btn btn-outline" type="button" onclick="openRollbackModal('core')">
               <span data-i18n="btn_change_version_core">Сменить версию</span>
@@ -550,11 +550,11 @@
   <!-- Toast notifications -->
   <div id="toast-container" role="status" aria-live="polite"></div>
 
-  <script src="js/i18n.js?v=1.0.35"></script>
-  <script src="js/api.js?v=1.0.35"></script>
-  <script src="js/tunnels.js?v=1.0.35"></script>
-  <script src="js/logs.js?v=1.0.35"></script>
-  <script src="js/settings.js?v=1.0.35"></script>
-  <script src="js/app.js?v=1.0.35"></script>
+  <script src="js/i18n.js?v=1.0.36"></script>
+  <script src="js/api.js?v=1.0.36"></script>
+  <script src="js/tunnels.js?v=1.0.36"></script>
+  <script src="js/logs.js?v=1.0.36"></script>
+  <script src="js/settings.js?v=1.0.36"></script>
+  <script src="js/app.js?v=1.0.36"></script>
 </body>
 </html>

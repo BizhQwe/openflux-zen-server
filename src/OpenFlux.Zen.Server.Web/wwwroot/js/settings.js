@@ -204,15 +204,19 @@ function renderCoreVersionInfo(info) {
     hdrCore.textContent = `OpenFlux: ${info.currentVersion || 'v0.2.0'}`;
   }
 
-  const binName = document.getElementById('core-binary-name');
-  if (binName) binName.textContent = info.binaryName || '—';
+  const curVer = document.getElementById('core-current-version');
+  if (curVer) curVer.textContent = info.currentVersion || 'v0.2.0';
 
   const latVer = document.getElementById('core-latest-version');
   if (latVer) latVer.textContent = info.latestVersion || info.currentVersion || '—';
 
-  const binSize = document.getElementById('core-binary-size');
-  if (binSize) {
-    binSize.textContent = info.binarySizeBytes > 0 ? fmtBytes(info.binarySizeBytes) : '—';
+  const relDate = document.getElementById('core-release-date');
+  if (relDate) {
+    if (info.publishedAt) {
+      relDate.textContent = formatDateTimeCustom(info.publishedAt);
+    } else {
+      relDate.textContent = '—';
+    }
   }
 
   const lastChecked = document.getElementById('core-last-checked');
@@ -338,11 +342,11 @@ function renderPanelVersionInfo(info) {
 
   const curBadge = document.getElementById('panel-current-version-badge');
   if (curBadge) {
-    curBadge.textContent = `${isRu ? 'Панель' : 'Panel'}: ${info.currentVersion || 'v1.0.35'}`;
+    curBadge.textContent = `Server: ${info.currentVersion || 'v1.0.36'}`;
   }
 
   const curVer = document.getElementById('panel-current-version');
-  if (curVer) curVer.textContent = info.currentVersion || 'v1.0.35';
+  if (curVer) curVer.textContent = info.currentVersion || 'v1.0.36';
 
   const latVer = document.getElementById('panel-latest-version');
   if (latVer) latVer.textContent = info.latestVersion || info.currentVersion || '—';
@@ -350,7 +354,7 @@ function renderPanelVersionInfo(info) {
   const hdrPanel = document.getElementById('header-panel-version');
   const hdrVer = document.getElementById('header-version-text');
   if (hdrPanel) {
-    hdrPanel.textContent = `${isRu ? 'Панель' : 'Panel'}: ${info.currentVersion || 'v1.0.35'}`;
+    hdrPanel.textContent = `Server: ${info.currentVersion || 'v1.0.36'}`;
   } else if (hdrVer && info.currentVersion) {
     hdrVer.textContent = info.currentVersion;
   }
@@ -362,7 +366,7 @@ function renderPanelVersionInfo(info) {
       hdrDot.title = t('panel_update_available');
     } else {
       hdrDot.style.background = '#10b981';
-      hdrDot.title = isRu ? 'Панель и Ядро актуальны' : 'Panel and Core are up to date';
+      hdrDot.title = isRu ? 'Все компоненты актуальны' : 'All components are up to date';
     }
   }
 
@@ -520,20 +524,20 @@ async function openRollbackModal(type) {
   const isRu = currentLanguage === 'ru';
 
   if (type === 'panel') {
-    if (titleEl) titleEl.textContent = isRu ? 'Смена версии панели' : 'Change Panel Version';
-    const curVer = (panelInfoCache && panelInfoCache.currentVersion) ? panelInfoCache.currentVersion : 'v1.0.35';
+    if (titleEl) titleEl.textContent = isRu ? 'Смена версии OpenFlux Zen Server' : 'Change OpenFlux Zen Server Version';
+    const curVer = (panelInfoCache && panelInfoCache.currentVersion) ? panelInfoCache.currentVersion : 'v1.0.36';
     if (descEl) {
       descEl.innerHTML = isRu 
-        ? `Текущая версия панели: <strong>${escapeHtml(curVer)}</strong>. Выберите версию из официальных релизов GitHub (BizhQwe/openflux-zen-server) для установки:`
-        : `Current panel version: <strong>${escapeHtml(curVer)}</strong>. Select a version from official GitHub releases (BizhQwe/openflux-zen-server) to install:`;
+        ? `Текущая версия: <strong>${escapeHtml(curVer)}</strong>. Выберите версию из официальных релизов GitHub (BizhQwe/openflux-zen-server) для установки:`
+        : `Current version: <strong>${escapeHtml(curVer)}</strong>. Select a version from official GitHub releases (BizhQwe/openflux-zen-server) to install:`;
     }
   } else {
-    if (titleEl) titleEl.textContent = isRu ? 'Смена версии ядра OpenFlux' : 'Change OpenFlux Core Version';
+    if (titleEl) titleEl.textContent = isRu ? 'Смена версии OpenFlux' : 'Change OpenFlux Version';
     const curVer = (coreInfoCache && coreInfoCache.currentVersion) ? coreInfoCache.currentVersion : 'v0.2.0';
     if (descEl) {
       descEl.innerHTML = isRu
-        ? `Текущая версия ядра: <strong>${escapeHtml(curVer)}</strong>. Выберите версию из официальных релизов GitHub (p1neappleXpress/OpenFlux) для установки:`
-        : `Current core version: <strong>${escapeHtml(curVer)}</strong>. Select a version from official GitHub releases (p1neappleXpress/OpenFlux) to install:`;
+        ? `Текущая версия: <strong>${escapeHtml(curVer)}</strong>. Выберите версию из официальных релизов GitHub (p1neappleXpress/OpenFlux) для установки:`
+        : `Current version: <strong>${escapeHtml(curVer)}</strong>. Select a version from official GitHub releases (p1neappleXpress/OpenFlux) to install:`;
     }
   }
 
