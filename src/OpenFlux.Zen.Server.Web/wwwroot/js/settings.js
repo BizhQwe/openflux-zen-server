@@ -1,5 +1,18 @@
 // OpenFlux Zen Server - Settings & Backup
 
+function formatDateTimeCustom(dateInput) {
+  if (!dateInput) return '—';
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return '—';
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = String(d.getFullYear()).slice(-2);
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  const seconds = String(d.getSeconds()).padStart(2, '0');
+  return `${day}.${month}.${year} : ${hours}:${minutes}:${seconds}`;
+}
+
 function handleConfigFileSelect(event) {
   const file = event.target.files && event.target.files[0];
   if (!file) return;
@@ -179,9 +192,16 @@ async function loadCoreVersionInfo(forceCheck = false) {
 function renderCoreVersionInfo(info) {
   if (!info) return;
 
+  const isRu = (typeof currentLanguage !== 'undefined' ? currentLanguage : 'ru') === 'ru';
+
   const curBadge = document.getElementById('core-current-version-badge');
   if (curBadge) {
-    curBadge.textContent = info.currentVersion || 'v0.2.0';
+    curBadge.textContent = `OpenFlux: ${info.currentVersion || 'v0.2.0'}`;
+  }
+
+  const hdrCore = document.getElementById('header-core-version');
+  if (hdrCore) {
+    hdrCore.textContent = `OpenFlux: ${info.currentVersion || 'v0.2.0'}`;
   }
 
   const binName = document.getElementById('core-binary-name');
@@ -198,8 +218,7 @@ function renderCoreVersionInfo(info) {
   const lastChecked = document.getElementById('core-last-checked');
   if (lastChecked) {
     if (info.lastCheckedAt) {
-      const dt = new Date(info.lastCheckedAt);
-      lastChecked.textContent = dt.toLocaleString();
+      lastChecked.textContent = formatDateTimeCustom(info.lastCheckedAt);
     } else {
       lastChecked.textContent = t('core_not_checked') || '—';
     }
@@ -227,11 +246,8 @@ function renderCoreVersionInfo(info) {
     }
   } else {
     if (statusBadge) {
-      statusBadge.style.display = 'inline-block';
-      statusBadge.style.background = 'rgba(16, 185, 129, 0.15)';
-      statusBadge.style.border = '1px solid rgba(16, 185, 129, 0.35)';
-      statusBadge.style.color = '#34d399';
-      statusBadge.textContent = t('core_up_to_date');
+      statusBadge.style.display = 'none';
+      statusBadge.textContent = '';
     }
     if (btnUpdate) btnUpdate.style.display = 'none';
     if (releaseBox) releaseBox.style.display = 'none';
@@ -318,37 +334,42 @@ async function loadPanelVersionInfo(forceCheck = false) {
 function renderPanelVersionInfo(info) {
   if (!info) return;
 
+  const isRu = (typeof currentLanguage !== 'undefined' ? currentLanguage : 'ru') === 'ru';
+
   const curBadge = document.getElementById('panel-current-version-badge');
   if (curBadge) {
-    curBadge.textContent = info.currentVersion || 'v1.0.33';
+    curBadge.textContent = `${isRu ? 'Панель' : 'Panel'}: ${info.currentVersion || 'v1.0.34'}`;
   }
 
   const curVer = document.getElementById('panel-current-version');
-  if (curVer) curVer.textContent = info.currentVersion || 'v1.0.33';
+  if (curVer) curVer.textContent = info.currentVersion || 'v1.0.34';
 
   const latVer = document.getElementById('panel-latest-version');
   if (latVer) latVer.textContent = info.latestVersion || info.currentVersion || '—';
 
+  const hdrPanel = document.getElementById('header-panel-version');
   const hdrVer = document.getElementById('header-version-text');
-  const hdrDot = document.getElementById('header-update-dot');
-  if (hdrVer && info.currentVersion) {
+  if (hdrPanel) {
+    hdrPanel.textContent = `${isRu ? 'Панель' : 'Panel'}: ${info.currentVersion || 'v1.0.34'}`;
+  } else if (hdrVer && info.currentVersion) {
     hdrVer.textContent = info.currentVersion;
   }
+
+  const hdrDot = document.getElementById('header-update-dot');
   if (hdrDot) {
     if (info.isUpdateAvailable) {
       hdrDot.style.background = '#fbbf24';
       hdrDot.title = t('panel_update_available');
     } else {
       hdrDot.style.background = '#10b981';
-      hdrDot.title = t('panel_up_to_date');
+      hdrDot.title = isRu ? 'Панель и Ядро актуальны' : 'Panel and Core are up to date';
     }
   }
 
   const relDate = document.getElementById('panel-release-date');
   if (relDate) {
     if (info.publishedAt) {
-      const dt = new Date(info.publishedAt);
-      relDate.textContent = dt.toLocaleDateString();
+      relDate.textContent = formatDateTimeCustom(info.publishedAt);
     } else {
       relDate.textContent = '—';
     }
@@ -357,8 +378,7 @@ function renderPanelVersionInfo(info) {
   const lastChecked = document.getElementById('panel-last-checked');
   if (lastChecked) {
     if (info.lastCheckedAt) {
-      const dt = new Date(info.lastCheckedAt);
-      lastChecked.textContent = dt.toLocaleString();
+      lastChecked.textContent = formatDateTimeCustom(info.lastCheckedAt);
     } else {
       lastChecked.textContent = t('panel_not_checked') || '—';
     }
@@ -386,11 +406,8 @@ function renderPanelVersionInfo(info) {
     }
   } else {
     if (statusBadge) {
-      statusBadge.style.display = 'inline-block';
-      statusBadge.style.background = 'rgba(16, 185, 129, 0.15)';
-      statusBadge.style.border = '1px solid rgba(16, 185, 129, 0.35)';
-      statusBadge.style.color = '#34d399';
-      statusBadge.textContent = t('panel_up_to_date');
+      statusBadge.style.display = 'none';
+      statusBadge.textContent = '';
     }
     if (btnUpdate) btnUpdate.style.display = 'none';
     if (releaseBox) releaseBox.style.display = 'none';
@@ -503,20 +520,20 @@ async function openRollbackModal(type) {
   const isRu = currentLanguage === 'ru';
 
   if (type === 'panel') {
-    if (titleEl) titleEl.textContent = isRu ? 'Смена / Откат версии панели' : 'Switch / Rollback Panel Version';
-    const curVer = (panelInfoCache && panelInfoCache.currentVersion) ? panelInfoCache.currentVersion : 'v1.0.33';
+    if (titleEl) titleEl.textContent = isRu ? 'Смена версии панели' : 'Change Panel Version';
+    const curVer = (panelInfoCache && panelInfoCache.currentVersion) ? panelInfoCache.currentVersion : 'v1.0.34';
     if (descEl) {
       descEl.innerHTML = isRu 
-        ? `Текущая версия панели: <strong>${escapeHtml(curVer)}</strong>. Выберите версию из официальных релизов GitHub (BizhQwe/openflux-zen-server) для установки или отката:`
-        : `Current panel version: <strong>${escapeHtml(curVer)}</strong>. Select a version from official GitHub releases (BizhQwe/openflux-zen-server) to install or rollback:`;
+        ? `Текущая версия панели: <strong>${escapeHtml(curVer)}</strong>. Выберите версию из официальных релизов GitHub (BizhQwe/openflux-zen-server) для установки:`
+        : `Current panel version: <strong>${escapeHtml(curVer)}</strong>. Select a version from official GitHub releases (BizhQwe/openflux-zen-server) to install:`;
     }
   } else {
-    if (titleEl) titleEl.textContent = isRu ? 'Смена / Откат версии ядра OpenFlux' : 'Switch / Rollback OpenFlux Core Version';
+    if (titleEl) titleEl.textContent = isRu ? 'Смена версии ядра OpenFlux' : 'Change OpenFlux Core Version';
     const curVer = (coreInfoCache && coreInfoCache.currentVersion) ? coreInfoCache.currentVersion : 'v0.2.0';
     if (descEl) {
       descEl.innerHTML = isRu
-        ? `Текущая версия ядра: <strong>${escapeHtml(curVer)}</strong>. Выберите версию из официальных релизов GitHub (p1neappleXpress/OpenFlux) для установки или отката:`
-        : `Current core version: <strong>${escapeHtml(curVer)}</strong>. Select a version from official GitHub releases (p1neappleXpress/OpenFlux) to install or rollback:`;
+        ? `Текущая версия ядра: <strong>${escapeHtml(curVer)}</strong>. Выберите версию из официальных релизов GitHub (p1neappleXpress/OpenFlux) для установки:`
+        : `Current core version: <strong>${escapeHtml(curVer)}</strong>. Select a version from official GitHub releases (p1neappleXpress/OpenFlux) to install:`;
     }
   }
 
@@ -548,7 +565,7 @@ async function openRollbackModal(type) {
       rollbackReleases.forEach((rel) => {
         const opt = document.createElement('option');
         opt.value = rel.tagName;
-        const dateStr = rel.publishedAt ? new Date(rel.publishedAt).toLocaleDateString() : '';
+        const dateStr = rel.publishedAt ? formatDateTimeCustom(rel.publishedAt) : '';
         const isCurrent = curVer && (rel.tagName.toLowerCase() === curVer.toLowerCase() || ('v' + rel.tagName.toLowerCase()) === curVer.toLowerCase());
         const label = `${rel.tagName}${rel.prerelease ? ' (pre-release)' : ''} ${dateStr ? '— ' + dateStr : ''}${isCurrent ? (isRu ? ' [Текущая]' : ' [Current]') : ''}`;
         opt.textContent = label;

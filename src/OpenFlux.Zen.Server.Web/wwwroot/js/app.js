@@ -104,6 +104,9 @@ async function initApp() {
   if (typeof loadPanelVersionInfo === 'function') {
     loadPanelVersionInfo(false);
   }
+  if (typeof loadCoreVersionInfo === 'function') {
+    loadCoreVersionInfo(false);
+  }
   if (!statsInterval) {
     let isPolling = false;
     statsInterval = setInterval(async () => {
