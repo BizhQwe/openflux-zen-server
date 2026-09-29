@@ -74,6 +74,11 @@ public sealed class HostedRestoreService : IHostedService
                 await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Settings\" ADD COLUMN \"DecoyMode\" TEXT NULL;", cancellationToken);
             }
             catch { }
+            try
+            {
+                await db.Database.ExecuteSqlRawAsync("UPDATE \"Settings\" SET \"DecoyMode\" = 'auto' WHERE \"DecoyMode\" IS NULL;", cancellationToken);
+            }
+            catch { }
 
             // Ensure settings and admin account exist
             var currentSettings = await db.Settings.FirstOrDefaultAsync(s => s.Id == 1, cancellationToken);
