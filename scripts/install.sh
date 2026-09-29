@@ -25,7 +25,11 @@ case "$ARCH" in
         ;;
 esac
 
-INSTALLER_BIN="/tmp/openflux-installer-$RID"
+TMP_DIR="/var/tmp"
+if [ ! -w "$TMP_DIR" ]; then
+    TMP_DIR="/tmp"
+fi
+INSTALLER_BIN="$TMP_DIR/openflux-installer-$RID"
 RELEASE_URL="https://github.com/BizhQwe/openflux-zen-server/releases/latest/download/openflux-installer-$RID"
 TAG_URL="https://github.com/BizhQwe/openflux-zen-server/releases/download/v1.0.28/openflux-installer-$RID"
 FALLBACK_URL="https://github.com/BizhQwe/openflux-zen-server/releases/download/v1.0.27/openflux-installer-$RID"
@@ -45,13 +49,16 @@ fi
 
 if [ "$DOWNLOADED" -eq 1 ]; then
     chmod +x "$INSTALLER_BIN"
+    EXIT_CODE=0
     if [ -t 0 ]; then
-        exec "$INSTALLER_BIN" "$@"
+        "$INSTALLER_BIN" "$@" || EXIT_CODE=$?
     elif [ -c /dev/tty ]; then
-        exec "$INSTALLER_BIN" "$@" < /dev/tty
+        "$INSTALLER_BIN" "$@" < /dev/tty || EXIT_CODE=$?
     else
-        exec "$INSTALLER_BIN" "$@"
+        "$INSTALLER_BIN" "$@" || EXIT_CODE=$?
     fi
+    rm -f "$INSTALLER_BIN"
+    exit $EXIT_CODE
 else
     echo "  [ERROR] Failed to download installer binary for $RID."
     echo "  Check repository access or download manually:"

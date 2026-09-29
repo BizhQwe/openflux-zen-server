@@ -60,4 +60,8 @@ public static class AppPaths
     public static string GetCustomDecoyDirectory() => Path.Combine(GetDataDirectory(), "decoy");
 
     public static string GetBuiltInDecoyDirectory() => Path.Combine(ResolveAppDirectory(), "wwwroot", "decoy");
+
+    public static string GetCoreVersionFilePath() => Path.Combine(GetDataDirectory(), "openflux-core-version.json");
+
+    public static string GetPanelVersionFilePath() => Path.Combine(GetDataDirectory(), "panel-version.json");
 }

@@ -87,12 +87,47 @@ public static class SystemOperations
         {
             RunBash("systemctl stop openflux-zen-server.service 2>/dev/null || true");
             RunBash("systemctl stop openflux-zrok.service 2>/dev/null || true");
-            RunBash("pkill -9 -f OpenFlux.Zen.Server 2>/dev/null || true");
-            RunBash("pkill -9 -f OpenFluxZenServer 2>/dev/null || true");
-            RunBash("pkill -9 -f openflux-linux 2>/dev/null || true");
-            RunBash("pkill -9 -f openflux 2>/dev/null || true");
-            RunBash("pkill -9 -f zrok 2>/dev/null || true");
+
+            // Safely kill running server daemons and core engine, explicitly excluding current installer process
+            KillProcessesExceptSelf(new[] {
+                "OpenFlux.Zen.Server.Web",
+                "OpenFlux.Zen.Server",
+                "openflux-linux-amd64",
+                "openflux-linux-arm64",
+                "openflux",
+                "zrok"
+            });
             Thread.Sleep(500);
+        }
+    }
+
+    private static void KillProcessesExceptSelf(string[] processNames)
+    {
+        var currentPid = Environment.ProcessId;
+        try
+        {
+            foreach (var proc in Process.GetProcesses())
+            {
+                try
+                {
+                    if (proc.Id == currentPid) continue;
+
+                    var name = proc.ProcessName;
+                    if (processNames.Any(p => string.Equals(p, name, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        proc.Kill();
+                        proc.WaitForExit(1500);
+                    }
+                }
+                catch { }
+            }
+        }
+        catch { }
+
+        // Also safe exact matching kill without -f (never match full cmdline substrings)
+        foreach (var name in processNames)
+        {
+            RunBash($"pkill -9 -x \"{name}\" 2>/dev/null || true");
         }
     }
 

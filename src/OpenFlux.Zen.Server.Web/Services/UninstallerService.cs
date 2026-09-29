@@ -86,10 +86,12 @@ systemctl stop openflux-zen-server.service 2>/dev/null || true
 systemctl stop openflux-zrok.service 2>/dev/null || true
 systemctl disable openflux-zen-server.service 2>/dev/null || true
 systemctl disable openflux-zrok.service 2>/dev/null || true
-pkill -9 -f OpenFlux.Zen.Server 2>/dev/null || true
-pkill -9 -f openflux 2>/dev/null || true
-pkill -9 -f OpenFluxZenServer 2>/dev/null || true
-pkill -9 -f zrok 2>/dev/null || true
+pkill -9 -x OpenFlux.Zen.Server.Web 2>/dev/null || true
+pkill -9 -x OpenFlux.Zen.Server 2>/dev/null || true
+pkill -9 -x openflux-linux-amd64 2>/dev/null || true
+pkill -9 -x openflux-linux-arm64 2>/dev/null || true
+pkill -9 -x openflux 2>/dev/null || true
+pkill -9 -x zrok 2>/dev/null || true
 rm -f /etc/systemd/system/openflux-zen-server.service /etc/systemd/system/openflux-zrok.service /etc/systemd/system/openflux.service
 systemctl daemon-reload 2>/dev/null || true
 rm -f /usr/local/bin/OpenFluxZenServer /usr/local/bin/openfluxzenserver /usr/local/bin/openflux /usr/local/bin/openflux-zen-server /usr/bin/OpenFluxZenServer /usr/bin/openflux* /tmp/openflux*

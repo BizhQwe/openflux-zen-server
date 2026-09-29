@@ -8,10 +8,10 @@ namespace OpenFlux.Zen.Server.Cli.Commands;
 
 public static class UninstallCommand
 {
-    [DllImport("libc")]
+    [DllImport("libc", EntryPoint = "geteuid")]
     private static extern uint geteuid();
 
-    private static bool IsAdmin()
+    public static bool IsAdmin()
     {
         if (OperatingSystem.IsWindows())
         {
@@ -28,7 +28,19 @@ public static class UninstallCommand
         }
         else
         {
-            try { return geteuid() == 0; } catch { return false; }
+            if (string.Equals(Environment.UserName, "root", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            try
+            {
+                return geteuid() == 0;
+            }
+            catch
+            {
+                return false;
+            }
         }
     }
 
@@ -75,8 +87,8 @@ public static class UninstallCommand
         else if (!isWindows && !IsAdmin())
         {
             CliUi.Error(isRu 
-                ? "Требуются права root для удаления системной службы. Запустите: sudo openflux uninstall" 
-                : "Root privileges required to uninstall system service. Run with: sudo openflux uninstall");
+                ? "Требуются права root для удаления OpenFlux Zen Server. Запустите: sudo OpenFluxZenServer uninstall -y" 
+                : "Root privileges required to uninstall OpenFlux Zen Server. Run with: sudo OpenFluxZenServer uninstall -y");
             return;
         }
 
@@ -185,11 +197,12 @@ del ""%~f0"" >nul 2>&1
         {
             ProcessHelper.RunBash("systemctl disable --now openflux-zen-server.service 2>/dev/null || true");
             ProcessHelper.RunBash("systemctl disable --now openflux-zrok.service 2>/dev/null || true");
-            ProcessHelper.RunBash("pkill -9 -f OpenFlux.Zen.Server 2>/dev/null || true");
-            ProcessHelper.RunBash("pkill -9 -f OpenFluxZenServer 2>/dev/null || true");
-            ProcessHelper.RunBash("pkill -9 -f openflux-linux 2>/dev/null || true");
-            ProcessHelper.RunBash("pkill -9 -f openflux 2>/dev/null || true");
-            ProcessHelper.RunBash("pkill -9 -f zrok 2>/dev/null || true");
+            ProcessHelper.RunBash("pkill -9 -x OpenFlux.Zen.Server.Web 2>/dev/null || true");
+            ProcessHelper.RunBash("pkill -9 -x OpenFlux.Zen.Server 2>/dev/null || true");
+            ProcessHelper.RunBash("pkill -9 -x openflux-linux-amd64 2>/dev/null || true");
+            ProcessHelper.RunBash("pkill -9 -x openflux-linux-arm64 2>/dev/null || true");
+            ProcessHelper.RunBash("pkill -9 -x openflux 2>/dev/null || true");
+            ProcessHelper.RunBash("pkill -9 -x zrok 2>/dev/null || true");
             ProcessHelper.RunBash("rm -f /etc/systemd/system/openflux-zen-server.service /etc/systemd/system/openflux-zrok.service /etc/systemd/system/openflux.service");
             ProcessHelper.RunBash("systemctl daemon-reload 2>/dev/null || true");
             ProcessHelper.RunBash("rm -f /usr/local/bin/OpenFluxZenServer /usr/local/bin/openfluxzenserver /usr/local/bin/openflux /usr/local/bin/openflux-zen-server /usr/bin/OpenFluxZenServer /usr/bin/openflux* /tmp/openflux*");
@@ -200,6 +213,19 @@ del ""%~f0"" >nul 2>&1
                 : "Completely removing application directories and data...");
 
             ProcessHelper.RunBash("rm -rf /opt/openflux-zen-server /tmp/openflux*");
+
+            var stillExists = Directory.Exists("/opt/openflux-zen-server") || 
+                              File.Exists("/etc/systemd/system/openflux-zen-server.service") || 
+                              File.Exists("/usr/local/bin/OpenFluxZenServer");
+
+            if (stillExists)
+            {
+                Console.WriteLine();
+                CliUi.Error(isRu 
+                    ? "Не удалось удалить некоторые системные файлы. Убедитесь, что команда запущена с правами root: sudo OpenFluxZenServer uninstall -y" 
+                    : "Failed to remove some system files. Please make sure to run with root privileges: sudo OpenFluxZenServer uninstall -y");
+                return;
+            }
         }
 
         Console.WriteLine();

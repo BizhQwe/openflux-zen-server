@@ -67,3 +67,47 @@ public sealed class AutostartRequest
 {
     public bool Enabled { get; set; }
 }
+
+public sealed class OpenFluxCoreVersionInfo
+{
+    public string CurrentVersion { get; set; } = "v0.2.0";
+    public string? LatestVersion { get; set; }
+    public bool IsUpdateAvailable { get; set; }
+    public string? ReleaseUrl { get; set; }
+    public string? ReleaseNotes { get; set; }
+    public DateTime? PublishedAt { get; set; }
+    public string BinaryName { get; set; } = "";
+    public string BinaryPath { get; set; } = "";
+    public long BinarySizeBytes { get; set; }
+    public DateTime? LastCheckedAt { get; set; }
+    public bool IsUpdating { get; set; }
+}
+
+public sealed class OpenFluxCoreUpdateResult
+{
+    public bool Success { get; set; }
+    public string Message { get; set; } = "";
+    public string PreviousVersion { get; set; } = "";
+    public string NewVersion { get; set; } = "";
+}
+
+public sealed class PanelVersionInfo
+{
+    public string CurrentVersion { get; set; } = "v1.0.28";
+    public string? LatestVersion { get; set; }
+    public bool IsUpdateAvailable { get; set; }
+    public string? ReleaseUrl { get; set; }
+    public string? ReleaseNotes { get; set; }
+    public DateTime? PublishedAt { get; set; }
+    public DateTime? LastCheckedAt { get; set; }
+    public bool IsUpdating { get; set; }
+}
+
+public sealed class PanelUpdateResult
+{
+    public bool Success { get; set; }
+    public string Message { get; set; } = "";
+    public string PreviousVersion { get; set; } = "";
+    public string NewVersion { get; set; } = "";
+}
+

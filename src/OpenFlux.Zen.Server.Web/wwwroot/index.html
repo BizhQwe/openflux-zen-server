@@ -289,6 +289,116 @@
           </p>
           <div id="setting-network-url" style="color: var(--text-dim); font-size: 0.88rem; font-family: var(--font-mono); word-break: break-all;"></div>
         </div>
+
+        <!-- OpenFlux Zen Server Panel & Updates -->
+        <div class="card settings-card" id="panel-update-card">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <h4 data-i18n="settings_panel_title">Панель OpenFlux Zen Server</h4>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <span id="panel-current-version-badge" style="background: rgba(139, 92, 246, 0.15); border: 1px solid rgba(139, 92, 246, 0.3); color: #c4b5fd; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600;">—</span>
+              <span id="panel-status-badge" style="display: none; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600;"></span>
+            </div>
+          </div>
+          <p style="color: var(--text-dim); margin-bottom: 16px; font-size: 0.9rem;" data-i18n="settings_panel_desc">
+            Веб-панель управления и служба сервера OpenFlux Zen Server (BizhQwe/openflux-zen-server). Вы можете проверять обновления и безопасно обновлять панель прямо отсюда.
+          </p>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px; padding: 12px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); border-radius: 8px;">
+            <div>
+              <div style="color: var(--text-dim); font-size: 0.8rem;" data-i18n="settings_panel_version">Установленная версия:</div>
+              <div id="panel-current-version" style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-main); font-weight: 600; margin-top: 4px;">—</div>
+            </div>
+            <div>
+              <div style="color: var(--text-dim); font-size: 0.8rem;" data-i18n="settings_panel_latest_version">Доступная версия:</div>
+              <div id="panel-latest-version" style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-main); font-weight: 600; margin-top: 4px;">—</div>
+            </div>
+            <div>
+              <div style="color: var(--text-dim); font-size: 0.8rem;" data-i18n="settings_panel_published">Дата релиза:</div>
+              <div id="panel-release-date" style="font-size: 0.85rem; color: var(--text-main); margin-top: 4px;">—</div>
+            </div>
+            <div>
+              <div style="color: var(--text-dim); font-size: 0.8rem;" data-i18n="settings_panel_checked">Проверено:</div>
+              <div id="panel-last-checked" style="font-size: 0.85rem; color: var(--text-main); margin-top: 4px;">—</div>
+            </div>
+          </div>
+
+          <div id="panel-release-notes-box" style="display: none; margin-bottom: 16px; padding: 12px; background: rgba(139, 92, 246, 0.06); border: 1px solid rgba(139, 92, 246, 0.2); border-radius: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <strong style="font-size: 0.85rem; color: #c4b5fd;" data-i18n="settings_panel_release_notes">Что нового в обновлении:</strong>
+              <a id="panel-release-link" href="https://github.com/BizhQwe/openflux-zen-server/releases" target="_blank" rel="noopener noreferrer" style="font-size: 0.82rem; color: #a78bfa; text-decoration: underline;" data-i18n="settings_panel_github_link">Релиз на GitHub ↗</a>
+            </div>
+            <pre id="panel-release-notes-text" style="max-height: 140px; overflow-y: auto; font-size: 0.82rem; color: var(--text-dim); white-space: pre-wrap; font-family: var(--font-mono); margin: 0;"></pre>
+          </div>
+
+          <div class="button-row" style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button id="btn-check-panel" class="btn btn-outline" onclick="checkForPanelUpdates()">
+              <span id="btn-check-panel-spinner" style="display: none;" class="spinner-inline"></span>
+              <span data-i18n="btn_check_panel_updates">Проверить обновления панели</span>
+            </button>
+            <button id="btn-update-panel" class="btn btn-primary" onclick="confirmUpdatePanel()" style="display: none; background: #7c3aed; border-color: #6d28d9;">
+              <span id="btn-update-panel-spinner" style="display: none;" class="spinner-inline"></span>
+              <span data-i18n="btn_update_panel">Обновить OpenFlux Zen Server</span>
+            </button>
+            <a href="https://github.com/BizhQwe/openflux-zen-server/releases" target="_blank" rel="noopener noreferrer" class="btn btn-outline" style="text-decoration: none;" data-i18n="btn_view_panel_releases">
+              Все релизы панели ↗
+            </a>
+          </div>
+        </div>
+
+        <!-- OpenFlux Core Engine & Updates -->
+        <div class="card settings-card" id="core-update-card">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <h4 data-i18n="settings_core_title">Ядро OpenFlux</h4>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <span id="core-current-version-badge" style="background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #93c5fd; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600;">—</span>
+              <span id="core-status-badge" style="display: none; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600;"></span>
+            </div>
+          </div>
+          <p style="color: var(--text-dim); margin-bottom: 16px; font-size: 0.9rem;" data-i18n="settings_core_desc">
+            Официальное ядро сетевого туннелирования OpenFlux (upstream p1neappleXpress/OpenFlux). Вы можете проверять и обновлять ядро до актуальных версий прямо из панели.
+          </p>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px; padding: 12px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); border-radius: 8px;">
+            <div>
+              <div style="color: var(--text-dim); font-size: 0.8rem;" data-i18n="settings_core_binary">Бинарный файл:</div>
+              <div id="core-binary-name" style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-main); font-weight: 600; margin-top: 4px;">—</div>
+            </div>
+            <div>
+              <div style="color: var(--text-dim); font-size: 0.8rem;" data-i18n="settings_core_latest_version">Доступная версия:</div>
+              <div id="core-latest-version" style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-main); font-weight: 600; margin-top: 4px;">—</div>
+            </div>
+            <div>
+              <div style="color: var(--text-dim); font-size: 0.8rem;" data-i18n="settings_core_size">Размер файла:</div>
+              <div id="core-binary-size" style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-main); font-weight: 600; margin-top: 4px;">—</div>
+            </div>
+            <div>
+              <div style="color: var(--text-dim); font-size: 0.8rem;" data-i18n="settings_core_checked">Проверено:</div>
+              <div id="core-last-checked" style="font-size: 0.85rem; color: var(--text-main); margin-top: 4px;">—</div>
+            </div>
+          </div>
+
+          <div id="core-release-notes-box" style="display: none; margin-bottom: 16px; padding: 12px; background: rgba(59, 130, 246, 0.06); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <strong style="font-size: 0.85rem; color: #93c5fd;" data-i18n="settings_core_release_notes">Что нового в обновлении:</strong>
+              <a id="core-release-link" href="https://github.com/p1neappleXpress/OpenFlux/releases" target="_blank" rel="noopener noreferrer" style="font-size: 0.82rem; color: #60a5fa; text-decoration: underline;" data-i18n="settings_core_github_link">Релиз на GitHub ↗</a>
+            </div>
+            <pre id="core-release-notes-text" style="max-height: 140px; overflow-y: auto; font-size: 0.82rem; color: var(--text-dim); white-space: pre-wrap; font-family: var(--font-mono); margin: 0;"></pre>
+          </div>
+
+          <div class="button-row" style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button id="btn-check-core" class="btn btn-outline" onclick="checkForCoreUpdates()">
+              <span id="btn-check-core-spinner" style="display: none;" class="spinner-inline"></span>
+              <span data-i18n="btn_check_core_updates">Проверить обновления</span>
+            </button>
+            <button id="btn-update-core" class="btn btn-primary" onclick="confirmUpdateCore()" style="display: none;">
+              <span id="btn-update-core-spinner" style="display: none;" class="spinner-inline"></span>
+              <span data-i18n="btn_update_core">Обновить ядро OpenFlux</span>
+            </button>
+            <a href="https://github.com/p1neappleXpress/OpenFlux/releases" target="_blank" rel="noopener noreferrer" class="btn btn-outline" style="text-decoration: none;" data-i18n="btn_view_releases">
+              Все релизы GitHub ↗
+            </a>
+          </div>
+        </div>
       </div>
 
     </div>

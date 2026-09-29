@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using OpenFlux.Zen.Server.Common;
 
 namespace OpenFlux.Zen.Server.Services;
 
@@ -7,6 +8,8 @@ public interface IOpenFluxBinaryResolver
 {
     string GetBinaryPath();
     bool IsBinaryAvailable();
+    string GetExpectedBinaryName();
+    void InvalidateCache();
 }
 
 public sealed class OpenFluxBinaryResolver : IOpenFluxBinaryResolver
@@ -17,6 +20,16 @@ public sealed class OpenFluxBinaryResolver : IOpenFluxBinaryResolver
     public OpenFluxBinaryResolver(ILogger<OpenFluxBinaryResolver> logger)
     {
         _logger = logger;
+    }
+
+    public void InvalidateCache()
+    {
+        _cachedPath = null;
+    }
+
+    public string GetExpectedBinaryName()
+    {
+        return DetermineBinaryName();
     }
 
     public bool IsBinaryAvailable()
@@ -52,11 +65,14 @@ public sealed class OpenFluxBinaryResolver : IOpenFluxBinaryResolver
         {
             Path.Combine(AppContext.BaseDirectory, "runtimes", binaryName),
             Path.Combine(AppContext.BaseDirectory, binaryName),
+            Path.Combine(AppPaths.ResolveAppDirectory(), "runtimes", binaryName),
+            Path.Combine(AppPaths.ResolveAppDirectory(), binaryName),
+            Path.Combine("/opt/openflux-zen-server/app/runtimes", binaryName),
+            Path.Combine("/opt/openflux-zen-server/runtimes", binaryName),
             Path.Combine(Directory.GetCurrentDirectory(), "runtimes", binaryName),
             Path.Combine(Directory.GetCurrentDirectory(), "..", "runtimes", binaryName),
             Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "runtimes", binaryName),
             Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "runtimes", binaryName),
-            Path.Combine("/opt/openflux-zen-server/runtimes", binaryName),
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "OpenFluxZenServer", "runtimes", binaryName)
         };
 

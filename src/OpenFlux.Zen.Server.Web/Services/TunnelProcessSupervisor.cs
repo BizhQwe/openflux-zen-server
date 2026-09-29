@@ -461,11 +461,11 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
             // "-> 1472 bytes - TCP 62.63.162.194:8080 -> 10.10.10.2:64025"
             if (line.Contains(" bytes - "))
             {
-                int arrowIdx = line.IndexOf("<- ");
+                int arrowIdx = line.IndexOf("-> ");
                 bool isUpload = arrowIdx >= 0;
                 if (!isUpload)
                 {
-                    arrowIdx = line.IndexOf("-> ");
+                    arrowIdx = line.IndexOf("<- ");
                 }
 
                 if (arrowIdx >= 0)

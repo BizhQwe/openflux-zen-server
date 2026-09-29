@@ -3,6 +3,10 @@ param(
     [string]$OutputDir = ""
 )
 
+if ($Targets.Count -eq 1 -and $Targets[0].Contains(",")) {
+    $Targets = $Targets[0].Split(",") | ForEach-Object { $_.Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+}
+
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
@@ -29,15 +33,6 @@ $cliProj = Join-Path $repoRoot "src\OpenFlux.Zen.Server.Cli\OpenFlux.Zen.Server.
 $installerProj = Join-Path $installerProjDir "OpenFlux.Zen.Server.Installer.csproj"
 $runtimesSrc = Join-Path $repoRoot "runtimes"
 
-# Ensure OpenFlux core binaries are compiled or verified
-$buildOpenFluxScript = Join-Path $PSScriptRoot "build-openflux.ps1"
-if (Test-Path $buildOpenFluxScript) {
-    & $buildOpenFluxScript -OutputDir $runtimesSrc
-    if ($LASTEXITCODE -ne 0) {
-        throw "build-openflux.ps1 failed with exit code $LASTEXITCODE"
-    }
-}
-
 foreach ($rid in $Targets) {
     Write-Host "------------------------------------------------------------------" -ForegroundColor Yellow
     Write-Host ">>> Building Target: $rid" -ForegroundColor Yellow
@@ -58,26 +53,16 @@ foreach ($rid in $Targets) {
         & dotnet publish $cliProj -c Release -r $rid --self-contained -p:PublishSingleFile=false -o $tempStage | Out-Null
         if ($LASTEXITCODE -ne 0) { throw "Failed to publish CLI project for $rid" }
 
-        # 3. Copy Native Runtime binary
-        Write-Host "  [3/4] Copying native OpenFlux binary..." -ForegroundColor Gray
-        $nativeRuntimeName = switch ($rid) {
-            "win-x64"   { "openflux-windows-amd64.exe" }
-            "win-arm64" { "openflux-windows-arm64.exe" }
-            "linux-x64" { "openflux-linux-amd64" }
-            "linux-arm64" { "openflux-linux-arm64" }
-        }
-
+        # 3. Packaging runtimes directory and templates
+        Write-Host "  [3/4] Preparing runtimes structure..." -ForegroundColor Gray
         $runtimesDst = Join-Path $tempStage "runtimes"
         New-Item -ItemType Directory -Path $runtimesDst -Force | Out-Null
-        $srcNative = Join-Path $runtimesSrc $nativeRuntimeName
-        if (-not (Test-Path $srcNative)) {
-            throw "Native OpenFlux binary '$nativeRuntimeName' is missing in $runtimesSrc!"
-        }
-        Copy-Item -Path $srcNative -Destination (Join-Path $runtimesDst $nativeRuntimeName) -Force
 
         # Copy cookie jar templates/seeds if present
-        Get-ChildItem -Path $runtimesSrc -Filter "cookies-*.json" | ForEach-Object {
-            Copy-Item -Path $_.FullName -Destination (Join-Path $runtimesDst $_.Name) -Force
+        if (Test-Path $runtimesSrc) {
+            Get-ChildItem -Path $runtimesSrc -Filter "cookies-*.json" | ForEach-Object {
+                Copy-Item -Path $_.FullName -Destination (Join-Path $runtimesDst $_.Name) -Force
+            }
         }
 
         # Pack payload.zip for standalone distribution and embedding

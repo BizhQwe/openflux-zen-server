@@ -61,6 +61,42 @@ public static class SettingsEndpoints
             return Results.Ok(new { imported, errors, message });
         });
 
+        group.MapGet("/core/version", async (IOpenFluxCoreUpdateService updateService) =>
+        {
+            var info = await updateService.GetVersionInfoAsync(forceCheck: false);
+            return Results.Ok(info);
+        });
+
+        group.MapPost("/core/check-update", async (IOpenFluxCoreUpdateService updateService) =>
+        {
+            var info = await updateService.GetVersionInfoAsync(forceCheck: true);
+            return Results.Ok(info);
+        });
+
+        group.MapPost("/core/update", async (IOpenFluxCoreUpdateService updateService) =>
+        {
+            var res = await updateService.UpdateCoreAsync();
+            return Results.Ok(res);
+        });
+
+        group.MapGet("/panel/version", async (IPanelUpdateService panelService) =>
+        {
+            var info = await panelService.GetVersionInfoAsync(forceCheck: false);
+            return Results.Ok(info);
+        });
+
+        group.MapPost("/panel/check-update", async (IPanelUpdateService panelService) =>
+        {
+            var info = await panelService.GetVersionInfoAsync(forceCheck: true);
+            return Results.Ok(info);
+        });
+
+        group.MapPost("/panel/update", async (IPanelUpdateService panelService) =>
+        {
+            var res = await panelService.UpdatePanelAsync();
+            return Results.Ok(res);
+        });
+
         return app;
     }
 }

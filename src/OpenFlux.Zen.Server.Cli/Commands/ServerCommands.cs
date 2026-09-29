@@ -69,8 +69,12 @@ public static class ServerCommands
         {
             ProcessHelper.RunBash("systemctl stop openflux-zen-server.service 2>/dev/null || true");
             ProcessHelper.RunBash("systemctl stop openflux-zrok.service 2>/dev/null || true");
-            ProcessHelper.RunBash("pkill -9 -f OpenFlux.Zen.Server 2>/dev/null || true");
-            ProcessHelper.RunBash("pkill -9 -f openflux 2>/dev/null || true");
+            ProcessHelper.RunBash("pkill -9 -x OpenFlux.Zen.Server.Web 2>/dev/null || true");
+            ProcessHelper.RunBash("pkill -9 -x OpenFlux.Zen.Server 2>/dev/null || true");
+            ProcessHelper.RunBash("pkill -9 -x openflux-linux-amd64 2>/dev/null || true");
+            ProcessHelper.RunBash("pkill -9 -x openflux-linux-arm64 2>/dev/null || true");
+            ProcessHelper.RunBash("pkill -9 -x openflux 2>/dev/null || true");
+            ProcessHelper.RunBash("pkill -9 -x zrok 2>/dev/null || true");
         }
 
         await Task.Delay(1000);

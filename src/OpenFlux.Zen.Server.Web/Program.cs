@@ -64,6 +64,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 // 4. Register Application Services (IoC / Dependency Injection)
 builder.Services.AddSingleton<IOpenFluxBinaryResolver, OpenFluxBinaryResolver>();
+builder.Services.AddSingleton<IOpenFluxCoreUpdateService, OpenFluxCoreUpdateService>();
+builder.Services.AddSingleton<IPanelUpdateService, PanelUpdateService>();
 builder.Services.AddSingleton<ITunnelLogService, TunnelLogService>();
 builder.Services.AddSingleton<ITunnelProcessSupervisor, TunnelProcessSupervisor>();
 builder.Services.AddSingleton<ITunnelManager, TunnelManager>();

@@ -19,6 +19,17 @@ public static class PayloadExtractor
         return $"{os}-{arch}";
     }
 
+    public static string GetOpenFluxBinaryName()
+    {
+        var isWin = OperatingSystem.IsWindows();
+        var isArm64 = RuntimeInformation.OSArchitecture == Architecture.Arm64;
+        if (isWin)
+        {
+            return isArm64 ? "openflux-windows-arm64.exe" : "openflux-windows-amd64.exe";
+        }
+        return isArm64 ? "openflux-linux-arm64" : "openflux-linux-amd64";
+    }
+
     public static async Task ExtractPayloadAsync(string installDir, Action<string>? onProgress = null)
     {
         Directory.CreateDirectory(installDir);
@@ -28,10 +39,13 @@ public static class PayloadExtractor
         var resName = asm.GetManifestResourceNames().FirstOrDefault(n => n.EndsWith("payload.zip", StringComparison.OrdinalIgnoreCase));
         if (!string.IsNullOrEmpty(resName))
         {
-            onProgress?.Invoke("Unpacking embedded application payload...");
-            using var stream = asm.GetManifestResourceStream(resName)!;
-            using var archive = new ZipArchive(stream, ZipArchiveMode.Read);
-            ExtractArchiveSafe(archive, installDir);
+            onProgress?.Invoke("Unpacking application components...");
+            using (var stream = asm.GetManifestResourceStream(resName)!)
+            using (var archive = new ZipArchive(stream, ZipArchiveMode.Read))
+            {
+                ExtractArchiveSafe(archive, installDir);
+            }
+            await EnsureOpenFluxBinaryAsync(installDir, onProgress);
             EnsureExecutables(installDir);
             return;
         }
@@ -52,6 +66,7 @@ public static class PayloadExtractor
             {
                 onProgress?.Invoke($"Extracting local package: {Path.GetFileName(file)}...");
                 ExtractZipSafe(file, installDir);
+                await EnsureOpenFluxBinaryAsync(installDir, onProgress);
                 EnsureExecutables(installDir);
                 return;
             }
@@ -62,6 +77,7 @@ public static class PayloadExtractor
         {
             onProgress?.Invoke("Copying local application components...");
             CopyDirectory(candidateDir, installDir);
+            await EnsureOpenFluxBinaryAsync(installDir, onProgress);
             EnsureExecutables(installDir);
             return;
         }
@@ -82,11 +98,80 @@ public static class PayloadExtractor
             }
 
             ExtractZipSafe(tempZip, installDir);
+            await EnsureOpenFluxBinaryAsync(installDir, onProgress);
             EnsureExecutables(installDir);
         }
         finally
         {
             try { File.Delete(tempZip); } catch { }
+        }
+    }
+
+    public static async Task EnsureOpenFluxBinaryAsync(string installDir, Action<string>? onProgress = null)
+    {
+        var binaryName = GetOpenFluxBinaryName();
+        var runtimesDir = Path.Combine(installDir, "runtimes");
+        Directory.CreateDirectory(runtimesDir);
+        var binaryPath = Path.Combine(runtimesDir, binaryName);
+
+        if (File.Exists(binaryPath) && new FileInfo(binaryPath).Length > 1_000_000)
+        {
+            onProgress?.Invoke($"Official OpenFlux core engine already present ({binaryName}).");
+            return;
+        }
+
+        onProgress?.Invoke($"Downloading official OpenFlux core engine ({binaryName}) from GitHub (p1neappleXpress/OpenFlux)...");
+
+        using var client = new HttpClient { Timeout = TimeSpan.FromMinutes(3) };
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("OpenFluxZenServer-Installer/1.0");
+
+        var downloadUrls = new[]
+        {
+            $"https://github.com/p1neappleXpress/OpenFlux/releases/latest/download/{binaryName}",
+            $"https://github.com/p1neappleXpress/OpenFlux/releases/download/v0.2.0/{binaryName}"
+        };
+
+        var tempPath = Path.Combine(runtimesDir, $"{binaryName}.tmp_{Guid.NewGuid():N}");
+        bool downloaded = false;
+
+        foreach (var url in downloadUrls)
+        {
+            try
+            {
+                using var response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+                if (response.IsSuccessStatusCode)
+                {
+                    await using (var s = await response.Content.ReadAsStreamAsync())
+                    await using (var fs = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true))
+                    {
+                        await s.CopyToAsync(fs);
+                    }
+
+                    var fi = new FileInfo(tempPath);
+                    if (fi.Exists && fi.Length > 1_000_000)
+                    {
+                        if (File.Exists(binaryPath)) File.Delete(binaryPath);
+                        File.Move(tempPath, binaryPath, overwrite: true);
+                        downloaded = true;
+                        var sizeMb = Math.Round(fi.Length / 1024.0 / 1024.0, 2);
+                        onProgress?.Invoke($"Downloaded official OpenFlux core ({sizeMb} MB).");
+                        break;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                onProgress?.Invoke($"Download attempt from {url} failed: {ex.Message}");
+            }
+            finally
+            {
+                try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { }
+            }
+        }
+
+        if (!downloaded && !File.Exists(binaryPath))
+        {
+            onProgress?.Invoke("Warning: Could not download OpenFlux core binary. It will be downloaded on first start or via Web Control Panel.");
         }
     }
 
@@ -136,6 +221,36 @@ public static class PayloadExtractor
 
     private static void EnsureExecutables(string installDir)
     {
+        var dataDir = Path.Combine(installDir, "data");
+        Directory.CreateDirectory(dataDir);
+
+        var coreVerFile = Path.Combine(dataDir, "openflux-core-version.json");
+        if (!File.Exists(coreVerFile))
+        {
+            try
+            {
+                var initJson = $"{{\n  \"CurrentVersion\": \"v0.2.0\",\n  \"InstalledAt\": \"{DateTime.UtcNow:O}\"\n}}";
+                File.WriteAllText(coreVerFile, initJson);
+            }
+            catch { }
+        }
+
+        var runtimesDir = Path.Combine(installDir, "runtimes");
+        if (Directory.Exists(runtimesDir))
+        {
+            foreach (var f in Directory.GetFiles(runtimesDir))
+            {
+                if (f.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                {
+                    var targetCookie = Path.Combine(dataDir, Path.GetFileName(f));
+                    if (!File.Exists(targetCookie))
+                    {
+                        try { File.Copy(f, targetCookie, overwrite: false); } catch { }
+                    }
+                }
+            }
+        }
+
         if (OperatingSystem.IsWindows()) return;
 
         var executables = new[]
@@ -159,23 +274,11 @@ public static class PayloadExtractor
             }
         }
 
-        var runtimesDir = Path.Combine(installDir, "runtimes");
         if (Directory.Exists(runtimesDir))
         {
-            var dataDir = Path.Combine(installDir, "data");
-            Directory.CreateDirectory(dataDir);
-
             foreach (var f in Directory.GetFiles(runtimesDir))
             {
-                if (f.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
-                {
-                    var targetCookie = Path.Combine(dataDir, Path.GetFileName(f));
-                    if (!File.Exists(targetCookie))
-                    {
-                        try { File.Copy(f, targetCookie, overwrite: false); } catch { }
-                    }
-                    continue;
-                }
+                if (f.EndsWith(".json", StringComparison.OrdinalIgnoreCase)) continue;
 
                 try
                 {

@@ -128,6 +128,49 @@ const I18N_DICTIONARY = {
     confirm_delete: "Вы уверены, что хотите удалить туннель \"{name}\"?",
     confirm_reset: "Сбросить счётчики трафика для туннеля \"{name}\"?",
     confirm_clear_logs: "Очистить окно логов?",
+    settings_core_title: "Ядро OpenFlux",
+    settings_core_desc: "Официальное ядро сетевого туннелирования OpenFlux (upstream p1neappleXpress/OpenFlux). Вы можете проверять и обновлять ядро до актуальных версий прямо из панели.",
+    settings_core_binary: "Бинарный файл:",
+    settings_core_latest_version: "Доступная версия:",
+    settings_core_size: "Размер файла:",
+    settings_core_checked: "Проверено:",
+    settings_core_release_notes: "Что нового в обновлении:",
+    settings_core_github_link: "Релиз на GitHub ↗",
+    btn_check_core_updates: "Проверить обновления",
+    btn_update_core: "Обновить ядро OpenFlux",
+    btn_view_releases: "Все релизы GitHub ↗",
+    core_up_to_date: "Актуальная версия",
+    core_update_available: "Доступно обновление",
+    core_not_checked: "Не проверялось",
+    toast_core_up_to_date: "Ядро OpenFlux обновлено до последней версии",
+    toast_core_update_available: "Доступна новая версия ядра OpenFlux",
+    toast_core_check_failed: "Не удалось проверить обновления ядра",
+    toast_core_updating: "Скачивание и обновление ядра OpenFlux...",
+    toast_core_update_success: "Ядро OpenFlux успешно обновлено!",
+    toast_core_update_failed: "Ошибка при обновлении ядра OpenFlux",
+    confirm_update_core: "Обновить ядро OpenFlux до версии {version}? Все активные туннели будут перезапущены автоматически.",
+    settings_panel_title: "Панель OpenFlux Zen Server",
+    settings_panel_desc: "Веб-панель управления и служба сервера OpenFlux Zen Server (BizhQwe/openflux-zen-server). Вы можете проверять обновления и безопасно обновлять панель прямо отсюда.",
+    settings_panel_version: "Установленная версия:",
+    settings_panel_latest_version: "Доступная версия:",
+    settings_panel_published: "Дата релиза:",
+    settings_panel_checked: "Проверено:",
+    settings_panel_release_notes: "Что нового в обновлении:",
+    settings_panel_github_link: "Релиз на GitHub ↗",
+    btn_check_panel_updates: "Проверить обновления панели",
+    btn_update_panel: "Обновить OpenFlux Zen Server",
+    btn_view_panel_releases: "Все релизы панели ↗",
+    panel_up_to_date: "Актуальная версия",
+    panel_update_available: "Доступно обновление",
+    panel_not_checked: "Не проверялось",
+    toast_panel_up_to_date: "Установлена самая актуальная версия панели OpenFlux Zen Server",
+    toast_panel_update_available: "Доступна новая версия OpenFlux Zen Server",
+    toast_panel_check_failed: "Не удалось проверить обновления панели",
+    toast_panel_updating: "Скачивание и установка обновления панели... Сервер перезагрузится через несколько секунд.",
+    toast_panel_update_success: "Обновление запущено! Перезагрузка страницы...",
+    toast_panel_update_failed: "Ошибка при обновлении панели OpenFlux Zen Server",
+    toast_panel_restarted: "Сервер успешно обновлён и перезапущен!",
+    confirm_update_panel: "Обновить OpenFlux Zen Server до версии {version}? Служба сервера будет автоматически перезапущена с сохранением всех настроек и данных.",
     confirm_regen_secret: "Сгенерировать новый секретный URL? Вам потребуется перейти по новому адресу."
   },
 
@@ -258,6 +301,49 @@ const I18N_DICTIONARY = {
     confirm_delete: "Are you sure you want to delete tunnel \"{name}\"?",
     confirm_reset: "Reset traffic counters for tunnel \"{name}\"?",
     confirm_clear_logs: "Clear the log output window?",
+    settings_core_title: "OpenFlux Core",
+    settings_core_desc: "Official OpenFlux network tunneling core engine (upstream p1neappleXpress/OpenFlux). You can check for updates and upgrade the engine directly from the control panel.",
+    settings_core_binary: "Binary file:",
+    settings_core_latest_version: "Available version:",
+    settings_core_size: "File size:",
+    settings_core_checked: "Checked:",
+    settings_core_release_notes: "What's new in this release:",
+    settings_core_github_link: "Release on GitHub ↗",
+    btn_check_core_updates: "Check for Updates",
+    btn_update_core: "Update OpenFlux Core",
+    btn_view_releases: "All GitHub Releases ↗",
+    core_up_to_date: "Up to date",
+    core_update_available: "Update Available",
+    core_not_checked: "Not checked",
+    toast_core_up_to_date: "OpenFlux core is already up to date",
+    toast_core_update_available: "A new version of OpenFlux core is available",
+    toast_core_check_failed: "Failed to check for core updates",
+    toast_core_updating: "Downloading and updating OpenFlux core...",
+    toast_core_update_success: "OpenFlux core updated successfully!",
+    toast_core_update_failed: "Failed to update OpenFlux core",
+    confirm_update_core: "Update OpenFlux core to version {version}? Active tunnels will be restarted automatically.",
+    settings_panel_title: "OpenFlux Zen Server Panel",
+    settings_panel_desc: "Web management panel and server service for OpenFlux Zen Server (BizhQwe/openflux-zen-server). You can check for updates and safely upgrade the server directly from here.",
+    settings_panel_version: "Installed version:",
+    settings_panel_latest_version: "Available version:",
+    settings_panel_published: "Release date:",
+    settings_panel_checked: "Checked:",
+    settings_panel_release_notes: "What's new in this release:",
+    settings_panel_github_link: "Release on GitHub ↗",
+    btn_check_panel_updates: "Check for Panel Updates",
+    btn_update_panel: "Update OpenFlux Zen Server",
+    btn_view_panel_releases: "All Panel Releases ↗",
+    panel_up_to_date: "Up to date",
+    panel_update_available: "Update Available",
+    panel_not_checked: "Not checked",
+    toast_panel_up_to_date: "OpenFlux Zen Server panel is already up to date",
+    toast_panel_update_available: "A new version of OpenFlux Zen Server is available",
+    toast_panel_check_failed: "Failed to check for panel updates",
+    toast_panel_updating: "Downloading and applying panel update... The server will restart in a few moments.",
+    toast_panel_update_success: "Update initiated! Reloading the page...",
+    toast_panel_update_failed: "Failed to update OpenFlux Zen Server panel",
+    toast_panel_restarted: "Server successfully updated and restarted!",
+    confirm_update_panel: "Update OpenFlux Zen Server to version {version}? The server service will be restarted automatically, preserving all configurations and data.",
     confirm_regen_secret: "Generate a new secret URL? You will need to reload using the new address."
   }
 };
@@ -318,6 +404,16 @@ function setLanguage(lang, syncServer = true) {
     if (typeof renderTunnels === 'function') {
       renderTunnels(tunnelsData);
     }
+  }
+
+  // Re-render panel version info if loaded
+  if (typeof renderPanelVersionInfo === 'function' && typeof panelInfoCache !== 'undefined' && panelInfoCache) {
+    renderPanelVersionInfo(panelInfoCache);
+  }
+
+  // Re-render core version info if loaded
+  if (typeof renderCoreVersionInfo === 'function' && typeof coreInfoCache !== 'undefined' && coreInfoCache) {
+    renderCoreVersionInfo(coreInfoCache);
   }
 
   // Sync to server settings if requested and authed

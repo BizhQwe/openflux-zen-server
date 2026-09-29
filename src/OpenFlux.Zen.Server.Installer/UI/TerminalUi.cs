@@ -36,6 +36,14 @@ public static class TerminalUi
         Console.ResetColor();
     }
 
+    public static void Info(string message)
+    {
+        Console.WriteLine();
+        Console.ForegroundColor = ConsoleColor.DarkGray;
+        Console.WriteLine($"      {message}");
+        Console.ResetColor();
+    }
+
     public static int AskChoice(string title, string[] options, int defaultIndex)
     {
         Console.ForegroundColor = ConsoleColor.Cyan;

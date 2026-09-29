@@ -191,7 +191,7 @@ public static class Program
         try
         {
             SystemOperations.StopExistingServer();
-            await PayloadExtractor.ExtractPayloadAsync(installDir);
+            await PayloadExtractor.ExtractPayloadAsync(installDir, msg => TerminalUi.Info(msg));
             TerminalUi.CompleteStep(true);
         }
         catch (Exception ex)

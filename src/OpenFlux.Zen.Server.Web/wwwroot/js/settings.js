@@ -78,6 +78,9 @@ async function loadSettings() {
       decoyInput.value = s.decoyRedirectUrl || '';
     }
   }
+
+  await loadPanelVersionInfo(false);
+  await loadCoreVersionInfo(false);
 }
 
 async function updateAccountProfile() {
@@ -139,3 +142,311 @@ async function saveDecoySettings() {
     toast(t('toast_error'), 'danger');
   }
 }
+
+// OpenFlux Core Updates
+let coreInfoCache = null;
+
+async function loadCoreVersionInfo(forceCheck = false) {
+  try {
+    const url = forceCheck ? 'api/core/check-update' : 'api/core/version';
+    const method = forceCheck ? 'POST' : 'GET';
+    const res = await api(url, { method });
+    if (!res.ok) return;
+    const info = await res.json();
+    coreInfoCache = info;
+    renderCoreVersionInfo(info);
+  } catch (e) {
+    console.warn('Failed to load core version info:', e);
+  }
+}
+
+function renderCoreVersionInfo(info) {
+  if (!info) return;
+
+  const curBadge = document.getElementById('core-current-version-badge');
+  if (curBadge) {
+    curBadge.textContent = info.currentVersion || 'v0.2.0';
+  }
+
+  const binName = document.getElementById('core-binary-name');
+  if (binName) binName.textContent = info.binaryName || '—';
+
+  const latVer = document.getElementById('core-latest-version');
+  if (latVer) latVer.textContent = info.latestVersion || info.currentVersion || '—';
+
+  const binSize = document.getElementById('core-binary-size');
+  if (binSize) {
+    binSize.textContent = info.binarySizeBytes > 0 ? fmtBytes(info.binarySizeBytes) : '—';
+  }
+
+  const lastChecked = document.getElementById('core-last-checked');
+  if (lastChecked) {
+    if (info.lastCheckedAt) {
+      const dt = new Date(info.lastCheckedAt);
+      lastChecked.textContent = dt.toLocaleString();
+    } else {
+      lastChecked.textContent = t('core_not_checked') || '—';
+    }
+  }
+
+  const statusBadge = document.getElementById('core-status-badge');
+  const btnUpdate = document.getElementById('btn-update-core');
+  const releaseBox = document.getElementById('core-release-notes-box');
+  const releaseText = document.getElementById('core-release-notes-text');
+  const releaseLink = document.getElementById('core-release-link');
+
+  if (info.isUpdateAvailable) {
+    if (statusBadge) {
+      statusBadge.style.display = 'inline-block';
+      statusBadge.style.background = 'rgba(16, 185, 129, 0.2)';
+      statusBadge.style.border = '1px solid rgba(16, 185, 129, 0.4)';
+      statusBadge.style.color = '#34d399';
+      statusBadge.textContent = t('core_update_available');
+    }
+    if (btnUpdate) btnUpdate.style.display = 'inline-flex';
+    if (releaseBox) {
+      releaseBox.style.display = 'block';
+      if (releaseText) releaseText.textContent = info.releaseNotes || '—';
+      if (releaseLink && info.releaseUrl) releaseLink.href = info.releaseUrl;
+    }
+  } else {
+    if (statusBadge) {
+      statusBadge.style.display = 'inline-block';
+      statusBadge.style.background = 'rgba(107, 114, 128, 0.2)';
+      statusBadge.style.border = '1px solid rgba(107, 114, 128, 0.4)';
+      statusBadge.style.color = '#9ca3af';
+      statusBadge.textContent = t('core_up_to_date');
+    }
+    if (btnUpdate) btnUpdate.style.display = 'none';
+    if (releaseBox) releaseBox.style.display = 'none';
+  }
+}
+
+async function checkForCoreUpdates() {
+  const btn = document.getElementById('btn-check-core');
+  const spinner = document.getElementById('btn-check-core-spinner');
+  if (btn) btn.disabled = true;
+  if (spinner) spinner.style.display = 'inline-block';
+
+  try {
+    const res = await api('api/core/check-update', { method: 'POST' });
+    if (res.ok) {
+      const info = await res.json();
+      coreInfoCache = info;
+      renderCoreVersionInfo(info);
+      if (info.isUpdateAvailable) {
+        toast(t('toast_core_update_available'), 'info');
+      } else {
+        toast(t('toast_core_up_to_date'), 'success');
+      }
+    } else {
+      toast(t('toast_core_check_failed'), 'danger');
+    }
+  } catch (e) {
+    toast(t('toast_core_check_failed'), 'danger');
+  } finally {
+    if (btn) btn.disabled = false;
+    if (spinner) spinner.style.display = 'none';
+  }
+}
+
+async function confirmUpdateCore() {
+  const targetVer = (coreInfoCache && coreInfoCache.latestVersion) ? coreInfoCache.latestVersion : '';
+  const msg = t('confirm_update_core', { version: targetVer });
+  if (!confirm(msg)) return;
+
+  const btn = document.getElementById('btn-update-core');
+  const spinner = document.getElementById('btn-update-core-spinner');
+  if (btn) btn.disabled = true;
+  if (spinner) spinner.style.display = 'inline-block';
+
+  toast(t('toast_core_updating'), 'info');
+
+  try {
+    const res = await api('api/core/update', { method: 'POST' });
+    const result = await res.json();
+    if (res.ok && result.success) {
+      toast(result.message || t('toast_core_update_success'), 'success');
+      await loadCoreVersionInfo(false);
+      if (typeof loadTunnels === 'function') {
+        loadTunnels();
+      }
+    } else {
+      toast(result.message || t('toast_core_update_failed'), 'danger');
+    }
+  } catch (e) {
+    toast(t('toast_core_update_failed'), 'danger');
+  } finally {
+    if (btn) btn.disabled = false;
+    if (spinner) spinner.style.display = 'none';
+  }
+}
+
+// OpenFlux Zen Server Panel Updates
+let panelInfoCache = null;
+
+async function loadPanelVersionInfo(forceCheck = false) {
+  try {
+    const url = forceCheck ? 'api/panel/check-update' : 'api/panel/version';
+    const method = forceCheck ? 'POST' : 'GET';
+    const res = await api(url, { method });
+    if (!res.ok) return;
+    const info = await res.json();
+    panelInfoCache = info;
+    renderPanelVersionInfo(info);
+  } catch (e) {
+    console.warn('Failed to load panel version info:', e);
+  }
+}
+
+function renderPanelVersionInfo(info) {
+  if (!info) return;
+
+  const curBadge = document.getElementById('panel-current-version-badge');
+  if (curBadge) {
+    curBadge.textContent = info.currentVersion || 'v1.0.28';
+  }
+
+  const curVer = document.getElementById('panel-current-version');
+  if (curVer) curVer.textContent = info.currentVersion || 'v1.0.28';
+
+  const latVer = document.getElementById('panel-latest-version');
+  if (latVer) latVer.textContent = info.latestVersion || info.currentVersion || '—';
+
+  const relDate = document.getElementById('panel-release-date');
+  if (relDate) {
+    if (info.publishedAt) {
+      const dt = new Date(info.publishedAt);
+      relDate.textContent = dt.toLocaleDateString();
+    } else {
+      relDate.textContent = '—';
+    }
+  }
+
+  const lastChecked = document.getElementById('panel-last-checked');
+  if (lastChecked) {
+    if (info.lastCheckedAt) {
+      const dt = new Date(info.lastCheckedAt);
+      lastChecked.textContent = dt.toLocaleString();
+    } else {
+      lastChecked.textContent = t('panel_not_checked') || '—';
+    }
+  }
+
+  const statusBadge = document.getElementById('panel-status-badge');
+  const btnUpdate = document.getElementById('btn-update-panel');
+  const releaseBox = document.getElementById('panel-release-notes-box');
+  const releaseText = document.getElementById('panel-release-notes-text');
+  const releaseLink = document.getElementById('panel-release-link');
+
+  if (info.isUpdateAvailable) {
+    if (statusBadge) {
+      statusBadge.style.display = 'inline-block';
+      statusBadge.style.background = 'rgba(16, 185, 129, 0.2)';
+      statusBadge.style.border = '1px solid rgba(16, 185, 129, 0.4)';
+      statusBadge.style.color = '#34d399';
+      statusBadge.textContent = t('panel_update_available');
+    }
+    if (btnUpdate) btnUpdate.style.display = 'inline-flex';
+    if (releaseBox) {
+      releaseBox.style.display = 'block';
+      if (releaseText) releaseText.textContent = info.releaseNotes || '—';
+      if (releaseLink && info.releaseUrl) releaseLink.href = info.releaseUrl;
+    }
+  } else {
+    if (statusBadge) {
+      statusBadge.style.display = 'inline-block';
+      statusBadge.style.background = 'rgba(107, 114, 128, 0.2)';
+      statusBadge.style.border = '1px solid rgba(107, 114, 128, 0.4)';
+      statusBadge.style.color = '#9ca3af';
+      statusBadge.textContent = t('panel_up_to_date');
+    }
+    if (btnUpdate) btnUpdate.style.display = 'none';
+    if (releaseBox) releaseBox.style.display = 'none';
+  }
+}
+
+async function checkForPanelUpdates() {
+  const btn = document.getElementById('btn-check-panel');
+  const spinner = document.getElementById('btn-check-panel-spinner');
+  if (btn) btn.disabled = true;
+  if (spinner) spinner.style.display = 'inline-block';
+
+  try {
+    const res = await api('api/panel/check-update', { method: 'POST' });
+    if (res.ok) {
+      const info = await res.json();
+      panelInfoCache = info;
+      renderPanelVersionInfo(info);
+      if (info.isUpdateAvailable) {
+        toast(t('toast_panel_update_available'), 'info');
+      } else {
+        toast(t('toast_panel_up_to_date'), 'success');
+      }
+    } else {
+      toast(t('toast_panel_check_failed'), 'danger');
+    }
+  } catch (e) {
+    toast(t('toast_panel_check_failed'), 'danger');
+  } finally {
+    if (btn) btn.disabled = false;
+    if (spinner) spinner.style.display = 'none';
+  }
+}
+
+async function confirmUpdatePanel() {
+  const targetVer = (panelInfoCache && panelInfoCache.latestVersion) ? panelInfoCache.latestVersion : '';
+  const msg = t('confirm_update_panel', { version: targetVer });
+  if (!confirm(msg)) return;
+
+  const btn = document.getElementById('btn-update-panel');
+  const spinner = document.getElementById('btn-update-panel-spinner');
+  if (btn) btn.disabled = true;
+  if (spinner) spinner.style.display = 'inline-block';
+
+  toast(t('toast_panel_updating'), 'info');
+
+  try {
+    const res = await api('api/panel/update', { method: 'POST' });
+    const result = await res.json();
+    if (res.ok && result.success) {
+      toast(result.message || t('toast_panel_update_success'), 'success');
+
+      // Poll until server restarts and comes back online
+      let attempts = 0;
+      const maxAttempts = 25;
+      setTimeout(async function pollServer() {
+        attempts++;
+        try {
+          const checkRes = await fetch('api/panel/version', { cache: 'no-store' });
+          if (checkRes.ok) {
+            toast(t('toast_panel_restarted'), 'success');
+            setTimeout(() => window.location.reload(), 1500);
+            return;
+          }
+        } catch (_) {
+          // Expected while server process is restarting
+        }
+
+        if (attempts < maxAttempts) {
+          setTimeout(pollServer, 2000);
+        } else {
+          toast(currentLanguage === 'en' ? 'Please refresh the page manually (F5).' : 'Пожалуйста, обновите страницу вручную (F5).', 'info');
+          if (btn) btn.disabled = false;
+          if (spinner) spinner.style.display = 'none';
+        }
+      }, 3000);
+
+    } else {
+      toast(result.message || t('toast_panel_update_failed'), 'danger');
+      if (btn) btn.disabled = false;
+      if (spinner) spinner.style.display = 'none';
+    }
+  } catch (e) {
+    toast(t('toast_panel_update_failed'), 'danger');
+    if (btn) btn.disabled = false;
+    if (spinner) spinner.style.display = 'none';
+  }
+}
+
+

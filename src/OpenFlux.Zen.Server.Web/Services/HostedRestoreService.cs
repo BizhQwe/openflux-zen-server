@@ -10,17 +10,23 @@ public sealed class HostedRestoreService : IHostedService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ITunnelManager _tunnelManager;
     private readonly ISettingsService _settingsService;
+    private readonly IOpenFluxBinaryResolver _binaryResolver;
+    private readonly IOpenFluxCoreUpdateService _coreUpdateService;
 
     public HostedRestoreService(
         ILogger<HostedRestoreService> logger,
         IServiceScopeFactory scopeFactory,
         ITunnelManager tunnelManager,
-        ISettingsService settingsService)
+        ISettingsService settingsService,
+        IOpenFluxBinaryResolver binaryResolver,
+        IOpenFluxCoreUpdateService coreUpdateService)
     {
         _logger = logger;
         _scopeFactory = scopeFactory;
         _tunnelManager = tunnelManager;
         _settingsService = settingsService;
+        _binaryResolver = binaryResolver;
+        _coreUpdateService = coreUpdateService;
     }
 
     public async Task StartAsync(CancellationToken cancellationToken)
@@ -29,6 +35,27 @@ public sealed class HostedRestoreService : IHostedService
 
         var dataDir = Path.Combine(AppContext.BaseDirectory, "data");
         Directory.CreateDirectory(dataDir);
+
+        if (!_binaryResolver.IsBinaryAvailable())
+        {
+            _logger.LogInformation("OpenFlux core binary is not present locally. Downloading official binary from GitHub releases...");
+            try
+            {
+                var updateRes = await _coreUpdateService.UpdateCoreAsync(cancellationToken);
+                if (updateRes.Success)
+                {
+                    _logger.LogInformation("Successfully downloaded official OpenFlux core engine: {Version}", updateRes.NewVersion);
+                }
+                else
+                {
+                    _logger.LogWarning("Could not auto-download OpenFlux core on startup: {Message}", updateRes.Message);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Exception while attempting to auto-download OpenFlux core");
+            }
+        }
 
         using (var scope = _scopeFactory.CreateScope())
         {
