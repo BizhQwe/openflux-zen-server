@@ -190,7 +190,7 @@ const I18N_DICTIONARY = {
     toast_releases_failed: "Не удалось загрузить список релизов с GitHub",
     confirm_rollback_core: "Установить ядро OpenFlux версии {version}? Все активные туннели будут перезапущены.",
     confirm_rollback_panel: "Установить панель OpenFlux Zen Server версии {version}? Служба сервера будет перезапущена с сохранением настроек.",
-    header_status_up_to_date: "Всё обновлено",
+    header_status_up_to_date: "Обновлено",
     header_status_update_available: "Требует обновления"
   },
 
@@ -383,7 +383,7 @@ const I18N_DICTIONARY = {
     toast_releases_failed: "Failed to load release list from GitHub",
     confirm_rollback_core: "Install OpenFlux core version {version}? Active tunnels will be restarted.",
     confirm_rollback_panel: "Install OpenFlux Zen Server panel version {version}? The server service will restart.",
-    header_status_up_to_date: "All up to date",
+    header_status_up_to_date: "Updated",
     header_status_update_available: "Update required"
   }
 };
