@@ -17,5 +17,6 @@ public sealed class AppSettings
     public bool AutoStartEnabled { get; set; } = true;
     public string Language { get; set; } = "ru"; // ru | en
     public string? DecoyRedirectUrl { get; set; }
+    public string DecoyMode { get; set; } = "auto"; // auto | builtin | existing | disabled
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

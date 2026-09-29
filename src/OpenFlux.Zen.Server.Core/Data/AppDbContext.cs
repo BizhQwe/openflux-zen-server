@@ -32,6 +32,7 @@ public sealed class AppDbContext : DbContext
             entity.Property(e => e.ListenHost).HasMaxLength(64).HasDefaultValue("127.0.0.1");
             entity.Property(e => e.PublishMode).HasMaxLength(32).HasDefaultValue("local");
             entity.Property(e => e.DecoyRedirectUrl).HasMaxLength(512);
+            entity.Property(e => e.DecoyMode).HasMaxLength(32).HasDefaultValue("auto");
         });
 
         modelBuilder.Entity<Tunnel>(entity =>

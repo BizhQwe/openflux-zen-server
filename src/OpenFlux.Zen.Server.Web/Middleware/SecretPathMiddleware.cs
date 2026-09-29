@@ -104,14 +104,33 @@ public sealed class SecretPathMiddleware
 
     private static async Task ServeDecoyAsync(HttpContext context, AppSettings settings)
     {
-        // 1. If external redirect URL is configured, redirect immediately
+        var mode = (settings.DecoyMode ?? "auto").Trim().ToLowerInvariant();
+
+        // 1. If decoy is disabled or none, return 404 immediately
+        if (mode == "disabled" || mode == "none")
+        {
+            context.Response.StatusCode = StatusCodes.Status404NotFound;
+            return;
+        }
+
+        // 2. If external redirect URL is configured, redirect immediately
         if (!string.IsNullOrWhiteSpace(settings.DecoyRedirectUrl))
         {
             context.Response.Redirect(settings.DecoyRedirectUrl, permanent: false);
             return;
         }
 
-        // 2. Resolve requested path relative to decoy root
+        // 3. If mode is "existing" and domain is configured, redirect to domain root
+        if (mode == "existing" && !string.IsNullOrWhiteSpace(settings.Domain))
+        {
+            var clean = settings.Domain.Trim().TrimEnd('/');
+            var proto = clean.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                        clean.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ? "" : "https://";
+            context.Response.Redirect($"{proto}{clean}/", permanent: false);
+            return;
+        }
+
+        // 4. Resolve requested path relative to decoy root
         var reqPath = context.Request.Path.Value?.TrimStart('/') ?? "";
         if (reqPath.Contains("..") || Path.IsPathRooted(reqPath))
         {
@@ -135,8 +154,22 @@ public sealed class SecretPathMiddleware
             }
         }
 
-        // Check built-in decoy directory: wwwroot/decoy/
-        if (fileToServe == null)
+        // Check 3x-ui-pro / system decoy directory: /var/www/html/
+        if (fileToServe == null && OperatingSystem.IsLinux() && Directory.Exists("/var/www/html") && File.Exists("/var/www/html/index.html"))
+        {
+            if (!string.IsNullOrEmpty(reqPath))
+            {
+                var candidate = Path.Combine("/var/www/html", reqPath.Replace('/', Path.DirectorySeparatorChar));
+                if (File.Exists(candidate)) fileToServe = candidate;
+            }
+            if (fileToServe == null)
+            {
+                fileToServe = "/var/www/html/index.html";
+            }
+        }
+
+        // Check built-in decoy directory: wwwroot/decoy/ (skip if existing mode was requested)
+        if (fileToServe == null && mode != "existing")
         {
             var builtInDecoyDir = AppPaths.GetBuiltInDecoyDirectory();
             if (Directory.Exists(builtInDecoyDir))
@@ -171,7 +204,14 @@ public sealed class SecretPathMiddleware
             return;
         }
 
-        // 3. Fallback: serve built-in HTML string
+        if (mode == "existing")
+        {
+            // Do not serve built-in decoy if mode is existing and no decoy file was found
+            context.Response.StatusCode = StatusCodes.Status404NotFound;
+            return;
+        }
+
+        // 5. Fallback: serve built-in HTML string
         context.Response.StatusCode = StatusCodes.Status200OK;
         context.Response.ContentType = "text/html; charset=utf-8";
         context.Response.Headers.Append("Cache-Control", "no-cache, no-store, must-revalidate");

@@ -47,7 +47,7 @@ public static class DecoySiteFallback
     <p>High-performance distributed cloud infrastructure, microservices orchestration, and edge routing.</p>
     <div class="card">
       <h3>Enterprise Cloud Platform</h3>
-      <p style="margin: 0;">Our global anycast network and zero-trust computing fabrics power mission-critical services worldwide with 99.999% SLA reliability.</p>
+      <p style="margin: 0;">Our global anycast network and zero-trust computing fabrics power mission-critical services worldwide with 99.8% SLA reliability.</p>
     </div>
     <div class="footer">&copy; 2026 Nexus Cloud Solutions AG. All rights reserved.</div>
   </div>

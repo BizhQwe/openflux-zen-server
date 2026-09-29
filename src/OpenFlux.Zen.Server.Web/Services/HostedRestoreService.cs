@@ -63,10 +63,15 @@ public sealed class HostedRestoreService : IHostedService
                 await db.Database.EnsureCreatedAsync(cancellationToken);
             }
 
-            // Ensure schema resiliency for DecoyRedirectUrl column on upgraded databases
+            // Ensure schema resiliency for DecoyRedirectUrl and DecoyMode columns on upgraded databases
             try
             {
                 await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Settings\" ADD COLUMN \"DecoyRedirectUrl\" TEXT NULL;", cancellationToken);
+            }
+            catch { }
+            try
+            {
+                await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Settings\" ADD COLUMN \"DecoyMode\" TEXT NULL;", cancellationToken);
             }
             catch { }
 

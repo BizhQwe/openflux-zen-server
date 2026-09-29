@@ -72,6 +72,8 @@ public static class Program
         string publishMode = "domain";
         string? domain = null;
         string? localtunnelPassword = existing.LtPass;
+        string? decoyMode = existing.DecoyMode ?? Environment.GetEnvironmentVariable("OPENFLUX_DECOY_MODE");
+        string? decoyRedirectUrl = existing.DecoyUrl ?? Environment.GetEnvironmentVariable("OPENFLUX_DECOY_REDIRECT_URL");
 
         var modeArg = GetArgValue(args, "--mode");
         if (!string.IsNullOrEmpty(modeArg))
@@ -120,11 +122,39 @@ public static class Program
                     ? "Введите ваш домен (или нажмите Enter для внешнего IP)" 
                     : "Enter your domain (or press Enter for external server IP)";
                 domain = TerminalUi.AskText(domPrompt, existing.Domain);
+
+                bool hasExistingDecoy = (!OperatingSystem.IsWindows() && File.Exists("/var/www/html/index.html"))
+                                        || existing.DecoyMode == "existing"
+                                        || !string.IsNullOrEmpty(existing.DecoyUrl);
+                var decoyPrompt = isRu
+                    ? "На этом сервере/домене уже установлена заглушка (например, от 3x-ui-pro)?"
+                    : "Does this server/domain already have an existing decoy site (e.g. from 3x-ui-pro)?";
+                bool useExisting = TerminalUi.AskYesNo(decoyPrompt, defaultYes: hasExistingDecoy);
+                if (useExisting)
+                {
+                    decoyMode = "existing";
+                    if (!string.IsNullOrWhiteSpace(domain))
+                    {
+                        var cleanDom = domain.Trim().TrimEnd('/');
+                        var proto = cleanDom.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                                    cleanDom.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ? "" : "https://";
+                        decoyRedirectUrl = $"{proto}{cleanDom}/";
+                    }
+                }
+                else
+                {
+                    decoyMode = "builtin";
+                    decoyRedirectUrl = null;
+                }
             }
         }
         else
         {
             publishMode = Environment.GetEnvironmentVariable("OPENFLUX_PUBLISH_MODE")?.ToLowerInvariant() ?? "domain";
+            if (string.IsNullOrEmpty(decoyMode) && !OperatingSystem.IsWindows() && File.Exists("/var/www/html/index.html"))
+            {
+                decoyMode = "existing";
+            }
         }
 
         // Port selection
@@ -231,7 +261,8 @@ public static class Program
                 localtunnelPassword,
                 TerminalUi.Language,
                 autostart,
-                existing.DecoyUrl);
+                decoyRedirectUrl,
+                decoyMode);
 
             SystemOperations.RegisterPath(installDir);
             SystemOperations.ConfigureService(
@@ -244,7 +275,9 @@ public static class Program
                 publicUrl,
                 publishMode,
                 TerminalUi.Language,
-                autostart);
+                autostart,
+                decoyRedirectUrl,
+                decoyMode);
 
             TerminalUi.CompleteStep(true);
         }
@@ -269,7 +302,9 @@ public static class Program
                 listenPort,
                 publicUrl,
                 publishMode,
-                TerminalUi.Language);
+                TerminalUi.Language,
+                decoyRedirectUrl,
+                decoyMode);
 
             if (publishMode == "localtunnel")
             {

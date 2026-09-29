@@ -101,21 +101,28 @@
     .header-actions {
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 12px;
     }
     .btn {
       display: inline-flex;
       align-items: center;
       justify-content: center;
       gap: 8px;
-      padding: 10px 20px;
+      height: 42px;
+      box-sizing: border-box;
+      padding: 0 20px;
       border-radius: 8px;
+      font-family: inherit;
       font-size: 0.9rem;
       font-weight: 600;
+      line-height: 1;
       text-decoration: none;
       cursor: pointer;
       transition: all 0.2s ease;
       border: 1px solid transparent;
+      vertical-align: middle;
+      white-space: nowrap;
+      margin: 0;
     }
     .btn-primary {
       background: var(--primary-gradient);
@@ -594,7 +601,7 @@
 
       <div class="stats-bar">
         <div class="stat-item">
-          <div class="stat-val">99.999%</div>
+          <div class="stat-val">99.8%</div>
           <div class="stat-label">Uptime SLA</div>
         </div>
         <div class="stat-item">
@@ -826,7 +833,7 @@
         <div>&copy; 2026 Nexus Cloud Solutions AG. All rights reserved.</div>
         <div class="system-status">
           <span class="pulse-dot"></span>
-          All Systems Operational (Global SLA 99.999%)
+          All Systems Operational (Global SLA 99.8%)
         </div>
       </div>
     </div>

@@ -166,7 +166,9 @@ public static class SystemOperations
         string publicUrl,
         string publishMode,
         string language,
-        bool autostart)
+        bool autostart,
+        string? decoyRedirectUrl = null,
+        string? decoyMode = null)
     {
         if (OperatingSystem.IsWindows())
         {
@@ -195,12 +197,20 @@ public static class SystemOperations
                 Environment.SetEnvironmentVariable("OPENFLUX_PUBLIC_URL", publicUrl, EnvironmentVariableTarget.Machine);
                 Environment.SetEnvironmentVariable("OPENFLUX_PUBLISH_MODE", publishMode, EnvironmentVariableTarget.Machine);
                 Environment.SetEnvironmentVariable("OPENFLUX_LANGUAGE", language, EnvironmentVariableTarget.Machine);
+                if (!string.IsNullOrEmpty(decoyRedirectUrl))
+                    Environment.SetEnvironmentVariable("OPENFLUX_DECOY_REDIRECT_URL", decoyRedirectUrl, EnvironmentVariableTarget.Machine);
+                if (!string.IsNullOrEmpty(decoyMode))
+                    Environment.SetEnvironmentVariable("OPENFLUX_DECOY_MODE", decoyMode, EnvironmentVariableTarget.Machine);
             }
             catch { }
         }
         else
         {
             var exePath = Path.Combine(installDir, "OpenFlux.Zen.Server.Web");
+            var extraEnv = "";
+            if (!string.IsNullOrEmpty(decoyRedirectUrl)) extraEnv += $"\nEnvironment=OPENFLUX_DECOY_REDIRECT_URL={decoyRedirectUrl}";
+            if (!string.IsNullOrEmpty(decoyMode)) extraEnv += $"\nEnvironment=OPENFLUX_DECOY_MODE={decoyMode}";
+
             var serviceContent = $"""
 [Unit]
 Description=OpenFlux Zen Server Management Panel
@@ -220,7 +230,7 @@ Environment=OPENFLUX_ADMIN_USER={username}
 Environment=OPENFLUX_ADMIN_PASSWORD={password}
 Environment=OPENFLUX_PUBLIC_URL={publicUrl}
 Environment=OPENFLUX_PUBLISH_MODE={publishMode}
-Environment=OPENFLUX_LANGUAGE={language}
+Environment=OPENFLUX_LANGUAGE={language}{extraEnv}
 Environment=DOTNET_gcServer=0
 Environment=DOTNET_GCHeapHardLimit=80000000
 
@@ -242,7 +252,7 @@ WantedBy=multi-user.target
         }
     }
 
-    public static void StartServer(string installDir, string username, string password, string secretPath, string host, int port, string publicUrl, string publishMode, string language)
+    public static void StartServer(string installDir, string username, string password, string secretPath, string host, int port, string publicUrl, string publishMode, string language, string? decoyRedirectUrl = null, string? decoyMode = null)
     {
         if (OperatingSystem.IsWindows())
         {
@@ -264,6 +274,8 @@ WantedBy=multi-user.target
             psi.Environment["OPENFLUX_PUBLIC_URL"] = publicUrl;
             psi.Environment["OPENFLUX_PUBLISH_MODE"] = publishMode;
             psi.Environment["OPENFLUX_LANGUAGE"] = language;
+            if (!string.IsNullOrEmpty(decoyRedirectUrl)) psi.Environment["OPENFLUX_DECOY_REDIRECT_URL"] = decoyRedirectUrl;
+            if (!string.IsNullOrEmpty(decoyMode)) psi.Environment["OPENFLUX_DECOY_MODE"] = decoyMode;
 
             Process.Start(psi);
         }
