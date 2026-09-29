@@ -377,6 +377,9 @@ public static class Program
             SystemOperations.RunBash("systemctl disable --now openflux-zen-server.service 2>/dev/null || true");
             try { File.Delete("/etc/systemd/system/openflux-zen-server.service"); } catch { }
             try { File.Delete("/usr/local/bin/OpenFluxZenServer"); } catch { }
+            try { File.Delete("/usr/local/bin/openfluxzenserver"); } catch { }
+            try { File.Delete("/usr/local/bin/openflux"); } catch { }
+            try { File.Delete("/usr/local/bin/openflux-zen-server"); } catch { }
             SystemOperations.RunBash("systemctl daemon-reload");
         }
 

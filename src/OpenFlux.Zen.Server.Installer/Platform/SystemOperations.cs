@@ -151,7 +151,10 @@ public static class SystemOperations
             if (File.Exists(cliPath))
             {
                 RunBash($"ln -sf \"{cliPath}\" /usr/local/bin/OpenFluxZenServer 2>/dev/null || true");
-                RunBash($"chmod +x /usr/local/bin/OpenFluxZenServer 2>/dev/null || true");
+                RunBash($"ln -sf \"{cliPath}\" /usr/local/bin/openfluxzenserver 2>/dev/null || true");
+                RunBash($"ln -sf \"{cliPath}\" /usr/local/bin/openflux 2>/dev/null || true");
+                RunBash($"ln -sf \"{cliPath}\" /usr/local/bin/openflux-zen-server 2>/dev/null || true");
+                RunBash($"chmod +x /usr/local/bin/OpenFluxZenServer /usr/local/bin/openfluxzenserver /usr/local/bin/openflux /usr/local/bin/openflux-zen-server 2>/dev/null || true");
             }
         }
     }
