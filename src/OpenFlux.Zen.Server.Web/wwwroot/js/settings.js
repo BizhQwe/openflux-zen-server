@@ -199,11 +199,6 @@ function renderCoreVersionInfo(info) {
     curBadge.textContent = `OpenFlux: ${info.currentVersion || 'v0.2.0'}`;
   }
 
-  const hdrCore = document.getElementById('header-core-version');
-  if (hdrCore) {
-    hdrCore.textContent = `OpenFlux: ${info.currentVersion || 'v0.2.0'}`;
-  }
-
   const curVer = document.getElementById('core-current-version');
   if (curVer) curVer.textContent = info.currentVersion || 'v0.2.0';
 
@@ -256,6 +251,8 @@ function renderCoreVersionInfo(info) {
     if (btnCheck) btnCheck.style.display = 'inline-flex';
     if (releaseBox) releaseBox.style.display = 'none';
   }
+
+  updateHeaderStatusBadge();
 }
 
 async function checkForCoreUpdates() {
@@ -342,33 +339,14 @@ function renderPanelVersionInfo(info) {
 
   const curBadge = document.getElementById('panel-current-version-badge');
   if (curBadge) {
-    curBadge.textContent = `Server: ${info.currentVersion || 'v1.0.37'}`;
+    curBadge.textContent = `Server: ${info.currentVersion || 'v1.0.38'}`;
   }
 
   const curVer = document.getElementById('panel-current-version');
-  if (curVer) curVer.textContent = info.currentVersion || 'v1.0.37';
+  if (curVer) curVer.textContent = info.currentVersion || 'v1.0.38';
 
   const latVer = document.getElementById('panel-latest-version');
   if (latVer) latVer.textContent = info.latestVersion || info.currentVersion || '—';
-
-  const hdrPanel = document.getElementById('header-panel-version');
-  const hdrVer = document.getElementById('header-version-text');
-  if (hdrPanel) {
-    hdrPanel.textContent = `Server: ${info.currentVersion || 'v1.0.37'}`;
-  } else if (hdrVer && info.currentVersion) {
-    hdrVer.textContent = info.currentVersion;
-  }
-
-  const hdrDot = document.getElementById('header-update-dot');
-  if (hdrDot) {
-    if (info.isUpdateAvailable) {
-      hdrDot.style.background = '#fbbf24';
-      hdrDot.title = t('panel_update_available');
-    } else {
-      hdrDot.style.background = '#10b981';
-      hdrDot.title = isRu ? 'Все компоненты актуальны' : 'All components are up to date';
-    }
-  }
 
   const relDate = document.getElementById('panel-release-date');
   if (relDate) {
@@ -415,6 +393,53 @@ function renderPanelVersionInfo(info) {
     if (btnUpdate) btnUpdate.style.display = 'none';
     if (btnCheck) btnCheck.style.display = 'inline-flex';
     if (releaseBox) releaseBox.style.display = 'none';
+  }
+
+  updateHeaderStatusBadge();
+}
+
+function updateHeaderStatusBadge() {
+  const badge = document.getElementById('header-update-badge');
+  const dot = document.getElementById('header-update-dot');
+  const text = document.getElementById('header-status-text');
+  if (!badge && !dot && !text) return;
+
+  const panelHasUpdate = panelInfoCache && panelInfoCache.isUpdateAvailable;
+  const coreHasUpdate = coreInfoCache && coreInfoCache.isUpdateAvailable;
+  const hasUpdate = Boolean(panelHasUpdate || coreHasUpdate);
+
+  if (hasUpdate) {
+    if (dot) {
+      dot.style.background = '#f59e0b';
+      dot.style.boxShadow = '0 0 8px rgba(245, 158, 11, 0.6)';
+    }
+    if (text) {
+      text.textContent = t('header_status_update_available');
+      text.style.color = '#fbbf24';
+    }
+    if (badge) {
+      badge.style.borderColor = 'rgba(245, 158, 11, 0.4)';
+      badge.style.background = 'rgba(245, 158, 11, 0.08)';
+      badge.title = (typeof currentLanguage !== 'undefined' && currentLanguage === 'ru')
+        ? (panelHasUpdate && coreHasUpdate ? 'Доступны обновления для Сервера и Ядра' : (panelHasUpdate ? 'Доступно обновление для OpenFlux Zen Server' : 'Доступно обновление для OpenFlux'))
+        : 'Update is available';
+    }
+  } else {
+    if (dot) {
+      dot.style.background = '#10b981';
+      dot.style.boxShadow = '0 0 6px rgba(16, 185, 129, 0.5)';
+    }
+    if (text) {
+      text.textContent = t('header_status_up_to_date');
+      text.style.color = 'var(--text-main)';
+    }
+    if (badge) {
+      badge.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+      badge.style.background = 'rgba(255, 255, 255, 0.04)';
+      badge.title = (typeof currentLanguage !== 'undefined' && currentLanguage === 'ru')
+        ? 'Все компоненты обновлены'
+        : 'All components are up to date';
+    }
   }
 }
 
@@ -525,7 +550,7 @@ async function openRollbackModal(type) {
 
   if (type === 'panel') {
     if (titleEl) titleEl.textContent = isRu ? 'Смена версии OpenFlux Zen Server' : 'Change OpenFlux Zen Server Version';
-    const curVer = (panelInfoCache && panelInfoCache.currentVersion) ? panelInfoCache.currentVersion : 'v1.0.37';
+    const curVer = (panelInfoCache && panelInfoCache.currentVersion) ? panelInfoCache.currentVersion : 'v1.0.38';
     if (descEl) {
       descEl.innerHTML = isRu 
         ? `Текущая версия: <strong>${escapeHtml(curVer)}</strong>. Выберите версию из официальных релизов GitHub (BizhQwe/openflux-zen-server) для установки:`

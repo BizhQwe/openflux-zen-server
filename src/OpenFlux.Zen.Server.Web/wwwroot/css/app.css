@@ -675,10 +675,8 @@
     }
     .version-stat-label {
       color: var(--text-muted);
-      font-size: 0.74rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
+      font-size: 0.8rem;
+      font-weight: 500;
       margin-bottom: 6px;
       line-height: 1.2;
     }
