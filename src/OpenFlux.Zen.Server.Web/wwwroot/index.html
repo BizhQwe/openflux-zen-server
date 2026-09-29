@@ -265,7 +265,7 @@
             <h4 data-i18n="settings_panel_title">OpenFlux Zen Server</h4>
             <div style="display: flex; gap: 8px; align-items: center;">
               <span id="panel-status-badge" class="badge-status-update" style="display: none;"></span>
-              <span id="panel-current-version-badge" style="background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #93c5fd; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600;">Server: v1.0.44</span>
+              <span id="panel-current-version-badge" style="background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #93c5fd; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600;">Server: v1.0.45</span>
             </div>
           </div>
           <p style="color: var(--text-dim); margin-bottom: 16px; font-size: 0.9rem;" data-i18n="settings_panel_desc">
@@ -392,15 +392,13 @@
                 <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                 <span data-i18n="btn_copy">Копировать</span>
               </button>
+              <button id="btn-regenerate-panel-link" type="button" class="btn btn-outline panel-link-refresh" onclick="regenerateSecretPath()" aria-describedby="panel-link-note">
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 7a7 7 0 0 1 11.55-2L20 8M4 16l2.35 3A7 7 0 0 0 17.9 17"/></svg>
+                <span data-i18n="btn_regen_secret">Обновить ссылку</span>
+              </button>
             </div>
           </div>
-          <div class="panel-link-footer">
-            <p id="panel-link-note" class="settings-helper" data-i18n="settings_secret_note">В ссылке есть секретный путь для защиты от сканеров и ботов. После обновления прежняя ссылка перестанет работать.</p>
-            <button id="btn-regenerate-panel-link" type="button" class="btn btn-quiet" onclick="regenerateSecretPath()" aria-describedby="panel-link-note">
-              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 7a7 7 0 0 1 11.55-2L20 8M4 16l2.35 3A7 7 0 0 0 17.9 17"/></svg>
-              <span data-i18n="btn_regen_secret">Обновить ссылку</span>
-            </button>
-          </div>
+          <p id="panel-link-note" class="settings-helper" data-i18n="settings_secret_note">В ссылке есть секретный путь для защиты от сканеров и ботов. После обновления прежняя ссылка перестанет работать.</p>
         </div>
 
         <!-- 5. Network Placement -->

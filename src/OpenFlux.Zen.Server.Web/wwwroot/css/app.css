@@ -239,7 +239,7 @@
     .panel-address-field { margin-bottom: 0; }
     .panel-address-row {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-columns: minmax(0, 1fr) auto auto;
       gap: 10px;
       align-items: stretch;
     }
@@ -248,30 +248,13 @@
       font-family: var(--font-mono);
       font-size: 0.85rem;
     }
-    .panel-link-footer {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      margin-top: 12px;
-      padding-top: 14px;
-      border-top: 1px solid var(--card-border);
-    }
     .settings-helper {
-      margin: 0;
+      margin: 12px 0 0;
       color: var(--text-muted);
       font-size: 0.8rem;
       line-height: 1.5;
     }
-    .btn-quiet {
-      flex: 0 0 auto;
-      background: transparent;
-      border: 0;
-      color: var(--text-muted);
-      padding: 8px 4px;
-      min-height: 36px;
-    }
-    .btn-quiet:hover { background: transparent; color: #fff; }
+    .panel-link-refresh { white-space: nowrap; }
     .network-mode-badge {
       display: inline-flex;
       align-items: center;
@@ -286,12 +269,14 @@
       text-align: right;
     }
     .network-placement-row {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(180px, 0.7fr) auto;
+      display: flex;
       gap: 12px;
       align-items: end;
     }
+    .network-mode-field { flex: 1 1 auto; min-width: 0; }
+    .network-domain-field { flex: 0 1 280px; min-width: 180px; }
     .network-placement-row .form-group { margin-bottom: 0; }
+    .network-placement-row > .btn { flex: 0 0 auto; }
     .network-mode-info {
       margin: 14px 0 0;
       padding: 11px 14px;
@@ -657,12 +642,6 @@
       .nav-links { grid-row: 2; grid-column: 1 / -1; }
       .header-actions { grid-column: 2; grid-row: 1; }
     }
-    @media (max-width: 760px) {
-      .section-bar { align-items: flex-start; }
-      .tunnel-title-group .badges { width: 100%; margin-left: 0; }
-      .tunnel-details { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .tunnel-actions { align-items: stretch; }
-    }
     @media (max-width: 600px) {
       .container, .header-inner { padding-left: 16px; padding-right: 16px; }
       .app-content { padding-top: 24px; padding-bottom: 32px; }
@@ -694,11 +673,11 @@
       .card, .tunnel-item { padding: 18px; }
       .settings-card-header { align-items: flex-start; flex-direction: column; }
       .settings-card-description { margin-bottom: 16px; }
-      .panel-address-row { grid-template-columns: 1fr; }
+      .panel-address-row { grid-template-columns: 1fr 1fr; }
+      .panel-address-input { grid-column: 1 / -1; }
       .panel-address-row .btn { width: 100%; }
-      .panel-link-footer { align-items: flex-start; flex-direction: column; gap: 10px; }
-      .btn-quiet { padding-left: 0; }
-      .network-placement-row { grid-template-columns: 1fr; gap: 12px; }
+      .network-placement-row { flex-direction: column; gap: 12px; align-items: stretch; }
+      .network-mode-field, .network-domain-field { flex: 1 1 auto; width: 100%; min-width: 0; }
       .network-placement-row .btn { width: 100%; }
       .network-mode-badge { text-align: left; }
       .tunnel-details { padding: 14px; gap: 16px 12px; }
@@ -721,6 +700,68 @@
       .login-logo { width: 56px; height: 56px; }
       .terminal-container { height: 55dvh; min-height: 240px; padding: 12px; font-size: 0.75rem; }
       #toast-container { bottom: 16px; right: 16px; }
+    }
+
+    /* Compact mobile layout: keep every control inside the viewport and make touch targets clear. */
+    @media (max-width: 760px) {
+      html { scrollbar-gutter: auto; }
+      body { overflow-x: hidden; }
+      .container, .header-inner { padding-left: 14px; padding-right: 14px; }
+      .app-content { padding-top: 20px; padding-bottom: 28px; }
+      .header-inner { min-height: 0; }
+      .brand { min-width: 0; }
+      .brand-copy { min-width: 0; }
+      .brand-title { min-width: 0; font-size: 1.08rem; }
+      .header-actions { min-width: 0; gap: 6px !important; }
+      .header-actions .btn { padding-left: 10px; padding-right: 10px; }
+      #header-update-badge #header-status-text { display: none; }
+      #header-update-badge { padding-left: 10px; padding-right: 10px; }
+      .nav-links { width: 100%; gap: 6px; }
+      .nav-btn { min-width: 0; padding-left: 6px; padding-right: 6px; overflow: hidden; text-overflow: ellipsis; }
+      .section-bar { align-items: stretch; gap: 12px; }
+      .section-title { font-size: 1.15rem; line-height: 1.25; }
+      .toolbar { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+      .toolbar > .btn, .toolbar > .form-control { width: 100%; max-width: none; min-width: 0; }
+      .toolbar > .form-control { grid-column: 1 / -1; }
+      .card, .tunnel-item { padding: 16px; border-radius: 12px; }
+      .card + .card { margin-top: 16px; }
+      .settings-card, .config-card, #tab-settings .card, #tab-config .card { margin-bottom: 16px; }
+      .settings-card-header { align-items: flex-start; }
+      .settings-card-header h4 { line-height: 1.3; }
+      .network-mode-badge { max-width: 100%; text-align: left; overflow-wrap: anywhere; }
+      .version-stats-grid { gap: 8px; }
+      .version-stat-cell { padding: 10px 11px; }
+      .button-row { gap: 8px; }
+      .button-row > .btn { width: 100%; min-height: 42px; }
+      .tunnel-top { align-items: flex-start; gap: 10px; }
+      .tunnel-title-group { gap: 8px; }
+      .tunnel-title-group .badges { width: 100%; margin-left: 0; }
+      .tunnel-details { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 10px; padding: 12px; }
+      .tunnel-actions { align-items: stretch; }
+      .tunnel-actions > .action-group, .tunnel-actions .action-group { width: 100%; }
+      .tunnel-actions .btn { flex: 1 1 auto; }
+      .modal-overlay { padding: 10px; }
+      .modal { max-height: calc(100dvh - 20px); border-radius: 14px; }
+      .modal-header, .modal-body { padding: 14px; }
+      .modal-footer { padding: 10px 14px; }
+      .modal-footer .btn { min-height: 42px; }
+      .terminal-container { height: 52dvh; min-height: 220px; }
+    }
+
+    @media (max-width: 420px) {
+      .container, .header-inner { padding-left: 12px; padding-right: 12px; }
+      .header-inner { gap: 8px; }
+      .brand img { width: 32px; height: 32px; }
+      .brand-title { font-size: 0.98rem; gap: 6px; }
+      .header-actions .btn { padding-left: 8px; padding-right: 8px; font-size: 0.76rem; }
+      .nav-links { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .nav-btn { height: 38px; min-height: 38px; font-size: 0.75rem; }
+      .stats-grid { grid-template-columns: 1fr; }
+      .tunnel-details { grid-template-columns: 1fr; }
+      .panel-address-row { grid-template-columns: 1fr; }
+      .panel-address-input { grid-column: auto; }
+      .section-title { font-size: 1.05rem; }
+      .card, .tunnel-item { padding: 14px; }
     }
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { animation: none !important; transition: none !important; }
