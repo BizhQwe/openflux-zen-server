@@ -101,24 +101,18 @@ public static class TerminalUi
 
         bool isLan = publishMode == "local" || publishMode == "lan";
         string mainLabel = isLan
-            ? (IsRussian ? "Вход по LAN / Wi-Fi:" : "LAN / Wi-Fi Access:   ")
-            : (IsRussian ? "Панель управления:  " : "Web Dashboard:        ");
+            ? (IsRussian ? "Вход по LAN / Wi-Fi:" : "LAN / Wi-Fi Access:")
+            : (IsRussian ? "Панель управления:" : "Web Dashboard:");
 
         string localLabel = isLan
-            ? (IsRussian ? "Этот ПК (localhost):" : "This PC (localhost):  ")
-            : (IsRussian ? "Локальный адрес:    " : "Local Access:         ");
+            ? (IsRussian ? "Этот ПК (localhost):" : "This PC (localhost):")
+            : (IsRussian ? "Локальный адрес:" : "Local Access:");
 
-        Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.Write("  " + mainLabel.PadRight(24));
-        Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.WriteLine(publicUrl);
+        PrintField(mainLabel, publicUrl, ConsoleColor.Yellow);
 
         if (publicUrl != localUrl)
         {
-            Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.Write("  " + localLabel.PadRight(24));
-            Console.ForegroundColor = ConsoleColor.White;
-            Console.WriteLine(localUrl);
+            PrintField(localLabel, localUrl, ConsoleColor.White);
         }
 
         PrintField(IsRussian ? "Логин:" : "Username:", username);
@@ -131,11 +125,11 @@ public static class TerminalUi
         Console.WriteLine();
     }
 
-    private static void PrintField(string label, string value)
+    private static void PrintField(string label, string value, ConsoleColor valueColor = ConsoleColor.White)
     {
         Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.Write("  " + label.PadRight(22));
-        Console.ForegroundColor = ConsoleColor.White;
+        Console.Write($"  {label} ");
+        Console.ForegroundColor = valueColor;
         Console.WriteLine(value);
         Console.ResetColor();
     }

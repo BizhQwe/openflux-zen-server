@@ -103,9 +103,9 @@ public static class CredentialsCommand
         Console.ForegroundColor = ConsoleColor.Cyan;
         Console.WriteLine("  Authentication Details:");
         Console.ResetColor();
-        Console.WriteLine($"    Username    : {username}");
-        Console.WriteLine($"    Password    : {password}");
-        Console.WriteLine($"    Secret Path : /{secretPath.Trim('/')}/");
+        Console.WriteLine($"    Username: {username}");
+        Console.WriteLine($"    Password: {password}");
+        Console.WriteLine($"    Secret Path: /{secretPath.Trim('/')}/");
         Console.WriteLine();
         Console.ForegroundColor = ConsoleColor.Cyan;
         Console.WriteLine("==================================================================");
