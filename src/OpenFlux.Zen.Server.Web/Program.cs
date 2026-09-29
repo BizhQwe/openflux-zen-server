@@ -17,6 +17,7 @@ builder.Logging.AddNLog();
 // 2. Configure Host and Port
 var listenPort = 5000;
 string? credHost = null;
+string? credMode = null;
 var credPath = AppPaths.GetCredentialsPath();
 if (File.Exists(credPath))
 {
@@ -26,6 +27,7 @@ if (File.Exists(credPath))
         using var doc = System.Text.Json.JsonDocument.Parse(credJson);
         if (doc.RootElement.TryGetProperty("host", out var h)) credHost = h.GetString();
         if (doc.RootElement.TryGetProperty("port", out var p) && p.TryGetInt32(out var pt)) listenPort = pt;
+        if (doc.RootElement.TryGetProperty("publishMode", out var pm)) credMode = pm.GetString();
     }
     catch { }
 }
@@ -34,8 +36,22 @@ if (int.TryParse(Environment.GetEnvironmentVariable("OPENFLUX_PORT"), out var en
 {
     listenPort = envPort;
 }
-var envHost = Environment.GetEnvironmentVariable("OPENFLUX_HOST");
-var listenHost = !string.IsNullOrWhiteSpace(credHost) ? credHost : (!string.IsNullOrWhiteSpace(envHost) ? envHost : "0.0.0.0");
+
+var envMode = Environment.GetEnvironmentVariable("OPENFLUX_PUBLISH_MODE");
+var mode = !string.IsNullOrWhiteSpace(credMode) ? credMode : (!string.IsNullOrWhiteSpace(envMode) ? envMode : "local");
+
+// Default to 0.0.0.0 for all network modes (domain, localtunnel, local/lan) so LAN/Wi-Fi and phones work.
+// Only bind strictly to 127.0.0.1 when localhost-only mode is explicitly selected.
+string listenHost;
+if (string.Equals(mode, "localhost", StringComparison.OrdinalIgnoreCase))
+{
+    listenHost = "127.0.0.1";
+}
+else
+{
+    listenHost = (!string.IsNullOrWhiteSpace(credHost) && credHost != "127.0.0.1") ? credHost : "0.0.0.0";
+}
+
 builder.WebHost.UseUrls($"http://{listenHost}:{listenPort}");
 
 // 3. Register Database

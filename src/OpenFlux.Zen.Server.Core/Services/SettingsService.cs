@@ -103,6 +103,11 @@ public sealed class SettingsService : ISettingsService
                                 changed = true;
                             }
                         }
+                        if (!string.Equals(settings.PublishMode, "localhost", StringComparison.OrdinalIgnoreCase) && settings.ListenHost == "127.0.0.1")
+                        {
+                            settings.ListenHost = "0.0.0.0";
+                            changed = true;
+                        }
                     }
                     catch { }
                 }
@@ -410,9 +415,12 @@ public sealed class SettingsService : ISettingsService
             initialPort = credPort.Value;
         }
 
-        var initialHost = Environment.GetEnvironmentVariable("OPENFLUX_HOST") ?? credHost ?? "127.0.0.1";
-        var initialPubUrl = Environment.GetEnvironmentVariable("OPENFLUX_PUBLIC_URL") ?? credPubUrl;
         var initialMode = Environment.GetEnvironmentVariable("OPENFLUX_PUBLISH_MODE") ?? credMode ?? "local";
+        var isLocalhost = string.Equals(initialMode, "localhost", StringComparison.OrdinalIgnoreCase);
+        var initialHost = isLocalhost 
+            ? "127.0.0.1" 
+            : ((!string.IsNullOrWhiteSpace(credHost) && credHost != "127.0.0.1") ? credHost : "0.0.0.0");
+        var initialPubUrl = Environment.GetEnvironmentVariable("OPENFLUX_PUBLIC_URL") ?? credPubUrl;
         var initialDecoy = Environment.GetEnvironmentVariable("OPENFLUX_DECOY_REDIRECT_URL") ?? credDecoy;
         var initialDecoyMode = Environment.GetEnvironmentVariable("OPENFLUX_DECOY_MODE") ?? credDecoyMode ?? "auto";
 
