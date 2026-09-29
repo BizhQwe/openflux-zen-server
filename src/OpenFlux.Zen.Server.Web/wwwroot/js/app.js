@@ -102,10 +102,14 @@ async function initApp() {
   loadStats();
   loadTunnels();
   if (typeof loadPanelVersionInfo === 'function') {
-    loadPanelVersionInfo(false);
+    loadPanelVersionInfo(false).finally(() => {
+      loadPanelVersionInfo(true);
+    });
   }
   if (typeof loadCoreVersionInfo === 'function') {
-    loadCoreVersionInfo(false);
+    loadCoreVersionInfo(false).finally(() => {
+      loadCoreVersionInfo(true);
+    });
   }
   if (!statsInterval) {
     let isPolling = false;
@@ -123,8 +127,16 @@ async function initApp() {
       if (!document.hidden && document.getElementById('main-view').style.display !== 'none') {
         loadStats();
         loadTunnels(true);
+        if (typeof loadPanelVersionInfo === 'function') loadPanelVersionInfo(true);
+        if (typeof loadCoreVersionInfo === 'function') loadCoreVersionInfo(true);
       }
     });
+
+    setInterval(() => {
+      if (document.hidden || document.getElementById('main-view').style.display === 'none') return;
+      if (typeof loadPanelVersionInfo === 'function') loadPanelVersionInfo(true);
+      if (typeof loadCoreVersionInfo === 'function') loadCoreVersionInfo(true);
+    }, 5 * 60 * 1000);
   }
 }
 

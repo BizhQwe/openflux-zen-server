@@ -87,7 +87,7 @@ public sealed class OpenFluxCoreUpdateService : IOpenFluxCoreUpdateService
 
         var shouldCheckRemote = forceCheck ||
                                 meta.LastCheckedAt == null ||
-                                DateTime.UtcNow - meta.LastCheckedAt.Value > TimeSpan.FromHours(1);
+                                DateTime.UtcNow - meta.LastCheckedAt.Value > TimeSpan.FromMinutes(3);
 
         if (shouldCheckRemote)
         {

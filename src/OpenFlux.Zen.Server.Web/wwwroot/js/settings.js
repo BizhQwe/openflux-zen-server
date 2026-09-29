@@ -94,8 +94,8 @@ async function loadSettings() {
     }
   }
 
-  await loadPanelVersionInfo(false);
-  await loadCoreVersionInfo(false);
+  loadPanelVersionInfo(false).finally(() => loadPanelVersionInfo(true));
+  loadCoreVersionInfo(false).finally(() => loadCoreVersionInfo(true));
 }
 
 async function copyNetworkUrl() {
@@ -174,9 +174,12 @@ async function saveDecoySettings() {
 
 // OpenFlux Core Updates
 let coreInfoCache = null;
+let isCheckingCore = false;
 
 async function loadCoreVersionInfo(forceCheck = false) {
+  if (forceCheck && isCheckingCore) return;
   try {
+    if (forceCheck) isCheckingCore = true;
     const url = forceCheck ? 'api/core/check-update' : 'api/core/version';
     const method = forceCheck ? 'POST' : 'GET';
     const res = await api(url, { method });
@@ -186,6 +189,8 @@ async function loadCoreVersionInfo(forceCheck = false) {
     renderCoreVersionInfo(info);
   } catch (e) {
     console.warn('Failed to load core version info:', e);
+  } finally {
+    if (forceCheck) isCheckingCore = false;
   }
 }
 
@@ -317,9 +322,12 @@ async function confirmUpdateCore() {
 
 // OpenFlux Zen Server Panel Updates
 let panelInfoCache = null;
+let isCheckingPanel = false;
 
 async function loadPanelVersionInfo(forceCheck = false) {
+  if (forceCheck && isCheckingPanel) return;
   try {
+    if (forceCheck) isCheckingPanel = true;
     const url = forceCheck ? 'api/panel/check-update' : 'api/panel/version';
     const method = forceCheck ? 'POST' : 'GET';
     const res = await api(url, { method });
@@ -329,6 +337,8 @@ async function loadPanelVersionInfo(forceCheck = false) {
     renderPanelVersionInfo(info);
   } catch (e) {
     console.warn('Failed to load panel version info:', e);
+  } finally {
+    if (forceCheck) isCheckingPanel = false;
   }
 }
 
@@ -339,11 +349,11 @@ function renderPanelVersionInfo(info) {
 
   const curBadge = document.getElementById('panel-current-version-badge');
   if (curBadge) {
-    curBadge.textContent = `Server: ${info.currentVersion || 'v1.0.41'}`;
+    curBadge.textContent = `Server: ${info.currentVersion || 'v1.0.42'}`;
   }
 
   const curVer = document.getElementById('panel-current-version');
-  if (curVer) curVer.textContent = info.currentVersion || 'v1.0.41';
+  if (curVer) curVer.textContent = info.currentVersion || 'v1.0.42';
 
   const latVer = document.getElementById('panel-latest-version');
   if (latVer) latVer.textContent = info.latestVersion || info.currentVersion || '—';
@@ -550,7 +560,7 @@ async function openRollbackModal(type) {
 
   if (type === 'panel') {
     if (titleEl) titleEl.textContent = isRu ? 'Смена версии OpenFlux Zen Server' : 'Change OpenFlux Zen Server Version';
-    const curVer = (panelInfoCache && panelInfoCache.currentVersion) ? panelInfoCache.currentVersion : 'v1.0.41';
+    const curVer = (panelInfoCache && panelInfoCache.currentVersion) ? panelInfoCache.currentVersion : 'v1.0.42';
     if (descEl) {
       descEl.innerHTML = isRu 
         ? `Текущая версия: <strong>${escapeHtml(curVer)}</strong>. Выберите версию из официальных релизов GitHub (BizhQwe/openflux-zen-server) для установки:`
