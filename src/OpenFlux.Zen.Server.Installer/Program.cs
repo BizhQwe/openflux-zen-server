@@ -359,54 +359,127 @@ public static class Program
     private static int ExecuteUninstall()
     {
         var isRu = TerminalUi.IsRussian;
+        if (!SystemOperations.IsAdmin())
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            if (OperatingSystem.IsWindows())
+            {
+                Console.WriteLine(isRu 
+                    ? "  [ERROR] Требуются права Администратора для полного удаления службы и файлов." 
+                    : "  [ERROR] Administrator privileges required to uninstall system service and files.");
+                Console.WriteLine(isRu 
+                    ? "  Пожалуйста, запустите PowerShell от имени Администратора и повторите." 
+                    : "  Please run PowerShell as Administrator (Right-click -> Run as administrator) and retry.");
+            }
+            else
+            {
+                Console.WriteLine(isRu 
+                    ? "  [ERROR] Требуются права root. Запустите: sudo ./openflux-installer --uninstall" 
+                    : "  [ERROR] Root privileges required. Run with: sudo ./openflux-installer --uninstall");
+            }
+            Console.ResetColor();
+            return 1;
+        }
+
         Console.ForegroundColor = ConsoleColor.Yellow;
         Console.WriteLine(isRu 
-            ? "  Удаление OpenFlux Zen Server..." 
-            : "  Uninstalling OpenFlux Zen Server...");
+            ? "  Полное удаление OpenFlux Zen Server из системы..." 
+            : "  Completely uninstalling OpenFlux Zen Server...");
         Console.ResetColor();
 
         SystemOperations.StopExistingServer();
 
-        var installDir = SystemOperations.GetDefaultInstallDir();
         if (OperatingSystem.IsWindows())
         {
             SystemOperations.RunCommand("schtasks.exe", "/delete /tn \"OpenFluxZenServer\" /f");
+            SystemOperations.RunCommand("sc.exe", "stop OpenFluxZenServer >nul 2>&1");
+            SystemOperations.RunCommand("sc.exe", "delete OpenFluxZenServer >nul 2>&1");
+            SystemOperations.RunCommand("netsh.exe", "advfirewall firewall delete rule name=\"OpenFluxZenServer\"");
+
+            // Clean all machine environment variables
+            try
+            {
+                var envVars = new[] {
+                    "OPENFLUX_HOST", "OPENFLUX_PORT", "OPENFLUX_SECRET_PATH",
+                    "OPENFLUX_ADMIN_USER", "OPENFLUX_ADMIN_PASSWORD", "OPENFLUX_PUBLIC_URL",
+                    "OPENFLUX_PUBLISH_MODE", "OPENFLUX_LANGUAGE", "OPENFLUX_DECOY_REDIRECT_URL",
+                    "OPENFLUX_DECOY_MODE", "OPENFLUX_APP_DIR"
+                };
+                foreach (var ev in envVars)
+                {
+                    Environment.SetEnvironmentVariable(ev, null, EnvironmentVariableTarget.Machine);
+                }
+
+                var curPath = Environment.GetEnvironmentVariable("Path", EnvironmentVariableTarget.Machine) ?? "";
+                if (curPath.Contains("OpenFluxZenServer", StringComparison.OrdinalIgnoreCase))
+                {
+                    var clean = string.Join(";", curPath.Split(';').Where(p => !p.Contains("OpenFluxZenServer", StringComparison.OrdinalIgnoreCase)));
+                    Environment.SetEnvironmentVariable("Path", clean, EnvironmentVariableTarget.Machine);
+                }
+            }
+            catch { }
+
+            var progFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+            var progFilesDir = Path.Combine(progFiles, "OpenFluxZenServer");
+            var localAppDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OpenFluxZenServer");
+
+            foreach (var d in new[] { progFilesDir, localAppDir })
+            {
+                if (Directory.Exists(d))
+                {
+                    try { Directory.Delete(d, true); } catch { }
+                }
+            }
+
+            // Launch detached runner in %TEMP% to wipe any remaining locked files after process exits
+            var runnerBat = Path.Combine(Path.GetTempPath(), "oflux_clean.bat");
+            var runnerScript = $@"@echo off
+timeout /t 1 /nobreak >nul
+taskkill /f /im OpenFlux.Zen.Server.Web.exe >nul 2>&1
+taskkill /f /im openflux-windows-amd64.exe >nul 2>&1
+taskkill /f /im openflux-windows-arm64.exe >nul 2>&1
+if exist ""{progFilesDir}"" rd /s /q ""{progFilesDir}"" >nul 2>&1
+if exist ""{localAppDir}"" rd /s /q ""{localAppDir}"" >nul 2>&1
+del ""%~f0"" >nul 2>&1
+";
+            try
+            {
+                File.WriteAllText(runnerBat, runnerScript);
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "cmd.exe",
+                    Arguments = $"/c \"{runnerBat}\"",
+                    CreateNoWindow = true,
+                    UseShellExecute = false
+                });
+            }
+            catch { }
         }
         else
         {
             SystemOperations.RunBash("systemctl disable --now openflux-zen-server.service 2>/dev/null || true");
+            SystemOperations.RunBash("systemctl disable --now openflux-zrok.service 2>/dev/null || true");
             try { File.Delete("/etc/systemd/system/openflux-zen-server.service"); } catch { }
+            try { File.Delete("/etc/systemd/system/openflux-zrok.service"); } catch { }
+            try { File.Delete("/etc/systemd/system/openflux.service"); } catch { }
             try { File.Delete("/usr/local/bin/OpenFluxZenServer"); } catch { }
             try { File.Delete("/usr/local/bin/openfluxzenserver"); } catch { }
             try { File.Delete("/usr/local/bin/openflux"); } catch { }
             try { File.Delete("/usr/local/bin/openflux-zen-server"); } catch { }
-            SystemOperations.RunBash("systemctl daemon-reload");
-        }
+            try { File.Delete("/usr/bin/OpenFluxZenServer"); } catch { }
+            SystemOperations.RunBash("systemctl daemon-reload 2>/dev/null || true");
 
-        if (Directory.Exists(installDir))
-        {
-            try
-            {
-                // Delete everything except data folder to avoid accidental data loss
-                foreach (var f in Directory.GetFiles(installDir))
-                {
-                    try { File.Delete(f); } catch { }
-                }
-                foreach (var d in Directory.GetDirectories(installDir))
-                {
-                    if (!d.EndsWith("data", StringComparison.OrdinalIgnoreCase))
-                    {
-                        try { Directory.Delete(d, true); } catch { }
-                    }
-                }
-            }
-            catch { }
+            // Clean nginx reverse proxy config if present
+            SystemOperations.RunBash("rm -f /etc/nginx/conf.d/openflux*.conf /etc/nginx/sites-enabled/openflux* 2>/dev/null; systemctl reload nginx 2>/dev/null || true");
+
+            // Wipe /opt/openflux-zen-server completely
+            SystemOperations.RunBash("rm -rf /opt/openflux-zen-server /tmp/openflux*");
         }
 
         Console.ForegroundColor = ConsoleColor.Green;
         Console.WriteLine(isRu 
-            ? "  OpenFlux Zen Server успешно удален." 
-            : "  OpenFlux Zen Server uninstalled successfully.");
+            ? "  OpenFlux Zen Server полностью удален из системы." 
+            : "  OpenFlux Zen Server completely uninstalled from the system.");
         Console.ResetColor();
         return 0;
     }

@@ -33,26 +33,32 @@ public sealed class UninstallerService : IUninstallerService
             _logger.LogWarning(ex, "Error while stopping tunnels during uninstall");
         }
 
-        // 2. Launch detached platform-specific uninstaller script
+        // 2. Launch detached platform-specific uninstaller script in temp folder
         var isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
-        var baseDir = AppContext.BaseDirectory;
+        var tempDir = Path.GetTempPath();
 
         if (isWindows)
         {
-            var uninstallScript = Path.Combine(baseDir, "uninstall_runner.bat");
+            var uninstallScript = Path.Combine(tempDir, "oflux_svc_uninstall.bat");
+            var progFilesDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "OpenFluxZenServer");
+            var localAppDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OpenFluxZenServer");
+
             var scriptContent = $@"@echo off
 timeout /t 2 /nobreak >nul
 sc stop OpenFluxZenServer >nul 2>&1
 sc delete OpenFluxZenServer >nul 2>&1
 schtasks /delete /tn ""OpenFluxZenServer"" /f >nul 2>&1
 schtasks /delete /tn ""OpenFluxZrok"" /f >nul 2>&1
+netsh advfirewall firewall delete rule name=""OpenFluxZenServer"" >nul 2>&1
 taskkill /f /im OpenFlux.Zen.Server.Web.exe >nul 2>&1
 taskkill /f /im OpenFlux.Zen.Server.exe >nul 2>&1
 taskkill /f /im OpenFluxZenServer.exe >nul 2>&1
 taskkill /f /im openflux-windows-amd64.exe >nul 2>&1
 taskkill /f /im openflux-windows-arm64.exe >nul 2>&1
+taskkill /f /im openflux.exe >nul 2>&1
 taskkill /f /im zrok.exe >nul 2>&1
-rd /s /q ""{baseDir}"" >nul 2>&1
+if exist ""{progFilesDir}"" rd /s /q ""{progFilesDir}"" >nul 2>&1
+if exist ""{localAppDir}"" rd /s /q ""{localAppDir}"" >nul 2>&1
 del ""%~f0"" >nul 2>&1
 ";
             try
@@ -73,20 +79,23 @@ del ""%~f0"" >nul 2>&1
         }
         else
         {
-            var uninstallScript = Path.Combine(baseDir, "uninstall_runner.sh");
+            var uninstallScript = Path.Combine(tempDir, "oflux_svc_uninstall.sh");
             var scriptContent = $@"#!/bin/bash
 sleep 2
-systemctl stop openflux-zen-server 2>/dev/null || true
-systemctl stop openflux-zrok 2>/dev/null || true
-systemctl disable openflux-zen-server 2>/dev/null || true
-systemctl disable openflux-zrok 2>/dev/null || true
-rm -f /etc/systemd/system/openflux-zen-server.service
-rm -f /etc/systemd/system/openflux-zrok.service
+systemctl stop openflux-zen-server.service 2>/dev/null || true
+systemctl stop openflux-zrok.service 2>/dev/null || true
+systemctl disable openflux-zen-server.service 2>/dev/null || true
+systemctl disable openflux-zrok.service 2>/dev/null || true
+pkill -9 -f OpenFlux.Zen.Server 2>/dev/null || true
+pkill -9 -f openflux 2>/dev/null || true
+pkill -9 -f OpenFluxZenServer 2>/dev/null || true
+pkill -9 -f zrok 2>/dev/null || true
+rm -f /etc/systemd/system/openflux-zen-server.service /etc/systemd/system/openflux-zrok.service /etc/systemd/system/openflux.service
 systemctl daemon-reload 2>/dev/null || true
-rm -f /usr/local/bin/OpenFluxZenServer
-rm -f /usr/bin/OpenFluxZenServer
-# Remove app folder, preserving any SSL certificates on the server
-rm -rf ""{baseDir}""
+rm -f /usr/local/bin/OpenFluxZenServer /usr/local/bin/openfluxzenserver /usr/local/bin/openflux /usr/local/bin/openflux-zen-server /usr/bin/OpenFluxZenServer /usr/bin/openflux* /tmp/openflux*
+rm -f /etc/nginx/conf.d/openflux*.conf /etc/nginx/sites-enabled/openflux* 2>/dev/null
+systemctl reload nginx 2>/dev/null || true
+rm -rf /opt/openflux-zen-server /tmp/openflux*
 rm -f ""$0""
 ";
             try

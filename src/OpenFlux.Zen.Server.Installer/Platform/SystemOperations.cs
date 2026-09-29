@@ -53,7 +53,15 @@ public static class SystemOperations
         {
             RunCommand("schtasks.exe", "/end /tn \"OpenFluxZenServer\"");
 
-            foreach (var procName in new[] { "OpenFlux.Zen.Server.Web", "OpenFluxZenServer", "openflux" })
+            foreach (var procName in new[] { 
+                "OpenFlux.Zen.Server.Web", 
+                "OpenFlux.Zen.Server", 
+                "OpenFluxZenServer", 
+                "openflux", 
+                "openflux-windows-amd64", 
+                "openflux-windows-arm64", 
+                "zrok" 
+            })
             {
                 foreach (var proc in Process.GetProcessesByName(procName))
                 {
@@ -67,13 +75,23 @@ public static class SystemOperations
             }
 
             RunCommand("taskkill.exe", "/f /t /im OpenFlux.Zen.Server.Web.exe");
+            RunCommand("taskkill.exe", "/f /t /im OpenFlux.Zen.Server.exe");
             RunCommand("taskkill.exe", "/f /t /im OpenFluxZenServer.exe");
+            RunCommand("taskkill.exe", "/f /t /im openflux-windows-amd64.exe");
+            RunCommand("taskkill.exe", "/f /t /im openflux-windows-arm64.exe");
+            RunCommand("taskkill.exe", "/f /t /im openflux.exe");
+            RunCommand("taskkill.exe", "/f /t /im zrok.exe");
             Thread.Sleep(500);
         }
         else
         {
             RunBash("systemctl stop openflux-zen-server.service 2>/dev/null || true");
-            RunBash("pkill -9 -f OpenFlux.Zen.Server.Web 2>/dev/null || true");
+            RunBash("systemctl stop openflux-zrok.service 2>/dev/null || true");
+            RunBash("pkill -9 -f OpenFlux.Zen.Server 2>/dev/null || true");
+            RunBash("pkill -9 -f OpenFluxZenServer 2>/dev/null || true");
+            RunBash("pkill -9 -f openflux-linux 2>/dev/null || true");
+            RunBash("pkill -9 -f openflux 2>/dev/null || true");
+            RunBash("pkill -9 -f zrok 2>/dev/null || true");
             Thread.Sleep(500);
         }
     }
