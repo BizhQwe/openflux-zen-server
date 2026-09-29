@@ -101,12 +101,12 @@ public static class TerminalUi
 
         bool isLan = publishMode == "local" || publishMode == "lan";
         string mainLabel = isLan
-            ? (IsRussian ? "Вход с телефона / LAN:" : "Phone / LAN Access:  ")
-            : (IsRussian ? "Панель управления:" : "Web Dashboard:       ");
+            ? (IsRussian ? "Вход по LAN / Wi-Fi:" : "LAN / Wi-Fi Access:   ")
+            : (IsRussian ? "Панель управления:  " : "Web Dashboard:        ");
 
         string localLabel = isLan
-            ? (IsRussian ? "Локально (с этого ПК):" : "Local Access (PC):   ")
-            : (IsRussian ? "Локальный адрес:" : "Local Access:        ");
+            ? (IsRussian ? "Этот ПК (localhost):" : "This PC (localhost):  ")
+            : (IsRussian ? "Локальный адрес:    " : "Local Access:         ");
 
         Console.ForegroundColor = ConsoleColor.Cyan;
         Console.Write("  " + mainLabel.PadRight(24));

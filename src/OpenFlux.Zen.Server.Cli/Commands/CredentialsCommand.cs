@@ -67,7 +67,7 @@ public static class CredentialsCommand
         var finalUrl = !string.IsNullOrWhiteSpace(publicUrl) ? publicUrl : localUrl;
 
         bool isLan = publishMode == "local" || publishMode == "lan";
-        string dashLabel = isLan ? "  Web Dashboard URL (Phone / LAN):" : "  Web Dashboard URL:";
+        string dashLabel = isLan ? "  Web Dashboard URL (LAN / Wi-Fi):" : "  Web Dashboard URL:";
 
         Console.ForegroundColor = ConsoleColor.Cyan;
         Console.WriteLine("==================================================================");
@@ -92,7 +92,7 @@ public static class CredentialsCommand
 
         if (finalUrl != localUrl)
         {
-            string localLabel = isLan ? "  Local Access URL (PC):" : "  Local Access URL:";
+            string localLabel = isLan ? "  Local Access URL (This PC / localhost):" : "  Local Access URL:";
             Console.ForegroundColor = ConsoleColor.Cyan;
             Console.WriteLine(localLabel);
             Console.ForegroundColor = ConsoleColor.White;
