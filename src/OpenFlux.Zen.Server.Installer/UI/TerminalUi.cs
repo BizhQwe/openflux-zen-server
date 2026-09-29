@@ -85,7 +85,8 @@ public static class TerminalUi
         string publicUrl,
         string localUrl,
         string username,
-        string password)
+        string password,
+        string publishMode = "")
     {
         Console.WriteLine();
         Console.ForegroundColor = ConsoleColor.Green;
@@ -98,15 +99,27 @@ public static class TerminalUi
         Console.ResetColor();
         Console.WriteLine();
 
+        bool isLan = publishMode == "local" || publishMode == "lan";
+        string mainLabel = isLan
+            ? (IsRussian ? "Вход с телефона / LAN:" : "Phone / LAN Access:  ")
+            : (IsRussian ? "Панель управления:" : "Web Dashboard:       ");
+
+        string localLabel = isLan
+            ? (IsRussian ? "Локально (с этого ПК):" : "Local Access (PC):   ")
+            : (IsRussian ? "Локальный адрес:" : "Local Access:        ");
+
         Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.Write("  " + (IsRussian ? "Панель управления:" : "Web Dashboard:    ").PadRight(22));
+        Console.Write("  " + mainLabel.PadRight(24));
         Console.ForegroundColor = ConsoleColor.Yellow;
         Console.WriteLine(publicUrl);
 
-        Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.Write("  " + (IsRussian ? "Локальный адрес:" : "Local Access:     ").PadRight(22));
-        Console.ForegroundColor = ConsoleColor.White;
-        Console.WriteLine(localUrl);
+        if (publicUrl != localUrl)
+        {
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.Write("  " + localLabel.PadRight(24));
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.WriteLine(localUrl);
+        }
 
         PrintField(IsRussian ? "Логин:" : "Username:", username);
         PrintField(IsRussian ? "Пароль:" : "Password:", password);

@@ -18,6 +18,7 @@ public static class CredentialsCommand
         int port = 5000;
         string? publicUrl = null;
         string? localtunnelPassword = null;
+        string? publishMode = null;
 
         if (File.Exists(credPath))
         {
@@ -30,6 +31,7 @@ public static class CredentialsCommand
                 if (doc.TryGetProperty("secretPath", out var s)) secretPath = s.GetString() ?? secretPath;
                 if (doc.TryGetProperty("publicUrl", out var pub)) publicUrl = pub.GetString();
                 if (doc.TryGetProperty("localtunnelPassword", out var lp)) localtunnelPassword = lp.GetString();
+                if (doc.TryGetProperty("publishMode", out var pm)) publishMode = pm.GetString();
             }
             catch { }
         }
@@ -49,6 +51,7 @@ public static class CredentialsCommand
                         secretPath = s.SecretPath;
                         port = s.ListenPort;
                         publicUrl = s.PublicUrl;
+                        if (string.IsNullOrEmpty(publishMode)) publishMode = s.PublishMode;
                     }
                 }
                 catch { }
@@ -63,6 +66,9 @@ public static class CredentialsCommand
         var localUrl = $"http://127.0.0.1:{port}/{secretPath.Trim('/')}/";
         var finalUrl = !string.IsNullOrWhiteSpace(publicUrl) ? publicUrl : localUrl;
 
+        bool isLan = publishMode == "local" || publishMode == "lan";
+        string dashLabel = isLan ? "  Web Dashboard URL (Phone / LAN):" : "  Web Dashboard URL:";
+
         Console.ForegroundColor = ConsoleColor.Cyan;
         Console.WriteLine("==================================================================");
         Console.WriteLine("                 OpenFlux Zen Server — Credentials                ");
@@ -70,8 +76,8 @@ public static class CredentialsCommand
         Console.ResetColor();
         Console.WriteLine();
         Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine("  Web Dashboard URL:");
-        Console.ForegroundColor = ConsoleColor.White;
+        Console.WriteLine(dashLabel);
+        Console.ForegroundColor = ConsoleColor.Yellow;
         Console.WriteLine($"    {finalUrl}");
         Console.WriteLine();
 
@@ -83,11 +89,17 @@ public static class CredentialsCommand
             Console.WriteLine($"    {localtunnelPassword}");
             Console.WriteLine();
         }
-        Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine("  Local Access URL:");
-        Console.ForegroundColor = ConsoleColor.White;
-        Console.WriteLine($"    {localUrl}");
-        Console.WriteLine();
+
+        if (finalUrl != localUrl)
+        {
+            string localLabel = isLan ? "  Local Access URL (PC):" : "  Local Access URL:";
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine(localLabel);
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.WriteLine($"    {localUrl}");
+            Console.WriteLine();
+        }
+
         Console.ForegroundColor = ConsoleColor.Cyan;
         Console.WriteLine("  Authentication Details:");
         Console.ResetColor();

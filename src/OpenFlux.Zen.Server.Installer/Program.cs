@@ -85,18 +85,21 @@ public static class Program
                 {
                     "Открытый порт со своим доменом (или внешний IP)",
                     "Localtunnel (доступ без белого IP)",
-                    "Локальный доступ (только 127.0.0.1)"
+                    "Локальная сеть (LAN / Wi-Fi, доступ с телефона и ПК)",
+                    "Только этот компьютер (строго 127.0.0.1)"
                 }
                 : new[]
                 {
                     "Open port with custom domain (or server public IP)",
                     "Localtunnel (access without public IP)",
-                    "Local access only (127.0.0.1)"
+                    "Local network (LAN / Wi-Fi, access from phone & PC)",
+                    "This computer only (strictly 127.0.0.1)"
                 };
 
             int defaultModeIdx = 0;
             if (existing.PublishMode == "localtunnel") defaultModeIdx = 1;
-            else if (existing.PublishMode == "local") defaultModeIdx = 2;
+            else if (existing.PublishMode == "local" || existing.PublishMode == "lan") defaultModeIdx = 2;
+            else if (existing.PublishMode == "localhost") defaultModeIdx = 3;
 
             var chosenMode = TerminalUi.AskChoice(
                 isRu ? "Сетевое размещение" : "Network accessibility",
@@ -107,7 +110,8 @@ public static class Program
             {
                 0 => "domain",
                 1 => "localtunnel",
-                _ => "local"
+                2 => "local",
+                _ => "localhost"
             };
 
             if (publishMode == "domain")
@@ -166,13 +170,17 @@ public static class Program
         string password = !string.IsNullOrEmpty(existing.Password) ? existing.Password : CredentialGenerator.GeneratePassword(16);
         string secretPath = !string.IsNullOrEmpty(existing.SecretPath) ? existing.SecretPath : CredentialGenerator.GenerateSecretPath(8);
 
+        string host = "0.0.0.0";
+        string localLanIp = SystemOperations.GetLocalLanIp();
         string localUrl = $"http://127.0.0.1:{listenPort}/{secretPath}/";
-        string publicUrl = localUrl;
+        string publicUrl = $"http://{localLanIp}:{listenPort}/{secretPath}/";
 
         try
         {
             if (publishMode == "localtunnel")
             {
+                host = "0.0.0.0";
+                SystemOperations.ConfigureFirewall(listenPort);
                 var subPrefix = $"openflux-{(secretPath.Length >= 8 ? secretPath[..8] : secretPath)}";
                 publicUrl = $"https://{subPrefix}.loca.lt/{secretPath}/";
                 if (string.IsNullOrEmpty(localtunnelPassword))
@@ -182,6 +190,7 @@ public static class Program
             }
             else if (publishMode == "domain")
             {
+                host = "0.0.0.0";
                 SystemOperations.ConfigureFirewall(listenPort);
                 if (!string.IsNullOrEmpty(domain))
                 {
@@ -198,12 +207,24 @@ public static class Program
                         : $"http://<server-ip>:{listenPort}/{secretPath}/";
                 }
             }
+            else if (publishMode == "local" || publishMode == "lan")
+            {
+                host = "0.0.0.0";
+                SystemOperations.ConfigureFirewall(listenPort);
+                publicUrl = $"http://{localLanIp}:{listenPort}/{secretPath}/";
+            }
+            else // localhost
+            {
+                host = "127.0.0.1";
+                publicUrl = localUrl;
+            }
 
             CredentialGenerator.SaveCredentials(
                 credPath,
                 username,
                 password,
                 secretPath,
+                host,
                 publicUrl,
                 publishMode,
                 domain,
@@ -217,6 +238,7 @@ public static class Program
                 username,
                 password,
                 secretPath,
+                host,
                 listenPort,
                 publicUrl,
                 publishMode,
@@ -242,6 +264,7 @@ public static class Program
                 username,
                 password,
                 secretPath,
+                host,
                 listenPort,
                 publicUrl,
                 publishMode,
@@ -283,7 +306,8 @@ public static class Program
             publicUrl,
             localUrl,
             username,
-            password);
+            password,
+            publishMode);
 
         return 0;
     }
@@ -350,7 +374,7 @@ Usage:
 Options:
   --silent                Run non-interactive automated installation
   --lang <ru|en>          Set installer and dashboard language
-  --mode <tunnel|domain|local> Set publishing mode (localtunnel, domain, local)
+  --mode <domain|tunnel|local|localhost> Set publishing mode (domain, localtunnel, local [LAN], localhost [127.0.0.1])
   --port <port>           Set listen port (default: 5000)
   --uninstall             Stop service and uninstall application
   -h, --help              Show help message

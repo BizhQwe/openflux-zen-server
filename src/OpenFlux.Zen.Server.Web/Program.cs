@@ -34,7 +34,8 @@ if (int.TryParse(Environment.GetEnvironmentVariable("OPENFLUX_PORT"), out var en
 {
     listenPort = envPort;
 }
-var listenHost = Environment.GetEnvironmentVariable("OPENFLUX_HOST") ?? credHost ?? "127.0.0.1";
+var envHost = Environment.GetEnvironmentVariable("OPENFLUX_HOST");
+var listenHost = !string.IsNullOrWhiteSpace(credHost) ? credHost : (!string.IsNullOrWhiteSpace(envHost) ? envHost : "0.0.0.0");
 builder.WebHost.UseUrls($"http://{listenHost}:{listenPort}");
 
 // 3. Register Database

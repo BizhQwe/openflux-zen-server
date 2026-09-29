@@ -92,6 +92,45 @@ public static class SystemOperations
         }
     }
 
+    public static string GetLocalLanIp()
+    {
+        try
+        {
+            using var socket = new System.Net.Sockets.Socket(
+                System.Net.Sockets.AddressFamily.InterNetwork,
+                System.Net.Sockets.SocketType.Dgram, 0);
+            socket.Connect("8.8.8.8", 65530);
+            if (socket.LocalEndPoint is System.Net.IPEndPoint endPoint &&
+                !System.Net.IPAddress.IsLoopback(endPoint.Address))
+            {
+                return endPoint.Address.ToString();
+            }
+        }
+        catch { }
+
+        try
+        {
+            foreach (var ni in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces())
+            {
+                if (ni.OperationalStatus != System.Net.NetworkInformation.OperationalStatus.Up ||
+                    ni.NetworkInterfaceType == System.Net.NetworkInformation.NetworkInterfaceType.Loopback)
+                    continue;
+
+                foreach (var ip in ni.GetIPProperties().UnicastAddresses)
+                {
+                    if (ip.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork &&
+                        !System.Net.IPAddress.IsLoopback(ip.Address))
+                    {
+                        return ip.Address.ToString();
+                    }
+                }
+            }
+        }
+        catch { }
+
+        return "127.0.0.1";
+    }
+
     public static void RegisterPath(string installDir)
     {
         if (OperatingSystem.IsWindows())
@@ -122,6 +161,7 @@ public static class SystemOperations
         string username,
         string password,
         string secretPath,
+        string host,
         int port,
         string publicUrl,
         string publishMode,
@@ -147,7 +187,7 @@ public static class SystemOperations
             // Set persistent environment variables for the machine
             try
             {
-                Environment.SetEnvironmentVariable("OPENFLUX_HOST", "127.0.0.1", EnvironmentVariableTarget.Machine);
+                Environment.SetEnvironmentVariable("OPENFLUX_HOST", host, EnvironmentVariableTarget.Machine);
                 Environment.SetEnvironmentVariable("OPENFLUX_PORT", port.ToString(), EnvironmentVariableTarget.Machine);
                 Environment.SetEnvironmentVariable("OPENFLUX_SECRET_PATH", secretPath, EnvironmentVariableTarget.Machine);
                 Environment.SetEnvironmentVariable("OPENFLUX_ADMIN_USER", username, EnvironmentVariableTarget.Machine);
@@ -173,7 +213,7 @@ WorkingDirectory={installDir}
 ExecStart={exePath}
 Restart=always
 RestartSec=5
-Environment=OPENFLUX_HOST=127.0.0.1
+Environment=OPENFLUX_HOST={host}
 Environment=OPENFLUX_PORT={port}
 Environment=OPENFLUX_SECRET_PATH={secretPath}
 Environment=OPENFLUX_ADMIN_USER={username}
@@ -202,7 +242,7 @@ WantedBy=multi-user.target
         }
     }
 
-    public static void StartServer(string installDir, string username, string password, string secretPath, int port, string publicUrl, string publishMode, string language)
+    public static void StartServer(string installDir, string username, string password, string secretPath, string host, int port, string publicUrl, string publishMode, string language)
     {
         if (OperatingSystem.IsWindows())
         {
@@ -216,7 +256,7 @@ WantedBy=multi-user.target
                 RedirectStandardOutput = false,
                 RedirectStandardError = false
             };
-            psi.Environment["OPENFLUX_HOST"] = "127.0.0.1";
+            psi.Environment["OPENFLUX_HOST"] = host;
             psi.Environment["OPENFLUX_PORT"] = port.ToString();
             psi.Environment["OPENFLUX_SECRET_PATH"] = secretPath;
             psi.Environment["OPENFLUX_ADMIN_USER"] = username;

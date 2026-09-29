@@ -23,9 +23,9 @@ public static class CredentialGenerator
         return new string(result);
     }
 
-    public static (string Username, string Password, string SecretPath, string PublishMode, string Domain, string PublicUrl, string? LtPass) LoadExisting(string credPath)
+    public static (string Username, string Password, string SecretPath, string PublishMode, string Domain, string PublicUrl, string? LtPass, string Host) LoadExisting(string credPath)
     {
-        if (!File.Exists(credPath)) return ("", "", "", "", "", "", null);
+        if (!File.Exists(credPath)) return ("", "", "", "", "", "", null, "");
         try
         {
             var json = File.ReadAllText(credPath);
@@ -38,11 +38,12 @@ public static class CredentialGenerator
             var d = root.TryGetProperty("domain", out var pd) ? pd.GetString() ?? "" : "";
             var puUrl = root.TryGetProperty("publicUrl", out var ppu) ? ppu.GetString() ?? "" : "";
             var lt = root.TryGetProperty("localtunnelPassword", out var plt) ? plt.GetString() : null;
-            return (u, p, s, m, d, puUrl, lt);
+            var h = root.TryGetProperty("host", out var ph) ? ph.GetString() ?? "" : "";
+            return (u, p, s, m, d, puUrl, lt, h);
         }
         catch
         {
-            return ("", "", "", "", "", "", null);
+            return ("", "", "", "", "", "", null, "");
         }
     }
 
@@ -51,6 +52,7 @@ public static class CredentialGenerator
         string username,
         string password,
         string secretPath,
+        string host,
         string publicUrl,
         string publishMode,
         string? domain,
@@ -64,6 +66,7 @@ public static class CredentialGenerator
             ["username"] = username,
             ["password"] = password,
             ["secretPath"] = secretPath,
+            ["host"] = host,
             ["publicUrl"] = publicUrl,
             ["publishMode"] = publishMode,
             ["language"] = language,
