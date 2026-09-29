@@ -54,7 +54,9 @@ foreach ($rid in $Targets) {
         if ($LASTEXITCODE -ne 0) { throw "Failed to publish CLI project for $rid" }
 
         # 3. Packaging runtimes directory and templates
-        Write-Host "  [3/4] Preparing runtimes structure..." -ForegroundColor Gray
+        # NOTE: OpenFlux core engine is intentionally NOT bundled into the installer.
+        # The server automatically downloads the appropriate official engine on startup.
+        Write-Host "  [3/4] Preparing runtimes structure (core downloaded by server on startup)..." -ForegroundColor Gray
         $runtimesDst = Join-Path $tempStage "runtimes"
         New-Item -ItemType Directory -Path $runtimesDst -Force | Out-Null
 

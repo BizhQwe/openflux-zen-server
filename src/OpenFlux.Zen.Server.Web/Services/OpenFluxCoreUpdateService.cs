@@ -147,7 +147,7 @@ public sealed class OpenFluxCoreUpdateService : IOpenFluxCoreUpdateService
 
         try
         {
-            GitHubRelease? release;
+            GitHubRelease? release = null;
             if (!string.IsNullOrWhiteSpace(targetVersion))
             {
                 _logger.LogInformation("Fetching official OpenFlux release for tag {Tag}...", targetVersion);
@@ -159,34 +159,7 @@ public sealed class OpenFluxCoreUpdateService : IOpenFluxCoreUpdateService
                 release = await FetchLatestReleaseAsync(ct);
             }
 
-            if (release == null)
-            {
-                return new OpenFluxCoreUpdateResult
-                {
-                    Success = false,
-                    Message = !string.IsNullOrWhiteSpace(targetVersion)
-                        ? $"Unable to fetch OpenFlux release metadata for tag '{targetVersion}' from GitHub."
-                        : "Unable to fetch latest release metadata from GitHub.",
-                    PreviousVersion = previousVersion
-                };
-            }
-
             var targetBinaryName = _binaryResolver.GetExpectedBinaryName();
-            var targetAsset = release.Assets?.FirstOrDefault(a =>
-                string.Equals(a.Name, targetBinaryName, StringComparison.OrdinalIgnoreCase));
-
-            if (targetAsset == null || string.IsNullOrWhiteSpace(targetAsset.BrowserDownloadUrl))
-            {
-                var msg = $"Matching binary asset '{targetBinaryName}' not found in release {release.TagName}.";
-                _logger.LogError(msg);
-                return new OpenFluxCoreUpdateResult
-                {
-                    Success = false,
-                    Message = msg,
-                    PreviousVersion = previousVersion
-                };
-            }
-
             var targetBinaryPath = ResolveWritableBinaryPath(targetBinaryName);
             var targetDir = Path.GetDirectoryName(targetBinaryPath)!;
             if (!Directory.Exists(targetDir))
@@ -194,26 +167,78 @@ public sealed class OpenFluxCoreUpdateService : IOpenFluxCoreUpdateService
                 Directory.CreateDirectory(targetDir);
             }
 
-            var tempDownloadPath = Path.Combine(targetDir, $"{targetBinaryName}.download_{Guid.NewGuid():N}");
-            _logger.LogInformation("Downloading official OpenFlux core asset {Asset} ({Size} bytes) from {Url} to {TempPath}...",
-                targetAsset.Name, targetAsset.Size, targetAsset.BrowserDownloadUrl, tempDownloadPath);
+            // Build prioritized candidate download URLs
+            var downloadUrls = new List<string>();
 
-            using (var response = await _httpClient.GetAsync(targetAsset.BrowserDownloadUrl, HttpCompletionOption.ResponseHeadersRead, ct))
+            var targetAsset = release?.Assets?.FirstOrDefault(a =>
+                string.Equals(a.Name, targetBinaryName, StringComparison.OrdinalIgnoreCase));
+            if (targetAsset != null && !string.IsNullOrWhiteSpace(targetAsset.BrowserDownloadUrl))
             {
-                response.EnsureSuccessStatusCode();
-                await using var stream = await response.Content.ReadAsStreamAsync(ct);
-                await using var fileStream = new FileStream(tempDownloadPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true);
-                await stream.CopyToAsync(fileStream, ct);
+                downloadUrls.Add(targetAsset.BrowserDownloadUrl);
             }
 
-            var downloadedFi = new FileInfo(tempDownloadPath);
-            if (!downloadedFi.Exists || downloadedFi.Length < 1_000_000)
+            if (!string.IsNullOrWhiteSpace(targetVersion))
             {
-                try { File.Delete(tempDownloadPath); } catch { }
+                downloadUrls.Add($"https://github.com/p1neappleXpress/OpenFlux/releases/download/{targetVersion.Trim()}/{targetBinaryName}");
+            }
+            if (release != null && !string.IsNullOrWhiteSpace(release.TagName))
+            {
+                downloadUrls.Add($"https://github.com/p1neappleXpress/OpenFlux/releases/download/{release.TagName.Trim()}/{targetBinaryName}");
+            }
+            downloadUrls.Add($"https://github.com/p1neappleXpress/OpenFlux/releases/latest/download/{targetBinaryName}");
+            downloadUrls.Add($"https://github.com/p1neappleXpress/OpenFlux/releases/download/{FallbackDefaultVersion}/{targetBinaryName}");
+
+            downloadUrls = downloadUrls.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
+            var tempDownloadPath = Path.Combine(targetDir, $"{targetBinaryName}.download_{Guid.NewGuid():N}");
+            bool downloadSuccess = false;
+            string? lastError = null;
+
+            foreach (var url in downloadUrls)
+            {
+                try
+                {
+                    _logger.LogInformation("Downloading official OpenFlux core asset from {Url} to {TempPath}...", url, tempDownloadPath);
+                    using var response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        _logger.LogWarning("Download attempt from {Url} returned HTTP {StatusCode}", url, response.StatusCode);
+                        continue;
+                    }
+
+                    await using (var stream = await response.Content.ReadAsStreamAsync(ct))
+                    await using (var fileStream = new FileStream(tempDownloadPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true))
+                    {
+                        await stream.CopyToAsync(fileStream, ct);
+                    }
+
+                    var downloadedFi = new FileInfo(tempDownloadPath);
+                    if (downloadedFi.Exists && downloadedFi.Length >= 1_000_000)
+                    {
+                        downloadSuccess = true;
+                        _logger.LogInformation("Successfully downloaded {BinaryName} ({SizeMb} MB) from {Url}",
+                            targetBinaryName, Math.Round(downloadedFi.Length / 1024.0 / 1024.0, 2), url);
+                        break;
+                    }
+                    else
+                    {
+                        try { File.Delete(tempDownloadPath); } catch { }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex.Message;
+                    _logger.LogWarning(ex, "Download attempt failed from {Url}", url);
+                    try { if (File.Exists(tempDownloadPath)) File.Delete(tempDownloadPath); } catch { }
+                }
+            }
+
+            if (!downloadSuccess)
+            {
                 return new OpenFluxCoreUpdateResult
                 {
                     Success = false,
-                    Message = "Downloaded core binary is corrupted or incomplete.",
+                    Message = $"Failed to download OpenFlux core binary from GitHub releases. {(lastError != null ? $"Error: {lastError}" : "")}".Trim(),
                     PreviousVersion = previousVersion
                 };
             }
@@ -283,16 +308,17 @@ public sealed class OpenFluxCoreUpdateService : IOpenFluxCoreUpdateService
             _binaryResolver.InvalidateCache();
 
             // Update metadata
-            meta.CurrentVersion = release.TagName;
-            meta.LatestVersion = release.TagName;
+            var resolvedVersion = release?.TagName ?? targetVersion?.Trim() ?? FallbackDefaultVersion;
+            meta.CurrentVersion = resolvedVersion;
+            meta.LatestVersion = resolvedVersion;
             meta.InstalledAt = DateTime.UtcNow;
             meta.LastCheckedAt = DateTime.UtcNow;
-            meta.ReleaseUrl = release.HtmlUrl;
-            meta.ReleaseNotes = release.Body;
-            meta.PublishedAt = release.PublishedAt;
+            meta.ReleaseUrl = release?.HtmlUrl ?? $"https://github.com/p1neappleXpress/OpenFlux/releases/tag/{resolvedVersion}";
+            meta.ReleaseNotes = release?.Body ?? "Downloaded official OpenFlux release binary";
+            meta.PublishedAt = release?.PublishedAt ?? DateTime.UtcNow;
             await SaveMetadataAsync(meta);
 
-            _logger.LogInformation("OpenFlux core updated successfully to {Version} ({Path})", release.TagName, targetBinaryPath);
+            _logger.LogInformation("OpenFlux core updated successfully to {Version} ({Path})", resolvedVersion, targetBinaryPath);
 
             // Restart previously running tunnels
             foreach (var tid in runningTunnelIds)
@@ -311,9 +337,9 @@ public sealed class OpenFluxCoreUpdateService : IOpenFluxCoreUpdateService
             return new OpenFluxCoreUpdateResult
             {
                 Success = true,
-                Message = $"OpenFlux core successfully updated to {release.TagName}",
+                Message = $"OpenFlux core successfully updated to {resolvedVersion}",
                 PreviousVersion = previousVersion,
-                NewVersion = release.TagName
+                NewVersion = resolvedVersion
             };
         }
         catch (Exception ex)

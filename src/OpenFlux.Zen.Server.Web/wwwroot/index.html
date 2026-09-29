@@ -265,7 +265,7 @@
             <h4 data-i18n="settings_panel_title">OpenFlux Zen Server</h4>
             <div style="display: flex; gap: 8px; align-items: center;">
               <span id="panel-status-badge" class="badge-status-update" style="display: none;"></span>
-              <span id="panel-current-version-badge" style="background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #93c5fd; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600;">Server: v1.0.43</span>
+              <span id="panel-current-version-badge" style="background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #93c5fd; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600;">Server: v1.0.44</span>
             </div>
           </div>
           <p style="color: var(--text-dim); margin-bottom: 16px; font-size: 0.9rem;" data-i18n="settings_panel_desc">
@@ -375,70 +375,66 @@
           </div>
         </div>
 
-        <!-- 4. Network Placement & Panel Address -->
+        <!-- 4. Panel Access -->
         <div class="card settings-card" id="network-access-card">
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-            <h4 data-i18n="settings_network_access_title">Сетевое размещение и доступ к панели</h4>
-            <span id="setting-network-mode" style="background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #93c5fd; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600;">—</span>
+          <div class="settings-card-header">
+            <h4 data-i18n="settings_network_access_title">Доступ к панели</h4>
           </div>
-          <p style="color: var(--text-dim); margin-bottom: 16px; font-size: 0.9rem;" data-i18n="settings_network_access_desc">
-            Текущий адрес веб-панели и управление сетевым размещением сервера.
+          <p class="settings-card-description" data-i18n="settings_network_access_desc">
+            Ссылка для входа в панель с этого компьютера и других устройств.
           </p>
 
-          <div style="width: 100%; margin-bottom: 20px;">
-            <label for="setting-network-url-input" style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;" data-i18n="settings_network_url_label">Адрес панели (URL)</label>
-            <div style="display: flex; gap: 8px; width: 100%; flex-wrap: wrap;">
-              <input type="text" id="setting-network-url-input" class="form-control" readonly style="flex: 1; min-width: 260px; font-family: var(--font-mono); font-size: 0.85rem;" />
-              <button type="button" class="btn btn-outline" onclick="copyNetworkUrl()" title="Копировать URL" style="padding: 0 14px; min-height: 42px; display: inline-flex; align-items: center; gap: 6px;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <div class="form-group panel-address-field">
+            <label for="setting-network-url-input" data-i18n="settings_network_url_label">Адрес панели (URL)</label>
+            <div class="panel-address-row">
+              <input type="text" id="setting-network-url-input" class="form-control panel-address-input" readonly aria-describedby="panel-link-note" spellcheck="false" />
+              <button type="button" class="btn btn-outline" onclick="copyNetworkUrl()">
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                 <span data-i18n="btn_copy">Копировать</span>
               </button>
-              <button type="button" class="btn btn-outline" onclick="openNetworkUrl()" title="Открыть адрес в новой вкладке" style="padding: 0 14px; min-height: 42px; display: inline-flex; align-items: center; gap: 6px;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-                <span data-i18n="btn_open_url">Открыть</span>
-              </button>
-              <button type="button" class="btn btn-outline" onclick="regenerateSecretPath()" title="Перегенерировать секретный путь панели" style="padding: 0 14px; min-height: 42px; display: inline-flex; align-items: center; gap: 6px; border-color: rgba(245, 158, 11, 0.4); color: #fbbf24;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
-                <span data-i18n="btn_regen_secret">Сменить секрет</span>
-              </button>
             </div>
-            <small style="display: block; margin-top: 6px; color: var(--text-muted); font-size: 0.8rem;" data-i18n="settings_secret_note">
-              Секретный путь защищает панель от сканеров и ботов. При смене секрета адрес панели изменится.
-            </small>
-            <div id="setting-network-url" style="display: none;"></div>
           </div>
-
-          <div style="margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--border-color);">
-            <h5 style="margin-bottom: 6px; font-size: 0.95rem; color: #fff;" data-i18n="settings_change_network_mode_title">Управление сетевым размещением</h5>
-            <p style="color: var(--text-dim); margin-bottom: 14px; font-size: 0.85rem;" data-i18n="settings_change_network_mode_desc">
-              Выберите, откуда разрешён доступ к веб-панели сервера.
-            </p>
-            <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end;">
-              <div style="flex: 1; min-width: 260px;">
-                <label for="setting-network-mode-select" style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;" data-i18n="settings_select_mode_label">Тип размещения</label>
-                <select id="setting-network-mode-select" class="form-control" onchange="onNetworkModeSelectChanged()">
-                  <option value="local" data-i18n="mode_local">Через локальную сеть (LAN / Wi-Fi)</option>
-                  <option value="localtunnel" data-i18n="mode_localtunnel">Через Localtunnel (без публичного IP)</option>
-                  <option value="domain" data-i18n="mode_domain">Прямое подключение (домен / публичный IP)</option>
-                  <option value="localhost" data-i18n="mode_localhost">Только на этом ПК (localhost)</option>
-                </select>
-              </div>
-              <div id="network-domain-container" style="flex: 1; min-width: 200px; display: none;">
-                <label for="setting-domain-input" style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;" data-i18n="settings_domain_label">Домен (опционально)</label>
-                <input type="text" id="setting-domain-input" class="form-control" placeholder="my-domain.com" />
-              </div>
-              <div>
-                <button id="btn-save-network-mode" type="button" class="btn btn-primary" onclick="saveNetworkPlacement()" style="min-height: 42px; display: inline-flex; align-items: center; gap: 6px;">
-                  <span id="btn-save-network-spinner" style="display: none;" class="spinner-inline"></span>
-                  <span data-i18n="btn_apply_network_mode">Применить</span>
-                </button>
-              </div>
-            </div>
-            <div id="network-mode-info-box" style="margin-top: 12px; padding: 10px 14px; border-radius: 6px; font-size: 0.82rem; line-height: 1.5; background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.2); color: #93c5fd;"></div>
+          <div class="panel-link-footer">
+            <p id="panel-link-note" class="settings-helper" data-i18n="settings_secret_note">В ссылке есть секретный путь для защиты от сканеров и ботов. После обновления прежняя ссылка перестанет работать.</p>
+            <button id="btn-regenerate-panel-link" type="button" class="btn btn-quiet" onclick="regenerateSecretPath()" aria-describedby="panel-link-note">
+              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 7a7 7 0 0 1 11.55-2L20 8M4 16l2.35 3A7 7 0 0 0 17.9 17"/></svg>
+              <span data-i18n="btn_regen_secret">Обновить ссылку</span>
+            </button>
           </div>
         </div>
 
-        <!-- 5. Language Selector -->
+        <!-- 5. Network Placement -->
+        <div class="card settings-card" id="network-placement-card">
+          <div class="settings-card-header">
+            <h4 data-i18n="settings_change_network_mode_title">Управление сетевым размещением</h4>
+            <span id="setting-network-mode" class="network-mode-badge">—</span>
+          </div>
+            <p class="settings-card-description" data-i18n="settings_change_network_mode_desc">
+              Выберите, откуда разрешён доступ к веб-панели сервера.
+            </p>
+            <div class="network-placement-row">
+              <div class="form-group network-mode-field">
+                <label for="setting-network-mode-select" data-i18n="settings_select_mode_label">Тип размещения</label>
+                <select id="setting-network-mode-select" class="form-control" onchange="onNetworkModeSelectChanged()" aria-describedby="network-mode-info-box">
+                  <option value="local" data-i18n="mode_local">Локальная сеть (LAN / Wi-Fi)</option>
+                  <option value="localtunnel" data-i18n="mode_localtunnel">Localtunnel (доступ из интернета)</option>
+                  <option value="domain" data-i18n="mode_domain">Домен / публичный IP</option>
+                  <option value="localhost" data-i18n="mode_localhost">Только этот компьютер</option>
+                </select>
+              </div>
+              <div id="network-domain-container" class="form-group network-domain-field" style="display: none;">
+                <label for="setting-domain-input" data-i18n="settings_domain_label">Домен (опционально)</label>
+                <input type="text" id="setting-domain-input" class="form-control" placeholder="my-domain.com" autocapitalize="none" spellcheck="false" />
+              </div>
+                <button id="btn-save-network-mode" type="button" class="btn btn-primary" onclick="saveNetworkPlacement()">
+                  <span id="btn-save-network-spinner" style="display: none;" class="spinner-inline"></span>
+                  <span data-i18n="btn_apply_network_mode">Применить</span>
+                </button>
+            </div>
+            <p id="network-mode-info-box" class="network-mode-info" aria-live="polite"></p>
+        </div>
+
+        <!-- 6. Language Selector -->
         <div class="card settings-card" id="language-settings-card">
           <h4 style="margin-bottom: 8px;" data-i18n="settings_lang_title">Язык интерфейса</h4>
           <p style="color: var(--text-dim); margin-bottom: 16px; font-size: 0.9rem;" data-i18n="settings_lang_desc">

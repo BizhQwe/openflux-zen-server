@@ -39,6 +39,7 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
     private readonly ILogger<TunnelProcessSupervisor> _logger;
     private readonly IOpenFluxBinaryResolver _binaryResolver;
     private readonly ITunnelLogService _logService;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly ConcurrentDictionary<Guid, TunnelState> _tunnelStates = new();
     private readonly string _keysDirectory;
     private readonly Timer _flushTimer;
@@ -55,11 +56,13 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
     public TunnelProcessSupervisor(
         ILogger<TunnelProcessSupervisor> logger,
         IOpenFluxBinaryResolver binaryResolver,
-        ITunnelLogService logService)
+        ITunnelLogService logService,
+        IServiceScopeFactory scopeFactory)
     {
         _logger = logger;
         _binaryResolver = binaryResolver;
         _logService = logService;
+        _scopeFactory = scopeFactory;
         _keysDirectory = Path.Combine(AppContext.BaseDirectory, "data", "keys");
         Directory.CreateDirectory(_keysDirectory);
 
@@ -95,6 +98,28 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         }
 
         var binaryPath = _binaryResolver.GetBinaryPath();
+        if (!File.Exists(binaryPath))
+        {
+            _logger.LogInformation("OpenFlux binary not found locally at '{BinaryPath}'. Attempting on-demand core download...", binaryPath);
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var coreUpdater = scope.ServiceProvider.GetService<IOpenFluxCoreUpdateService>();
+                if (coreUpdater != null)
+                {
+                    var dlRes = await coreUpdater.UpdateCoreAsync();
+                    if (dlRes.Success)
+                    {
+                        binaryPath = _binaryResolver.GetBinaryPath();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed on-demand download of OpenFlux binary");
+            }
+        }
+
         if (!File.Exists(binaryPath))
         {
             var err = $"OpenFlux binary not found at '{binaryPath}'";

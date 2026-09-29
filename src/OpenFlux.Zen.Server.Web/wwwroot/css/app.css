@@ -223,6 +223,86 @@
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
     }
 
+    /* Settings access and placement cards */
+    .settings-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .settings-card-description {
+      color: var(--text-dim);
+      margin-bottom: 20px;
+      font-size: 0.9rem;
+    }
+    .panel-address-field { margin-bottom: 0; }
+    .panel-address-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: stretch;
+    }
+    .panel-address-input {
+      min-width: 0;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+    }
+    .panel-link-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-top: 12px;
+      padding-top: 14px;
+      border-top: 1px solid var(--card-border);
+    }
+    .settings-helper {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      line-height: 1.5;
+    }
+    .btn-quiet {
+      flex: 0 0 auto;
+      background: transparent;
+      border: 0;
+      color: var(--text-muted);
+      padding: 8px 4px;
+      min-height: 36px;
+    }
+    .btn-quiet:hover { background: transparent; color: #fff; }
+    .network-mode-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 4px 10px;
+      border-radius: 7px;
+      background: rgba(59, 130, 246, 0.12);
+      border: 1px solid rgba(59, 130, 246, 0.25);
+      color: #93c5fd;
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-align: right;
+    }
+    .network-placement-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(180px, 0.7fr) auto;
+      gap: 12px;
+      align-items: end;
+    }
+    .network-placement-row .form-group { margin-bottom: 0; }
+    .network-mode-info {
+      margin: 14px 0 0;
+      padding: 11px 14px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      line-height: 1.5;
+      background: rgba(59, 130, 246, 0.08);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      color: #93c5fd;
+    }
+
     /* Stats Grid */
     .stats-grid {
       display: grid;
@@ -612,6 +692,15 @@
       cursor: pointer;
     }
       .card, .tunnel-item { padding: 18px; }
+      .settings-card-header { align-items: flex-start; flex-direction: column; }
+      .settings-card-description { margin-bottom: 16px; }
+      .panel-address-row { grid-template-columns: 1fr; }
+      .panel-address-row .btn { width: 100%; }
+      .panel-link-footer { align-items: flex-start; flex-direction: column; gap: 10px; }
+      .btn-quiet { padding-left: 0; }
+      .network-placement-row { grid-template-columns: 1fr; gap: 12px; }
+      .network-placement-row .btn { width: 100%; }
+      .network-mode-badge { text-align: left; }
       .tunnel-details { padding: 14px; gap: 16px 12px; }
       .detail-label { font-size: 0.7rem; }
       .detail-val { font-size: 0.8rem; }
