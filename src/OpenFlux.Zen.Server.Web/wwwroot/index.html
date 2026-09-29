@@ -209,7 +209,7 @@
           </div>
         </div>
 
-        <div class="card">
+        <div class="card settings-card">
           <h4 style="margin-bottom: 8px;" data-i18n="config_import_title">Импорт конфигурации (JSON)</h4>
           <p style="color: var(--text-dim); margin-bottom: 16px; font-size: 0.9rem;" data-i18n="config_import_desc">
             Вставьте экспортированный JSON или выберите файл конфигурации с вашего компьютера. Существующие туннели будут обновлены, новые — добавлены.
@@ -267,7 +267,7 @@
         </div>
 
         <!-- Secret Path -->
-        <div class="card">
+        <div class="card settings-card">
           <h4 style="margin-bottom: 8px;" data-i18n="settings_secret_title">Секретный путь панели</h4>
           <p style="color: var(--text-dim); margin-bottom: 16px; font-size: 0.9rem;" data-i18n="settings_secret_desc">
             Случайный путь URL обеспечивает защиту от сканеров и ботов. Доступ возможен только по этому пути.
@@ -279,7 +279,7 @@
         </div>
 
         <!-- Network Placement Info -->
-        <div class="card">
+        <div class="card settings-card">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
             <h4 data-i18n="settings_network_title">Сетевое размещение</h4>
             <span id="setting-network-mode" style="background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #93c5fd; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600;">—</span>
@@ -288,28 +288,6 @@
             Текущий режим сетевого размещения панели и сервера.
           </p>
           <div id="setting-network-url" style="color: var(--text-dim); font-size: 0.88rem; font-family: var(--font-mono); word-break: break-all;"></div>
-        </div>
-
-        <!-- Decoy Site (Stealth Masking as in 3X-UI Pro) -->
-        <div class="card">
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
-            <h4 data-i18n="settings_decoy_title">Сайт-заглушка (Маскировка)</h4>
-            <span style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); color: #6ee7b7; padding: 4px 10px; border-radius: 6px; font-size: 0.82rem; font-weight: 600;">✓ Активна (как в 3X-UI Pro)</span>
-          </div>
-          <p style="color: var(--text-dim); margin-bottom: 10px; font-size: 0.9rem;" data-i18n="settings_decoy_desc">
-            Все запросы к серверу на любые адреса, кроме секретного пути, перенаправляются на сайт-заглушку, скрывая сервер от сканеров.
-          </p>
-          <p style="color: var(--text-dim); margin-bottom: 16px; font-size: 0.85rem;" data-i18n="settings_decoy_custom_hint">
-            Вы можете загрузить собственный HTML-сайт в папку data/decoy/ (index.html) или указать внешний URL ниже.
-          </p>
-          <div class="form-group" style="margin-bottom: 16px;">
-            <label for="setting-decoy-redirect" data-i18n="settings_decoy_url_label">URL внешнего перенаправления (опционально)</label>
-            <input type="url" id="setting-decoy-redirect" class="form-control" data-i18n-placeholder="settings_decoy_url_placeholder" placeholder="https://example.com (оставьте пустым для встроенной заглушки)" />
-          </div>
-          <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-            <button type="button" class="btn btn-primary" onclick="saveDecoySettings()" data-i18n="btn_save_decoy">Сохранить настройки заглушки</button>
-            <a href="/" target="_blank" class="btn btn-outline" data-i18n="btn_open_decoy">Открыть сайт-заглушку</a>
-          </div>
         </div>
       </div>
 

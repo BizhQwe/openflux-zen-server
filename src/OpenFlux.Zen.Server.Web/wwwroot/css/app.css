@@ -553,7 +553,10 @@
     .progress-bar-bg { width: 100%; height: 6px; background: #1a2538; border-radius: 3px; overflow: hidden; margin-top: 4px; }
     .progress-bar-fill { height: 100%; background: var(--accent); border-radius: 3px; }
 
-    .settings-card, .config-card { margin-bottom: 20px; }
+    .card + .card { margin-top: 24px; }
+    .settings-card, .config-card { margin-bottom: 24px; }
+    #tab-settings .card, #tab-config .card { margin-bottom: 24px; }
+    #tab-settings .card:last-child, #tab-config .card:last-child { margin-bottom: 0; }
     .account-form { max-width: 560px; }
     .secret-path-row { max-width: 640px; }
     #import-file-name { overflow-wrap: anywhere; min-width: 0; }
