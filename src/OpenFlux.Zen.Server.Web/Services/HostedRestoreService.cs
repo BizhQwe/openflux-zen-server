@@ -63,6 +63,13 @@ public sealed class HostedRestoreService : IHostedService
                 await db.Database.EnsureCreatedAsync(cancellationToken);
             }
 
+            // Ensure schema resiliency for DecoyRedirectUrl column on upgraded databases
+            try
+            {
+                await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Settings\" ADD COLUMN \"DecoyRedirectUrl\" TEXT NULL;", cancellationToken);
+            }
+            catch { }
+
             // Ensure settings and admin account exist
             var currentSettings = await db.Settings.FirstOrDefaultAsync(s => s.Id == 1, cancellationToken);
             if (currentSettings == null)

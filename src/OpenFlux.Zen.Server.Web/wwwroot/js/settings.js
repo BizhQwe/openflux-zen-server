@@ -60,6 +60,23 @@ async function loadSettings() {
         setLanguage(s.language, false);
       }
     }
+    const modeBadge = document.getElementById('setting-network-mode');
+    const modeUrl = document.getElementById('setting-network-url');
+    if (modeBadge) {
+      const mode = s.publishMode || 'local';
+      let modeText = t('mode_local');
+      if (mode === 'domain') modeText = t('mode_domain');
+      else if (mode === 'localtunnel') modeText = t('mode_localtunnel');
+      else if (mode === 'localhost') modeText = t('mode_localhost');
+      modeBadge.textContent = modeText;
+    }
+    if (modeUrl && s.publicUrl) {
+      modeUrl.textContent = 'URL: ' + s.publicUrl;
+    }
+    const decoyInput = document.getElementById('setting-decoy-redirect');
+    if (decoyInput) {
+      decoyInput.value = s.decoyRedirectUrl || '';
+    }
   }
 }
 
@@ -103,5 +120,22 @@ async function regenerateSecretPath() {
     setTimeout(() => {
       window.location.pathname = '/' + d.secretPath.replace(/^\/+|\/+$/g, '') + '/';
     }, 1500);
+  }
+}
+
+async function saveDecoySettings() {
+  const val = (document.getElementById('setting-decoy-redirect').value || '').trim();
+  try {
+    const res = await api('api/settings/decoy', {
+      method: 'POST',
+      body: JSON.stringify({ decoyRedirectUrl: val })
+    });
+    if (res.ok) {
+      toast(t('toast_saved'), 'success');
+    } else {
+      toast(t('toast_error'), 'danger');
+    }
+  } catch {
+    toast(t('toast_error'), 'danger');
   }
 }

@@ -39,6 +39,14 @@ public static class SettingsEndpoints
             return Results.Ok(new { success = ok, language = req.Language });
         });
 
+        group.MapPost("/settings/decoy", async (DecoySettingsRequest req, ISettingsService settingsService) =>
+        {
+            var s = await settingsService.GetSettingsAsync();
+            s.DecoyRedirectUrl = string.IsNullOrWhiteSpace(req.DecoyRedirectUrl) ? null : req.DecoyRedirectUrl.Trim();
+            await settingsService.UpdateSettingsAsync(s);
+            return Results.Ok(new { success = true, decoyRedirectUrl = s.DecoyRedirectUrl });
+        });
+
         group.MapGet("/config/export", async (IExportImportService exportImport) =>
         {
             var json = await exportImport.ExportConfigurationJsonAsync();
@@ -58,4 +66,4 @@ public static class SettingsEndpoints
 }
 
 public record LanguageRequest(string Language);
-
+public record DecoySettingsRequest(string? DecoyRedirectUrl);

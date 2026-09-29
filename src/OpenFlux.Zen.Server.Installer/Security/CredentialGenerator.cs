@@ -23,9 +23,9 @@ public static class CredentialGenerator
         return new string(result);
     }
 
-    public static (string Username, string Password, string SecretPath, string PublishMode, string Domain, string PublicUrl, string? LtPass, string Host) LoadExisting(string credPath)
+    public static (string Username, string Password, string SecretPath, string PublishMode, string Domain, string PublicUrl, string? LtPass, string Host, string? DecoyUrl) LoadExisting(string credPath)
     {
-        if (!File.Exists(credPath)) return ("", "", "", "", "", "", null, "");
+        if (!File.Exists(credPath)) return ("", "", "", "", "", "", null, "", null);
         try
         {
             var json = File.ReadAllText(credPath);
@@ -39,11 +39,12 @@ public static class CredentialGenerator
             var puUrl = root.TryGetProperty("publicUrl", out var ppu) ? ppu.GetString() ?? "" : "";
             var lt = root.TryGetProperty("localtunnelPassword", out var plt) ? plt.GetString() : null;
             var h = root.TryGetProperty("host", out var ph) ? ph.GetString() ?? "" : "";
-            return (u, p, s, m, d, puUrl, lt, h);
+            var du = root.TryGetProperty("decoyRedirectUrl", out var pdu) ? pdu.GetString() : null;
+            return (u, p, s, m, d, puUrl, lt, h, du);
         }
         catch
         {
-            return ("", "", "", "", "", "", null, "");
+            return ("", "", "", "", "", "", null, "", null);
         }
     }
 
@@ -58,7 +59,8 @@ public static class CredentialGenerator
         string? domain,
         string? localtunnelPassword,
         string language,
-        bool autostart)
+        bool autostart,
+        string? decoyRedirectUrl = null)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(credPath)!);
         var dict = new Dictionary<string, object?>
@@ -76,6 +78,7 @@ public static class CredentialGenerator
 
         if (!string.IsNullOrEmpty(domain)) dict["domain"] = domain;
         if (!string.IsNullOrEmpty(localtunnelPassword)) dict["localtunnelPassword"] = localtunnelPassword;
+        if (!string.IsNullOrEmpty(decoyRedirectUrl)) dict["decoyRedirectUrl"] = decoyRedirectUrl;
 
         var json = JsonSerializer.Serialize(dict, new JsonSerializerOptions { WriteIndented = true });
         File.WriteAllText(credPath, json);

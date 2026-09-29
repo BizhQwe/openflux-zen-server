@@ -56,4 +56,8 @@ public static class AppPaths
     public static string GetDatabasePath() => Path.Combine(GetDataDirectory(), "openflux.db");
 
     public static string GetCredentialsPath() => Path.Combine(GetDataDirectory(), ".credentials");
+
+    public static string GetCustomDecoyDirectory() => Path.Combine(GetDataDirectory(), "decoy");
+
+    public static string GetBuiltInDecoyDirectory() => Path.Combine(ResolveAppDirectory(), "wwwroot", "decoy");
 }

@@ -83,17 +83,17 @@ public static class Program
             var modeOptions = isRu
                 ? new[]
                 {
-                    "Открытый порт со своим доменом (или внешний IP)",
-                    "Localtunnel (доступ без белого IP)",
-                    "Локальная сеть (LAN / Wi-Fi, доступ с телефона и ПК)",
-                    "Только этот компьютер (строго 127.0.0.1)"
+                    "Прямое подключение (домен / публичный IP)",
+                    "Через Localtunnel (без публичного IP)",
+                    "Через локальную сеть (LAN / Wi-Fi)",
+                    "Только на этом ПК (localhost)"
                 }
                 : new[]
                 {
-                    "Open port with custom domain (or server public IP)",
-                    "Localtunnel (access without public IP)",
-                    "Local network (LAN / Wi-Fi, access from phone & PC)",
-                    "This computer only (strictly 127.0.0.1)"
+                    "Direct connection (domain / public IP)",
+                    "Via Localtunnel (no public IP required)",
+                    "Local network (LAN / Wi-Fi)",
+                    "Only on this PC (localhost)"
                 };
 
             int defaultModeIdx = 0;
@@ -230,7 +230,8 @@ public static class Program
                 domain,
                 localtunnelPassword,
                 TerminalUi.Language,
-                autostart);
+                autostart,
+                existing.DecoyUrl);
 
             SystemOperations.RegisterPath(installDir);
             SystemOperations.ConfigureService(

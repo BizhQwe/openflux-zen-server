@@ -85,6 +85,15 @@ public sealed class SettingsService : ISettingsService
                                 changed = true;
                             }
                         }
+                        if (doc.RootElement.TryGetProperty("decoyRedirectUrl", out var dru))
+                        {
+                            var credDecoy = dru.GetString();
+                            if (!string.Equals(settings.DecoyRedirectUrl, credDecoy, StringComparison.OrdinalIgnoreCase))
+                            {
+                                settings.DecoyRedirectUrl = credDecoy;
+                                changed = true;
+                            }
+                        }
                     }
                     catch { }
                 }
@@ -127,6 +136,7 @@ public sealed class SettingsService : ISettingsService
             current.ZrokToken = updated.ZrokToken;
             current.ZrokShareUrl = updated.ZrokShareUrl;
             current.AutoStartEnabled = updated.AutoStartEnabled;
+            current.DecoyRedirectUrl = updated.DecoyRedirectUrl;
             if (!string.IsNullOrWhiteSpace(updated.Language))
             {
                 current.Language = updated.Language.Trim().ToLowerInvariant();
@@ -348,6 +358,7 @@ public sealed class SettingsService : ISettingsService
         string? credMode = null;
         string? credDomain = null;
         string? credZrokToken = null;
+        string? credDecoy = null;
         int? credPort = null;
         if (File.Exists(_credentialsFilePath))
         {
@@ -364,6 +375,7 @@ public sealed class SettingsService : ISettingsService
                 if (doc.TryGetProperty("publishMode", out var pm)) credMode = pm.GetString();
                 if (doc.TryGetProperty("domain", out var dm)) credDomain = dm.GetString();
                 if (doc.TryGetProperty("zrokToken", out var zt)) credZrokToken = zt.GetString();
+                if (doc.TryGetProperty("decoyRedirectUrl", out var dru)) credDecoy = dru.GetString();
                 if (doc.TryGetProperty("port", out var pt) && pt.TryGetInt32(out var pVal)) credPort = pVal;
             }
             catch { }
@@ -386,6 +398,7 @@ public sealed class SettingsService : ISettingsService
         var initialHost = Environment.GetEnvironmentVariable("OPENFLUX_HOST") ?? credHost ?? "127.0.0.1";
         var initialPubUrl = Environment.GetEnvironmentVariable("OPENFLUX_PUBLIC_URL") ?? credPubUrl;
         var initialMode = Environment.GetEnvironmentVariable("OPENFLUX_PUBLISH_MODE") ?? credMode ?? "local";
+        var initialDecoy = Environment.GetEnvironmentVariable("OPENFLUX_DECOY_REDIRECT_URL") ?? credDecoy;
 
         var (hash, salt) = AuthService.HashPassword(initialPassword);
         var settings = new AppSettings
@@ -403,6 +416,7 @@ public sealed class SettingsService : ISettingsService
             ZrokToken = credZrokToken,
             AutoStartEnabled = true,
             Language = initialLang,
+            DecoyRedirectUrl = initialDecoy,
             UpdatedAt = DateTime.UtcNow
         };
 

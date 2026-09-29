@@ -16,5 +16,6 @@ public sealed class AppSettings
     public string? ZrokShareUrl { get; set; }
     public bool AutoStartEnabled { get; set; } = true;
     public string Language { get; set; } = "ru"; // ru | en
+    public string? DecoyRedirectUrl { get; set; }
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

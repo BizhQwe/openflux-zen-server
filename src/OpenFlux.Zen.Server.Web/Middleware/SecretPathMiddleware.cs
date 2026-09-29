@@ -1,4 +1,7 @@
+using OpenFlux.Zen.Server.Common;
+using OpenFlux.Zen.Server.Models;
 using OpenFlux.Zen.Server.Services;
+using OpenFlux.Zen.Server.Web.Services;
 
 namespace OpenFlux.Zen.Server.Middleware;
 
@@ -24,10 +27,8 @@ public sealed class SecretPathMiddleware
         if (!path.Equals(secretPrefix, StringComparison.OrdinalIgnoreCase) &&
             !path.StartsWith(secretPrefix + "/", StringComparison.OrdinalIgnoreCase))
         {
-            // Silently deny access to avoid disclosing the existence of the panel
-            context.Response.StatusCode = StatusCodes.Status404NotFound;
-            context.Response.ContentType = "text/plain; charset=utf-8";
-            await context.Response.WriteAsync("Not Found");
+            // Decoy site handling (like in 3x-ui / x-ui-pro)
+            await ServeDecoyAsync(context, settings);
             return;
         }
 
@@ -100,4 +101,97 @@ public sealed class SecretPathMiddleware
 
         return null;
     }
+
+    private static async Task ServeDecoyAsync(HttpContext context, AppSettings settings)
+    {
+        // 1. If external redirect URL is configured, redirect immediately
+        if (!string.IsNullOrWhiteSpace(settings.DecoyRedirectUrl))
+        {
+            context.Response.Redirect(settings.DecoyRedirectUrl, permanent: false);
+            return;
+        }
+
+        // 2. Resolve requested path relative to decoy root
+        var reqPath = context.Request.Path.Value?.TrimStart('/') ?? "";
+        if (reqPath.Contains("..") || Path.IsPathRooted(reqPath))
+        {
+            reqPath = "";
+        }
+
+        string? fileToServe = null;
+
+        // Check custom user decoy directory: data/decoy/
+        var customDecoyDir = AppPaths.GetCustomDecoyDirectory();
+        if (Directory.Exists(customDecoyDir))
+        {
+            if (!string.IsNullOrEmpty(reqPath))
+            {
+                var candidate = Path.Combine(customDecoyDir, reqPath.Replace('/', Path.DirectorySeparatorChar));
+                if (File.Exists(candidate)) fileToServe = candidate;
+            }
+            if (fileToServe == null && File.Exists(Path.Combine(customDecoyDir, "index.html")))
+            {
+                fileToServe = Path.Combine(customDecoyDir, "index.html");
+            }
+        }
+
+        // Check built-in decoy directory: wwwroot/decoy/
+        if (fileToServe == null)
+        {
+            var builtInDecoyDir = AppPaths.GetBuiltInDecoyDirectory();
+            if (Directory.Exists(builtInDecoyDir))
+            {
+                if (!string.IsNullOrEmpty(reqPath))
+                {
+                    var candidate = Path.Combine(builtInDecoyDir, reqPath.Replace('/', Path.DirectorySeparatorChar));
+                    if (File.Exists(candidate)) fileToServe = candidate;
+                }
+                if (fileToServe == null && File.Exists(Path.Combine(builtInDecoyDir, "index.html")))
+                {
+                    fileToServe = Path.Combine(builtInDecoyDir, "index.html");
+                }
+            }
+        }
+
+        if (fileToServe != null && File.Exists(fileToServe))
+        {
+            var ext = Path.GetExtension(fileToServe).ToLowerInvariant();
+            var contentType = GetContentType(ext);
+            context.Response.StatusCode = StatusCodes.Status200OK;
+            context.Response.ContentType = contentType;
+            if (ext == ".html" || ext == ".htm")
+            {
+                context.Response.Headers.Append("Cache-Control", "no-cache, no-store, must-revalidate");
+            }
+            else
+            {
+                context.Response.Headers.Append("Cache-Control", "public, max-age=86400");
+            }
+            await context.Response.SendFileAsync(fileToServe);
+            return;
+        }
+
+        // 3. Fallback: serve built-in HTML string
+        context.Response.StatusCode = StatusCodes.Status200OK;
+        context.Response.ContentType = "text/html; charset=utf-8";
+        context.Response.Headers.Append("Cache-Control", "no-cache, no-store, must-revalidate");
+        await context.Response.WriteAsync(DecoySiteFallback.GetHtml());
+    }
+
+    private static string GetContentType(string ext) => ext switch
+    {
+        ".html" or ".htm" => "text/html; charset=utf-8",
+        ".css" => "text/css; charset=utf-8",
+        ".js" => "application/javascript; charset=utf-8",
+        ".json" => "application/json; charset=utf-8",
+        ".svg" => "image/svg+xml",
+        ".png" => "image/png",
+        ".jpg" or ".jpeg" => "image/jpeg",
+        ".webp" => "image/webp",
+        ".ico" => "image/x-icon",
+        ".woff2" => "font/woff2",
+        ".woff" => "font/woff",
+        ".txt" => "text/plain; charset=utf-8",
+        _ => "application/octet-stream"
+    };
 }

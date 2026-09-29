@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nexus Cloud Solutions — Enterprise Infrastructure &amp; Consulting</title>
+  <meta name="description" content="Architecting zero-trust cloud infrastructure, multi-region container orchestration, and high-throughput distributed networks for enterprise scale." />
+  <meta name="keywords" content="cloud infrastructure, zero trust, kubernetes, edge routing, enterprise devops, cloud security" />
+  <meta property="og:title" content="Nexus Cloud Solutions — Enterprise Infrastructure & Consulting" />
+  <meta property="og:description" content="Resilient cloud architecture and edge networking engineered for mission-critical enterprise workloads." />
+  <meta property="og:type" content="website" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%233b82f6'><path d='M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM19 18H6c-2.21 0-4-1.79-4-4 0-2.05 1.53-3.76 3.56-3.97l1.07-.11.5-.95C8.08 7.14 9.94 6 12 6c2.62 0 4.88 1.86 5.39 4.43l.3 1.5 1.53.11c1.56.1 2.78 1.41 2.78 2.96 0 1.65-1.35 3-3 3z'/></svg>" />
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --bg-card: #131b2e;
+      --bg-card-hover: #19233c;
+      --border: #1f2b48;
+      --border-focus: #3b82f6;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --primary: #3b82f6;
+      --primary-gradient: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+      --accent: #06b6d4;
+      --success: #10b981;
+      --font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: var(--font);
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Container */
+    .container {
+      width: 100%;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Header */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(11, 15, 25, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .header-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 72px;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: var(--text);
+      font-weight: 700;
+      font-size: 1.25rem;
+      letter-spacing: -0.02em;
+    }
+    .logo svg {
+      width: 32px;
+      height: 32px;
+      fill: var(--primary);
+    }
+    .logo span.accent {
+      background: var(--primary-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    nav {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+    }
+    nav a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.95rem;
+      font-weight: 500;
+      transition: color 0.2s ease;
+    }
+    nav a:hover {
+      color: var(--text);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+    .btn-primary {
+      background: var(--primary-gradient);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(59, 130, 246, 0.35);
+    }
+    .btn-primary:hover {
+      opacity: 0.95;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(59, 130, 246, 0.45);
+    }
+    .btn-outline {
+      background: rgba(255, 255, 255, 0.04);
+      border-color: var(--border);
+      color: var(--text);
+    }
+    .btn-outline:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: var(--text-muted);
+    }
+
+    /* Hero Section */
+    .hero {
+      padding: 100px 0 80px;
+      text-align: center;
+      position: relative;
+    }
+    .hero::before {
+      content: "";
+      position: absolute;
+      top: -60px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 600px;
+      height: 400px;
+      background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, rgba(99, 102, 241, 0.05) 50%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      background: rgba(59, 130, 246, 0.12);
+      border: 1px solid rgba(59, 130, 246, 0.25);
+      border-radius: 9999px;
+      color: #93c5fd;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 24px;
+    }
+    .badge-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+    }
+    .hero h1 {
+      font-size: 3.5rem;
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -0.03em;
+      margin-bottom: 20px;
+      max-width: 900px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .hero h1 span.gradient {
+      background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 50%, #38bdf8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero p {
+      font-size: 1.2rem;
+      color: var(--text-muted);
+      max-width: 720px;
+      margin: 0 auto 36px;
+      line-height: 1.7;
+    }
+    .hero-ctas {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      margin-bottom: 60px;
+    }
+
+    /* Stats Bar */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px;
+      margin-top: 20px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    }
+    .stat-item {
+      text-align: center;
+    }
+    .stat-val {
+      font-size: 2.2rem;
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: -0.02em;
+      margin-bottom: 4px;
+    }
+    .stat-label {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+    }
+
+    /* Section Titles */
+    .section-head {
+      text-align: center;
+      max-width: 680px;
+      margin: 0 auto 56px;
+    }
+    .section-head h2 {
+      font-size: 2.4rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 16px;
+    }
+    .section-head p {
+      color: var(--text-muted);
+      font-size: 1.1rem;
+    }
+
+    /* Solutions Section */
+    .solutions {
+      padding: 100px 0;
+    }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 32px;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+    .card:hover {
+      background: var(--bg-card-hover);
+      border-color: rgba(59, 130, 246, 0.4);
+      transform: translateY(-4px);
+      box-shadow: 0 16px 32px rgba(0, 0, 0, 0.25);
+    }
+    .card-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      background: rgba(59, 130, 246, 0.12);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      color: #60a5fa;
+    }
+    .card h3 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+    .card p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+
+    /* Architecture Visualizer */
+    .arch-section {
+      padding: 80px 0;
+      background: rgba(19, 27, 46, 0.4);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+    .arch-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 40px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+    }
+    .pipeline {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: relative;
+      padding: 20px 0;
+    }
+    .pipe-node {
+      background: rgba(11, 15, 25, 0.8);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 24px;
+      text-align: center;
+      flex: 1;
+      margin: 0 10px;
+      position: relative;
+      z-index: 1;
+      transition: all 0.2s;
+    }
+    .pipe-node:hover {
+      border-color: var(--primary);
+      transform: translateY(-2px);
+    }
+    .pipe-node h4 {
+      font-size: 1rem;
+      margin-bottom: 6px;
+      color: #93c5fd;
+    }
+    .pipe-node span {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      display: block;
+    }
+    .pipe-arrow {
+      color: var(--border);
+      font-size: 1.4rem;
+      font-weight: bold;
+    }
+
+    /* Trust & Security */
+    .trust {
+      padding: 100px 0;
+    }
+    .badges-row {
+      display: flex;
+      justify-content: center;
+      gap: 32px;
+      flex-wrap: wrap;
+      margin-top: 40px;
+    }
+    .badge-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+    .badge-card svg {
+      width: 28px;
+      height: 28px;
+      fill: var(--primary);
+    }
+
+    /* Contact Form */
+    .contact {
+      padding: 100px 0;
+    }
+    .contact-form-wrap {
+      max-width: 640px;
+      margin: 0 auto;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 40px;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 0.88rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+    .form-control {
+      width: 100%;
+      background: rgba(11, 15, 25, 0.6);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 16px;
+      color: var(--text);
+      font-size: 0.95rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-control:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    }
+    textarea.form-control {
+      resize: vertical;
+      min-height: 120px;
+    }
+    .form-alert {
+      display: none;
+      padding: 16px;
+      border-radius: 8px;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #6ee7b7;
+      margin-top: 20px;
+      font-size: 0.95rem;
+      text-align: center;
+    }
+
+    /* Footer */
+    footer {
+      background: #080b12;
+      border-top: 1px solid var(--border);
+      padding: 60px 0 32px;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+    .footer-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr;
+      gap: 40px;
+      margin-bottom: 48px;
+    }
+    .footer-col h5 {
+      color: var(--text);
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+    .footer-col ul {
+      list-style: none;
+    }
+    .footer-col li {
+      margin-bottom: 10px;
+    }
+    .footer-col a {
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .footer-col a:hover {
+      color: var(--text);
+    }
+    .footer-bottom {
+      border-top: 1px solid var(--border);
+      padding-top: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .system-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      color: var(--success);
+    }
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--success);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+
+    /* Modal (Client Portal Mock) */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      z-index: 999;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      max-width: 440px;
+      width: 100%;
+      padding: 36px;
+      position: relative;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+    }
+    .modal-close {
+      position: absolute;
+      top: 18px;
+      right: 18px;
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+    .modal-close:hover { color: var(--text); }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .hero h1 { font-size: 2.5rem; }
+      .stats-bar { grid-template-columns: repeat(2, 1fr); }
+      .grid-3 { grid-template-columns: 1fr; }
+      .pipeline { flex-direction: column; gap: 16px; }
+      .pipe-arrow { transform: rotate(90deg); margin: 6px 0; }
+      .footer-grid { grid-template-columns: 1fr 1fr; }
+      nav { display: none; }
+    }
+    @media (max-width: 600px) {
+      .stats-bar { grid-template-columns: 1fr; }
+      .footer-grid { grid-template-columns: 1fr; }
+      .hero-ctas { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="container header-inner">
+      <a href="#" class="logo">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+        </svg>
+        <span>NEXUS <span class="accent">CLOUD</span></span>
+      </a>
+
+      <nav>
+        <a href="#solutions">Solutions</a>
+        <a href="#architecture">Architecture</a>
+        <a href="#compliance">Security &amp; Compliance</a>
+        <a href="#contact">Contact</a>
+      </nav>
+
+      <div class="header-actions">
+        <button class="btn btn-outline" onclick="openPortalModal()">Client Portal</button>
+        <a href="#contact" class="btn btn-primary">Schedule Demo</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="container">
+      <div class="badge">
+        <span class="badge-dot"></span>
+        SOC2 Type II Certified &bull; ISO/IEC 27001
+      </div>
+      <h1>
+        Resilient Infrastructure for <br />
+        <span class="gradient">Enterprise Scale &amp; Performance</span>
+      </h1>
+      <p>
+        Architecting zero-trust cloud topologies, high-throughput anycast routing, and automated microservices orchestration for global engineering organizations.
+      </p>
+
+      <div class="hero-ctas">
+        <a href="#contact" class="btn btn-primary">Request Consultation</a>
+        <a href="#solutions" class="btn btn-outline">Explore Capabilities</a>
+      </div>
+
+      <div class="stats-bar">
+        <div class="stat-item">
+          <div class="stat-val">99.999%</div>
+          <div class="stat-label">Uptime SLA</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-val">&lt; 3.2ms</div>
+          <div class="stat-label">Anycast Edge Latency</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-val">5.8 PB</div>
+          <div class="stat-label">Monthly Data Routed</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-val">1,850+</div>
+          <div class="stat-label">Managed Clusters</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Solutions Section -->
+  <section class="solutions" id="solutions">
+    <div class="container">
+      <div class="section-head">
+        <h2>Enterprise Solutions</h2>
+        <p>Engineered for high-concurrency workloads, strict compliance requirements, and zero single points of failure.</p>
+      </div>
+
+      <div class="grid-3">
+        <div class="card">
+          <div class="card-icon">
+            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <h3>Zero-Trust Cloud Mesh</h3>
+          <p>End-to-end cryptographic verification, micro-segmented virtual private clouds, and continuous authentication across hybrid environments.</p>
+        </div>
+
+        <div class="card">
+          <div class="card-icon">
+            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          </div>
+          <h3>Global Anycast Routing</h3>
+          <p>Multi-homed BGP routing, localized traffic steering, and multi-terabit volumetric DDoS mitigation delivered at edge points of presence.</p>
+        </div>
+
+        <div class="card">
+          <div class="card-icon">
+            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+          </div>
+          <h3>Kubernetes Orchestration</h3>
+          <p>Production-grade bare-metal and cloud container runtime lifecycle, declarative GitOps deployments, and auto-remediating cluster telemetry.</p>
+        </div>
+
+        <div class="card">
+          <div class="card-icon">
+            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          </div>
+          <h3>Distributed Event Streams</h3>
+          <p>Ultra-low-latency message brokers, event-driven data streaming, and scalable distributed storage with zero data loss guarantees.</p>
+        </div>
+
+        <div class="card">
+          <div class="card-icon">
+            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          </div>
+          <h3>Full Observability &amp; eBPF</h3>
+          <p>Deep kernel tracing, real-time metrics telemetry, and AI-assisted predictive capacity forecasting without application performance overhead.</p>
+        </div>
+
+        <div class="card">
+          <div class="card-icon">
+            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+          </div>
+          <h3>Disaster Recovery &amp; Backup</h3>
+          <p>Continuous asynchronous block replication, automated failover runbooks, and instantaneous recovery point validation.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Architecture Visualizer -->
+  <section class="arch-section" id="architecture">
+    <div class="container">
+      <div class="section-head">
+        <h2>Distributed Mesh Architecture</h2>
+        <p>A unified data plane engineered for high reliability, fault tolerance, and predictable performance.</p>
+      </div>
+
+      <div class="arch-box">
+        <div class="pipeline">
+          <div class="pipe-node">
+            <h4>Edge Ingress</h4>
+            <span>BGP Anycast &bull; DDoS Shield</span>
+          </div>
+          <div class="pipe-arrow">&rarr;</div>
+          <div class="pipe-node">
+            <h4>Traffic Director</h4>
+            <span>mTLS &bull; Layer 4/7 Proxy</span>
+          </div>
+          <div class="pipe-arrow">&rarr;</div>
+          <div class="pipe-node">
+            <h4>Compute Mesh</h4>
+            <span>Kubernetes &bull; Microservices</span>
+          </div>
+          <div class="pipe-arrow">&rarr;</div>
+          <div class="pipe-node">
+            <h4>Distributed Storage</h4>
+            <span>Multi-Region Active Replication</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Compliance & Trust -->
+  <section class="trust" id="compliance">
+    <div class="container">
+      <div class="section-head">
+        <h2>Certified Enterprise Security</h2>
+        <p>Built from the ground up to satisfy stringent international compliance and data sovereignty standards.</p>
+      </div>
+
+      <div class="badges-row">
+        <div class="badge-card">
+          <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
+          SOC 2 Type II Certified
+        </div>
+        <div class="badge-card">
+          <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
+          ISO / IEC 27001:2022
+        </div>
+        <div class="badge-card">
+          <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
+          GDPR &amp; HIPAA Compliant
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Contact Form -->
+  <section class="contact" id="contact">
+    <div class="container">
+      <div class="section-head">
+        <h2>Schedule an Engineering Consultation</h2>
+        <p>Discuss your infrastructure scaling requirements with our senior systems architects.</p>
+      </div>
+
+      <div class="contact-form-wrap">
+        <form id="contact-form" onsubmit="handleContactSubmit(event)">
+          <div class="form-group">
+            <label for="contact-name">Full Name</label>
+            <input type="text" id="contact-name" class="form-control" placeholder="Dr. Alexander Wright" required />
+          </div>
+          <div class="form-group">
+            <label for="contact-email">Corporate Email</label>
+            <input type="email" id="contact-email" class="form-control" placeholder="alexander@enterprise.io" required />
+          </div>
+          <div class="form-group">
+            <label for="contact-company">Organization</label>
+            <input type="text" id="contact-company" class="form-control" placeholder="Global Systems Corp" required />
+          </div>
+          <div class="form-group">
+            <label for="contact-scope">Primary Focus Area</label>
+            <select id="contact-scope" class="form-control">
+              <option>Zero-Trust Network &amp; Edge Migration</option>
+              <option>High-Concurrency Kubernetes Infrastructure</option>
+              <option>Global Disaster Recovery &amp; Replication</option>
+              <option>Security Audit &amp; Compliance Hardening</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="contact-msg">Project Requirements</label>
+            <textarea id="contact-msg" class="form-control" placeholder="Briefly describe your infrastructure topology, current volume, and target timelines..."></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary" style="width: 100%; padding: 14px;">Send Consultation Request</button>
+
+          <div id="contact-alert" class="form-alert">
+            &check; Thank you. Your inquiry has been submitted. A senior cloud architect will contact you within 24 hours.
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-col">
+          <div class="logo" style="margin-bottom: 14px;">
+            <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            <span>NEXUS <span class="accent">CLOUD</span></span>
+          </div>
+          <p style="max-width: 320px; font-size: 0.88rem; line-height: 1.6;">
+            Next-generation enterprise cloud architecture, automated orchestration, and resilient edge connectivity.
+          </p>
+        </div>
+
+        <div class="footer-col">
+          <h5>Platform</h5>
+          <ul>
+            <li><a href="#solutions">Edge Network</a></li>
+            <li><a href="#solutions">Zero-Trust Mesh</a></li>
+            <li><a href="#architecture">Architecture</a></li>
+            <li><a href="#compliance">Global Compliance</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h5>Global Hubs</h5>
+          <ul>
+            <li>Frankfurt (FRA-1)</li>
+            <li>Zurich (ZUR-2)</li>
+            <li>Singapore (SIN-1)</li>
+            <li>New York (NYC-3)</li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h5>Legal &amp; Trust</h5>
+          <ul>
+            <li><a href="#compliance">Security Certifications</a></li>
+            <li><a href="#">Privacy Policy</a></li>
+            <li><a href="#">Terms of Service</a></li>
+            <li><a href="#">Responsible Disclosure</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <div>&copy; 2026 Nexus Cloud Solutions AG. All rights reserved.</div>
+        <div class="system-status">
+          <span class="pulse-dot"></span>
+          All Systems Operational (Global SLA 99.999%)
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Mock SSO Portal Modal -->
+  <div class="modal-overlay" id="portal-modal" onclick="closePortalModal(event)">
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <button class="modal-close" onclick="closePortalModal()">&times;</button>
+      <h3 style="margin-bottom: 8px;">Enterprise Single Sign-On</h3>
+      <p style="color: var(--text-muted); font-size: 0.88rem; margin-bottom: 24px;">Sign in to access your organization's infrastructure telemetry portal.</p>
+      
+      <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px;">
+        <button class="btn btn-outline" style="width: 100%;" onclick="alert('Redirecting to Okta SSO Identity Provider...')">Continue with Okta SSO</button>
+        <button class="btn btn-outline" style="width: 100%;" onclick="alert('Redirecting to Microsoft Azure AD...')">Continue with Azure AD</button>
+      </div>
+
+      <div style="text-align: center; color: var(--text-muted); font-size: 0.8rem; margin-bottom: 16px;">— OR ENTERPRISE CREDENTIALS —</div>
+
+      <div class="form-group">
+        <label>Corporate Identity (Email)</label>
+        <input type="email" class="form-control" placeholder="user@enterprise.io" />
+      </div>
+      <div class="form-group">
+        <label>Passcode / MFA</label>
+        <input type="password" class="form-control" placeholder="••••••••••••" />
+      </div>
+      <button class="btn btn-primary" style="width: 100%; margin-top: 10px;" onclick="alert('Please authenticate via your enterprise Identity Provider.')">Authenticate</button>
+    </div>
+  </div>
+
+  <script>
+    function handleContactSubmit(e) {
+      e.preventDefault();
+      var alertEl = document.getElementById('contact-alert');
+      if (alertEl) {
+        alertEl.style.display = 'block';
+        alertEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+
+    function openPortalModal() {
+      var modal = document.getElementById('portal-modal');
+      if (modal) modal.style.display = 'flex';
+    }
+
+    function closePortalModal(e) {
+      if (e && e.target && e.target.id !== 'portal-modal' && !e.target.classList.contains('modal-close')) return;
+      var modal = document.getElementById('portal-modal');
+      if (modal) modal.style.display = 'none';
+    }
+  </script>
+</body>
+</html>
