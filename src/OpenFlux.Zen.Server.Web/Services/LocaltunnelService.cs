@@ -153,7 +153,18 @@ public sealed class LocaltunnelService : BackgroundService
 
                 while (!sessionCts.Token.IsCancellationRequested)
                 {
-                    await Task.Delay(20000, sessionCts.Token);
+                    for (int d = 0; d < 7; d++)
+                    {
+                        await Task.Delay(3000, sessionCts.Token);
+                        var curSettings = await _settingsService.GetSettingsAsync();
+                        var curMode = Environment.GetEnvironmentVariable("OPENFLUX_PUBLISH_MODE") ?? curSettings.PublishMode;
+                        if (!string.Equals(curMode, "localtunnel", StringComparison.OrdinalIgnoreCase))
+                        {
+                            _logger.LogInformation("[Localtunnel] Network placement switched away from localtunnel. Closing tunnel session...");
+                            sessionCts.Cancel();
+                            return;
+                        }
+                    }
 
                     using var checkCts = CancellationTokenSource.CreateLinkedTokenSource(sessionCts.Token);
                     checkCts.CancelAfter(TimeSpan.FromSeconds(7));

@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using OpenFlux.Zen.Server.Common;
 using OpenFlux.Zen.Server.Data;
 using OpenFlux.Zen.Server.Models;
 
@@ -54,10 +55,10 @@ public sealed class SettingsService : ISettingsService
             else
             {
                 bool changed = false;
-                var envMode = Environment.GetEnvironmentVariable("OPENFLUX_PUBLISH_MODE");
-                if (!string.IsNullOrEmpty(envMode) && !string.Equals(settings.PublishMode, envMode, StringComparison.OrdinalIgnoreCase))
+                if (string.IsNullOrWhiteSpace(settings.PublishMode))
                 {
-                    settings.PublishMode = envMode;
+                    var envMode = Environment.GetEnvironmentVariable("OPENFLUX_PUBLISH_MODE");
+                    settings.PublishMode = !string.IsNullOrWhiteSpace(envMode) ? envMode : "local";
                     changed = true;
                 }
 
@@ -67,10 +68,10 @@ public sealed class SettingsService : ISettingsService
                     {
                         var content = await File.ReadAllTextAsync(_credentialsFilePath);
                         using var doc = JsonDocument.Parse(content);
-                        if (doc.RootElement.TryGetProperty("publishMode", out var pm))
+                        if (string.IsNullOrWhiteSpace(settings.PublishMode) && doc.RootElement.TryGetProperty("publishMode", out var pm))
                         {
                             var credMode = pm.GetString();
-                            if (!string.IsNullOrEmpty(credMode) && !string.Equals(settings.PublishMode, credMode, StringComparison.OrdinalIgnoreCase))
+                            if (!string.IsNullOrEmpty(credMode))
                             {
                                 settings.PublishMode = credMode;
                                 changed = true;
@@ -184,14 +185,145 @@ public sealed class SettingsService : ISettingsService
                 settings = await InitializeDefaultSettingsAsync(db);
             }
 
+            var oldSecret = (settings.SecretPath ?? "").Trim('/');
             var newSecret = Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant();
             settings.SecretPath = newSecret;
+
+            if (!string.IsNullOrEmpty(settings.PublicUrl))
+            {
+                if (!string.IsNullOrEmpty(oldSecret) && settings.PublicUrl.Contains(oldSecret))
+                {
+                    settings.PublicUrl = settings.PublicUrl.Replace(oldSecret, newSecret);
+                }
+                else
+                {
+                    settings.PublicUrl = settings.PublicUrl.TrimEnd('/') + "/" + newSecret + "/";
+                }
+            }
+
             settings.UpdatedAt = DateTime.UtcNow;
             await db.SaveChangesAsync();
 
             _cachedSettings = settings;
-            _logger.LogInformation("Regenerated secret path: {Path}", newSecret);
+
+            Environment.SetEnvironmentVariable("OPENFLUX_SECRET_PATH", newSecret);
+            UpdateFieldInCredentials("secretPath", newSecret);
+            if (!string.IsNullOrEmpty(settings.PublicUrl))
+            {
+                UpdateFieldInCredentials("publicUrl", settings.PublicUrl);
+            }
+
+            _logger.LogInformation("Regenerated secret path: {Path}, Public URL: {Url}", newSecret, settings.PublicUrl);
             return newSecret;
+        }
+        finally
+        {
+            _cacheLock.Release();
+        }
+    }
+
+    public async Task<NetworkPlacementResponse> SetNetworkPlacementAsync(string mode, string? domain = null)
+    {
+        await _cacheLock.WaitAsync();
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var settings = await db.Settings.FirstOrDefaultAsync(s => s.Id == 1);
+            if (settings == null)
+            {
+                settings = await InitializeDefaultSettingsAsync(db);
+            }
+
+            mode = (mode ?? "local").Trim().ToLowerInvariant();
+            if (mode != "domain" && mode != "localtunnel" && mode != "local" && mode != "lan" && mode != "localhost")
+            {
+                mode = "local";
+            }
+            if (mode == "lan") mode = "local";
+
+            var secret = (settings.SecretPath ?? "").Trim('/');
+            var port = settings.ListenPort > 0 ? settings.ListenPort : 5000;
+            string publicUrl;
+            string? localtunnelPass = null;
+
+            if (mode == "localhost")
+            {
+                publicUrl = $"http://127.0.0.1:{port}/{secret}/";
+                settings.Domain = null;
+            }
+            else if (mode == "localtunnel")
+            {
+                var subPrefix = $"openflux-{(secret.Length >= 8 ? secret[..8] : secret)}";
+                publicUrl = $"https://{subPrefix}.loca.lt/{secret}/";
+                settings.Domain = null;
+                try
+                {
+                    localtunnelPass = await NetworkHelper.FetchPublicIpAsync();
+                }
+                catch { }
+            }
+            else if (mode == "domain")
+            {
+                if (!string.IsNullOrWhiteSpace(domain))
+                {
+                    var cleanDom = domain.Trim().TrimEnd('/');
+                    var proto = cleanDom.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                                cleanDom.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ? "" : "http://";
+                    if (cleanDom.Contains(':') || cleanDom.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || cleanDom.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                    {
+                        publicUrl = $"{proto}{cleanDom}/{secret}/";
+                    }
+                    else
+                    {
+                        publicUrl = $"{proto}{cleanDom}:{port}/{secret}/";
+                    }
+                    settings.Domain = domain.Trim();
+                }
+                else
+                {
+                    var pubIp = await NetworkHelper.FetchPublicIpAsync();
+                    publicUrl = !string.IsNullOrEmpty(pubIp)
+                        ? $"http://{pubIp}:{port}/{secret}/"
+                        : $"http://<server-ip>:{port}/{secret}/";
+                    settings.Domain = null;
+                }
+            }
+            else // local / lan
+            {
+                var lanIp = NetworkHelper.GetLocalLanIp();
+                publicUrl = $"http://{lanIp}:{port}/{secret}/";
+                settings.Domain = null;
+            }
+
+            settings.PublishMode = mode;
+            settings.PublicUrl = publicUrl;
+            settings.UpdatedAt = DateTime.UtcNow;
+
+            await db.SaveChangesAsync();
+            _cachedSettings = settings;
+
+            Environment.SetEnvironmentVariable("OPENFLUX_PUBLISH_MODE", mode);
+
+            UpdateFieldInCredentials("publishMode", mode);
+            UpdateFieldInCredentials("publicUrl", publicUrl);
+            UpdateFieldInCredentials("domain", settings.Domain);
+            if (!string.IsNullOrEmpty(localtunnelPass))
+            {
+                UpdateFieldInCredentials("localtunnelPassword", localtunnelPass);
+            }
+
+            _logger.LogInformation("Network placement changed to {Mode}. Public URL: {Url}", mode, publicUrl);
+
+            return new NetworkPlacementResponse
+            {
+                Success = true,
+                Mode = mode,
+                Domain = settings.Domain,
+                PublicUrl = publicUrl,
+                LocaltunnelPassword = localtunnelPass,
+                Message = "Network placement updated successfully"
+            };
         }
         finally
         {
@@ -362,6 +494,34 @@ public sealed class SettingsService : ISettingsService
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to update public URL in credentials file");
+        }
+    }
+
+    private void UpdateFieldInCredentials(string key, string? value)
+    {
+        try
+        {
+            if (File.Exists(_credentialsFilePath))
+            {
+                var content = File.ReadAllText(_credentialsFilePath);
+                using var doc = JsonDocument.Parse(content);
+                var dict = new Dictionary<string, object?>();
+                foreach (var prop in doc.RootElement.EnumerateObject())
+                {
+                    if (prop.Value.ValueKind == JsonValueKind.Number && prop.Value.TryGetInt32(out var n)) dict[prop.Name] = n;
+                    else if (prop.Value.ValueKind == JsonValueKind.True) dict[prop.Name] = true;
+                    else if (prop.Value.ValueKind == JsonValueKind.False) dict[prop.Name] = false;
+                    else dict[prop.Name] = prop.Value.GetString();
+                }
+                dict[key] = value;
+                dict["updatedAt"] = DateTime.UtcNow.ToString("o");
+                var json = JsonSerializer.Serialize(dict, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(_credentialsFilePath, json);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to update field {Key} in credentials file", key);
         }
     }
 

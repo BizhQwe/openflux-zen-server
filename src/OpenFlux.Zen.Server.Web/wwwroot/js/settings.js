@@ -13,6 +13,79 @@ function formatDateTimeCustom(dateInput) {
   return `${day}.${month}.${year} : ${hours}:${minutes}:${seconds}`;
 }
 
+function renderMarkdown(md) {
+  if (!md || !md.trim()) return '<p style="color: var(--text-muted); margin: 0;">—</p>';
+
+  let text = md.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+  // Escape HTML entities to prevent XSS
+  text = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+
+  // Fenced code blocks
+  text = text.replace(/```([\s\S]*?)```/g, (match, code) => {
+    return `<pre><code>${code.trim()}</code></pre>`;
+  });
+
+  // Inline code
+  text = text.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+
+  // Headers
+  text = text.replace(/^### (.*$)/gim, '<h5>$1</h5>');
+  text = text.replace(/^## (.*$)/gim, '<h4>$1</h4>');
+  text = text.replace(/^# (.*$)/gim, '<h3>$1</h3>');
+
+  // Bold
+  text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  text = text.replace(/__(.*?)__/g, '<strong>$1</strong>');
+
+  // Italic
+  text = text.replace(/(^|[^\*])\*([^\*\n]+)\*([^\*]|$)/g, '$1<em>$2</em>$3');
+
+  // Markdown links: [text](url)
+  text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^\s\)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+
+  // Standalone URLs not already in href
+  text = text.replace(/(^|[^">])(https?:\/\/[^\s<]+)/g, '$1<a href="$2" target="_blank" rel="noopener noreferrer">$2</a>');
+
+  // Lists & paragraphs
+  const lines = text.split('\n');
+  let inList = false;
+  const resultLines = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const listMatch = line.match(/^(\s*)[\*\-]\s+(.*)$/);
+    if (listMatch) {
+      if (!inList) {
+        resultLines.push('<ul>');
+        inList = true;
+      }
+      resultLines.push(`<li>${listMatch[2]}</li>`);
+    } else {
+      if (inList) {
+        resultLines.push('</ul>');
+        inList = false;
+      }
+      if (line.trim().length > 0) {
+        if (/^<(h[1-6]|pre|ul|ol|blockquote)/.test(line.trim())) {
+          resultLines.push(line);
+        } else {
+          resultLines.push(`<p>${line}</p>`);
+        }
+      }
+    }
+  }
+  if (inList) {
+    resultLines.push('</ul>');
+  }
+
+  return resultLines.join('\n');
+}
+
 function handleConfigFileSelect(event) {
   const file = event.target.files && event.target.files[0];
   if (!file) return;
@@ -92,6 +165,16 @@ async function loadSettings() {
     if (decoyInput) {
       decoyInput.value = s.decoyRedirectUrl || '';
     }
+
+    const modeSelect = document.getElementById('setting-network-mode-select');
+    if (modeSelect) {
+      modeSelect.value = s.publishMode || 'local';
+    }
+    const domainInput = document.getElementById('setting-domain-input');
+    if (domainInput) {
+      domainInput.value = s.domain || '';
+    }
+    onNetworkModeSelectChanged();
   }
 
   loadPanelVersionInfo(false).finally(() => loadPanelVersionInfo(true));
@@ -109,6 +192,103 @@ async function copyNetworkUrl() {
       document.execCommand('copy');
       toast(t('toast_copied'), 'success');
     }
+  }
+}
+
+function openNetworkUrl() {
+  const inp = document.getElementById('setting-network-url-input');
+  if (inp && inp.value) {
+    window.open(inp.value, '_blank');
+  }
+}
+
+function onNetworkModeSelectChanged() {
+  const sel = document.getElementById('setting-network-mode-select');
+  const domContainer = document.getElementById('network-domain-container');
+  const infoBox = document.getElementById('network-mode-info-box');
+  if (!sel) return;
+  const val = sel.value;
+
+  if (domContainer) {
+    domContainer.style.display = val === 'domain' ? 'block' : 'none';
+  }
+
+  if (infoBox) {
+    const isEn = (typeof currentLanguage !== 'undefined' && currentLanguage === 'en');
+    let desc = '';
+    if (val === 'local') {
+      desc = isEn
+        ? 'The panel is accessible to all devices on your local network (Wi-Fi and Ethernet) via local IP address.'
+        : 'Панель доступна для всех устройств в вашей локальной сети (Wi-Fi и Ethernet) по локальному IP адресу.';
+    } else if (val === 'localtunnel') {
+      desc = isEn
+        ? 'A secure Internet tunnel is created via localtunnel.me without requiring a public IP. On first browser visit, enter server external IP as tunnel password.'
+        : 'Создаётся защищённый интернет-туннель через localtunnel.me без необходимости иметь публичный IP. При первом входе в браузере введите внешний IP сервера как пароль.';
+    } else if (val === 'domain') {
+      desc = isEn
+        ? 'Direct connection to server via public IP or domain name. Requires open port on router/server.'
+        : 'Прямое подключение к серверу через публичный IP или доменное имя. Требуется открытый порт на роутере/сервере.';
+    } else if (val === 'localhost') {
+      desc = isEn
+        ? 'Maximum isolation: web panel is accessible strictly only on this computer (127.0.0.1). Any access from LAN or Internet is blocked.'
+        : 'Максимальная изоляция: веб-панель доступна строго только на этом компьютере (127.0.0.1). Любой доступ из локальной сети или интернета блокируется.';
+    }
+    infoBox.textContent = desc;
+  }
+}
+
+async function saveNetworkPlacement() {
+  const sel = document.getElementById('setting-network-mode-select');
+  const domInput = document.getElementById('setting-domain-input');
+  const btn = document.getElementById('btn-save-network-mode');
+  const spinner = document.getElementById('btn-save-network-spinner');
+  if (!sel) return;
+
+  const mode = sel.value;
+  const domain = domInput ? domInput.value.trim() : '';
+
+  if (mode === 'localhost') {
+    if (!confirm(t('confirm_localhost_mode'))) return;
+  }
+
+  try {
+    if (btn) btn.disabled = true;
+    if (spinner) spinner.style.display = 'inline-block';
+
+    const res = await api('api/settings/network-placement', {
+      method: 'POST',
+      body: JSON.stringify({ mode, domain })
+    });
+    const d = await res.json();
+    if (res.ok && d.success) {
+      toast(t('toast_network_mode_updated'), 'success');
+      const modeBadge = document.getElementById('setting-network-mode');
+      if (modeBadge) {
+        let modeText = t('mode_local');
+        if (d.mode === 'domain') modeText = t('mode_domain');
+        else if (d.mode === 'localtunnel') modeText = t('mode_localtunnel');
+        else if (d.mode === 'localhost') modeText = t('mode_localhost');
+        modeBadge.textContent = modeText;
+      }
+      const modeUrlInput = document.getElementById('setting-network-url-input');
+      if (modeUrlInput && d.publicUrl) {
+        modeUrlInput.value = d.publicUrl;
+      }
+      const modeUrl = document.getElementById('setting-network-url');
+      if (modeUrl && d.publicUrl) {
+        modeUrl.textContent = 'URL: ' + d.publicUrl;
+      }
+      if (d.localtunnelPassword) {
+        toast(`Localtunnel IP: ${d.localtunnelPassword}`, 'info');
+      }
+    } else {
+      toast(d.message || t('toast_network_mode_failed'), 'danger');
+    }
+  } catch (err) {
+    toast(t('toast_network_mode_failed'), 'danger');
+  } finally {
+    if (btn) btn.disabled = false;
+    if (spinner) spinner.style.display = 'none';
   }
 }
 
@@ -144,14 +324,30 @@ async function updateAccountProfile() {
 }
 
 async function regenerateSecretPath() {
-  if (!confirm(t('confirm_regen_secret'))) return;
-  const res = await api('api/settings/regenerate-secret', { method: 'POST' });
-  if (res.ok) {
-    const d = await res.json();
-    toast(currentLanguage === 'en' ? 'Secret path updated! Redirecting...' : 'Секретный путь обновлён! Перенаправление...', 'success');
-    setTimeout(() => {
-      window.location.pathname = '/' + d.secretPath.replace(/^\/+|\/+$/g, '') + '/';
-    }, 1500);
+  const isEn = (typeof currentLanguage !== 'undefined' && currentLanguage === 'en');
+  const msg = isEn
+    ? 'Are you sure you want to regenerate the secret access path? You will be redirected to the new URL.'
+    : 'Вы уверены, что хотите перегенерировать секретный путь панели? Вы будете перенаправлены на новый адрес.';
+  if (!confirm(msg)) return;
+
+  try {
+    const res = await api('api/settings/regenerate-secret', { method: 'POST' });
+    if (res.ok) {
+      const d = await res.json();
+      const newSecret = d.secretPath ? d.secretPath.replace(/^\/+|\/+$/g, '') : '';
+      const modeUrlInput = document.getElementById('setting-network-url-input');
+      if (modeUrlInput && d.publicUrl) {
+        modeUrlInput.value = d.publicUrl;
+      }
+      toast(isEn ? 'Secret path updated! Redirecting...' : 'Секретный путь обновлён! Перенаправление...', 'success');
+      setTimeout(() => {
+        window.location.pathname = '/' + newSecret + '/';
+      }, 1500);
+    } else {
+      toast(t('toast_error'), 'danger');
+    }
+  } catch {
+    toast(t('toast_error'), 'danger');
   }
 }
 
@@ -244,7 +440,7 @@ function renderCoreVersionInfo(info) {
     if (btnCheck) btnCheck.style.display = 'none';
     if (releaseBox) {
       releaseBox.style.display = 'block';
-      if (releaseText) releaseText.textContent = info.releaseNotes || '—';
+      if (releaseText) releaseText.innerHTML = renderMarkdown(info.releaseNotes || '');
       if (releaseLink && info.releaseUrl) releaseLink.href = info.releaseUrl;
     }
   } else {
@@ -349,11 +545,11 @@ function renderPanelVersionInfo(info) {
 
   const curBadge = document.getElementById('panel-current-version-badge');
   if (curBadge) {
-    curBadge.textContent = `Server: ${info.currentVersion || 'v1.0.42'}`;
+    curBadge.textContent = `Server: ${info.currentVersion || 'v1.0.43'}`;
   }
 
   const curVer = document.getElementById('panel-current-version');
-  if (curVer) curVer.textContent = info.currentVersion || 'v1.0.42';
+  if (curVer) curVer.textContent = info.currentVersion || 'v1.0.43';
 
   const latVer = document.getElementById('panel-latest-version');
   if (latVer) latVer.textContent = info.latestVersion || info.currentVersion || '—';
@@ -392,7 +588,7 @@ function renderPanelVersionInfo(info) {
     if (btnCheck) btnCheck.style.display = 'none';
     if (releaseBox) {
       releaseBox.style.display = 'block';
-      if (releaseText) releaseText.textContent = info.releaseNotes || '—';
+      if (releaseText) releaseText.innerHTML = renderMarkdown(info.releaseNotes || '');
       if (releaseLink && info.releaseUrl) releaseLink.href = info.releaseUrl;
     }
   } else {
@@ -560,7 +756,7 @@ async function openRollbackModal(type) {
 
   if (type === 'panel') {
     if (titleEl) titleEl.textContent = isRu ? 'Смена версии OpenFlux Zen Server' : 'Change OpenFlux Zen Server Version';
-    const curVer = (panelInfoCache && panelInfoCache.currentVersion) ? panelInfoCache.currentVersion : 'v1.0.42';
+    const curVer = (panelInfoCache && panelInfoCache.currentVersion) ? panelInfoCache.currentVersion : 'v1.0.43';
     if (descEl) {
       descEl.innerHTML = isRu 
         ? `Текущая версия: <strong>${escapeHtml(curVer)}</strong>. Выберите версию из официальных релизов GitHub (BizhQwe/openflux-zen-server) для установки:`

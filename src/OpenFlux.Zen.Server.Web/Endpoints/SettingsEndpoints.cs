@@ -24,7 +24,14 @@ public static class SettingsEndpoints
         group.MapPost("/settings/regenerate-secret", async (ISettingsService settingsService) =>
         {
             var newSecret = await settingsService.RegenerateSecretPathAsync();
-            return Results.Ok(new { secretPath = newSecret });
+            var s = await settingsService.GetSettingsAsync();
+            return Results.Ok(new { success = true, secretPath = newSecret, publicUrl = s.PublicUrl });
+        });
+
+        group.MapPost("/settings/network-placement", async (NetworkPlacementRequest req, ISettingsService settingsService) =>
+        {
+            var res = await settingsService.SetNetworkPlacementAsync(req.Mode, req.Domain);
+            return Results.Ok(res);
         });
 
         group.MapPost("/settings/autostart", async (AutostartRequest req, ISettingsService settingsService) =>

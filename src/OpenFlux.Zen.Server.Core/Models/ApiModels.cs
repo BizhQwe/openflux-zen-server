@@ -93,7 +93,7 @@ public sealed class OpenFluxCoreUpdateResult
 
 public sealed class PanelVersionInfo
 {
-    public string CurrentVersion { get; set; } = "v1.0.42";
+    public string CurrentVersion { get; set; } = "v1.0.43";
     public string? LatestVersion { get; set; }
     public bool IsUpdateAvailable { get; set; }
     public string? ReleaseUrl { get; set; }
@@ -124,4 +124,21 @@ public sealed class VersionUpdateRequest
 {
     public string? TargetVersion { get; set; }
 }
+
+public sealed class NetworkPlacementRequest
+{
+    public string Mode { get; set; } = "local"; // domain | localtunnel | local | localhost
+    public string? Domain { get; set; }
+}
+
+public sealed class NetworkPlacementResponse
+{
+    public bool Success { get; set; }
+    public string Mode { get; set; } = "local";
+    public string? Domain { get; set; }
+    public string PublicUrl { get; set; } = "";
+    public string? LocaltunnelPassword { get; set; }
+    public string Message { get; set; } = "";
+}
+
 

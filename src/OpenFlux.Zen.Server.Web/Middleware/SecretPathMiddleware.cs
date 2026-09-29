@@ -23,6 +23,17 @@ public sealed class SecretPathMiddleware
 
         var path = context.Request.Path.Value ?? "/";
 
+        // If mode is strictly localhost, reject non-loopback connections (LAN or WAN)
+        if (string.Equals(settings.PublishMode, "localhost", StringComparison.OrdinalIgnoreCase))
+        {
+            var remoteIp = context.Connection.RemoteIpAddress;
+            if (remoteIp != null && !System.Net.IPAddress.IsLoopback(remoteIp))
+            {
+                await ServeDecoyAsync(context, settings);
+                return;
+            }
+        }
+
         // Check if request starts with the secret prefix
         if (!path.Equals(secretPrefix, StringComparison.OrdinalIgnoreCase) &&
             !path.StartsWith(secretPrefix + "/", StringComparison.OrdinalIgnoreCase))
