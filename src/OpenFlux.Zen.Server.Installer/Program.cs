@@ -61,8 +61,6 @@ public static class Program
             TerminalUi.Language = Environment.GetEnvironmentVariable("OPENFLUX_LANGUAGE") ?? "en";
         }
 
-        TerminalUi.ShowBanner("v1.0.32", "v0.2.0");
-
         var isRu = TerminalUi.IsRussian;
         var installDir = SystemOperations.GetDefaultInstallDir();
         var credPath = Path.Combine(installDir, "data", ".credentials");
@@ -353,9 +351,7 @@ public static class Program
             localUrl,
             username,
             password,
-            publishMode,
-            "v1.0.32",
-            "v0.2.0");
+            publishMode);
 
         // Clean up temporary installer binary on Linux
         if (!OperatingSystem.IsWindows())

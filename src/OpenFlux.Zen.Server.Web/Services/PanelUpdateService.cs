@@ -13,7 +13,7 @@ public sealed class PanelUpdateService : IPanelUpdateService
     private const string GitHubApiLatestRelease = "https://api.github.com/repos/BizhQwe/openflux-zen-server/releases/latest";
     private const string GitHubApiReleases = "https://api.github.com/repos/BizhQwe/openflux-zen-server/releases?per_page=30";
     private const string GitHubApiReleaseByTag = "https://api.github.com/repos/BizhQwe/openflux-zen-server/releases/tags/";
-    private const string FallbackDefaultVersion = "v1.0.32";
+    private const string FallbackDefaultVersion = "v1.0.33";
 
     private readonly ILogger<PanelUpdateService> _logger;
     private readonly HttpClient _httpClient;
@@ -254,17 +254,54 @@ public sealed class PanelUpdateService : IPanelUpdateService
     private void LaunchLinuxUpdaterScript(string tempZip, string stageDir, string appDir)
     {
         var scriptPath = Path.Combine(Path.GetTempPath(), $"oflux_apply_panel_{Guid.NewGuid():N}.sh");
+        var logPath = "/tmp/oflux_apply_panel.log";
         var scriptContent = $@"#!/bin/bash
-sleep 2
-# Copy new binaries and assets over application directory
-cp -rf ""{stageDir}/""* ""{appDir}/""
+exec > {logPath} 2>&1
+echo ""=== OpenFlux Zen Server Updater Started ===""
+echo ""Date: $(date)""
+echo ""StageDir: {stageDir}""
+echo ""AppDir: {appDir}""
+
+sleep 1
+
+# 1. Stop systemd service so processes release file handles and inodes
+echo ""Stopping openflux-zen-server.service...""
+systemctl stop openflux-zen-server.service 2>/dev/null || true
+
+# 2. Ensure all server web processes are stopped
+pkill -9 -f OpenFlux.Zen.Server.Web 2>/dev/null || true
+sleep 1
+
+# 3. Remove old binary to ensure no inode lock remains
+rm -f ""{appDir}/OpenFlux.Zen.Server.Web"" ""{appDir}/OpenFluxZenServer"" 2>/dev/null || true
+
+# 4. Copy all new files, assets, and wwwroot from stageDir to appDir
+echo ""Copying all application files...""
+cp -rf ""{stageDir}/."" ""{appDir}/""
+
+# 5. Set executable permissions on binaries
 chmod +x ""{appDir}/OpenFlux.Zen.Server.Web"" ""{appDir}/OpenFluxZenServer"" 2>/dev/null || true
 if [ -d ""/usr/local/bin"" ]; then
     cp -f ""{appDir}/OpenFluxZenServer"" ""/usr/local/bin/OpenFluxZenServer"" 2>/dev/null || true
     chmod +x ""/usr/local/bin/OpenFluxZenServer"" 2>/dev/null || true
 fi
-systemctl restart openflux-zen-server.service 2>/dev/null || true
-rm -rf ""{stageDir}"" ""{tempZip}"" ""$0""
+
+# 6. Clean up temporary staging files
+rm -rf ""{stageDir}"" ""{tempZip}""
+
+# 7. Start the systemd service
+echo ""Starting openflux-zen-server.service...""
+systemctl daemon-reload 2>/dev/null || true
+systemctl start openflux-zen-server.service 2>/dev/null || true
+
+# Fallback: if not running under systemd, launch binary in background
+if ! systemctl is-active --quiet openflux-zen-server.service 2>/dev/null; then
+    echo ""Service not active via systemd, starting binary in background...""
+    cd ""{appDir}"" && nohup ""{appDir}/OpenFlux.Zen.Server.Web"" </dev/null >/dev/null 2>&1 &
+fi
+
+echo ""=== OpenFlux Zen Server Updater Finished Successfully ===""
+rm -f ""$0""
 ";
         File.WriteAllText(scriptPath, scriptContent);
         if (!OperatingSystem.IsWindows())
@@ -281,13 +318,15 @@ rm -rf ""{stageDir}"" ""{tempZip}"" ""$0""
 
         try
         {
-            Process.Start(new ProcessStartInfo
+            // Launch outside of the systemd service's cgroup so stopping the service doesn't kill the updater
+            var psi = new ProcessStartInfo
             {
                 FileName = "bash",
-                Arguments = scriptPath,
+                Arguments = $"-c \"(systemd-run --unit=oflux-update-$(date +%s) /bin/bash '{scriptPath}' 2>/dev/null || nohup setsid /bin/bash '{scriptPath}' </dev/null >/dev/null 2>&1 &)\"",
                 UseShellExecute = false,
                 CreateNoWindow = true
-            });
+            };
+            Process.Start(psi);
             _logger.LogInformation("Detached Linux update script launched: {Script}", scriptPath);
         }
         catch (Exception ex)
@@ -300,8 +339,10 @@ rm -rf ""{stageDir}"" ""{tempZip}"" ""$0""
     {
         var scriptPath = Path.Combine(Path.GetTempPath(), $"oflux_apply_panel_{Guid.NewGuid():N}.bat");
         var scriptContent = $@"@echo off
-timeout /t 2 /nobreak >nul
+timeout /t 1 /nobreak >nul
 taskkill /f /im OpenFlux.Zen.Server.Web.exe >nul 2>&1
+timeout /t 1 /nobreak >nul
+del /f /q ""{appDir}\OpenFlux.Zen.Server.Web.exe"" >nul 2>&1
 xcopy ""{stageDir}\*"" ""{appDir}\"" /s /e /y /q >nul 2>&1
 if exist ""{appDir}\OpenFluxZenServer.exe"" (
     copy /y ""{appDir}\OpenFluxZenServer.exe"" ""%SystemRoot%\System32\OpenFluxZenServer.exe"" >nul 2>&1

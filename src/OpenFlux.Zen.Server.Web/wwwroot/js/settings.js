@@ -320,11 +320,11 @@ function renderPanelVersionInfo(info) {
 
   const curBadge = document.getElementById('panel-current-version-badge');
   if (curBadge) {
-    curBadge.textContent = info.currentVersion || 'v1.0.32';
+    curBadge.textContent = info.currentVersion || 'v1.0.33';
   }
 
   const curVer = document.getElementById('panel-current-version');
-  if (curVer) curVer.textContent = info.currentVersion || 'v1.0.32';
+  if (curVer) curVer.textContent = info.currentVersion || 'v1.0.33';
 
   const latVer = document.getElementById('panel-latest-version');
   if (latVer) latVer.textContent = info.latestVersion || info.currentVersion || '—';
@@ -452,7 +452,9 @@ async function confirmUpdatePanel() {
           const checkRes = await fetch('api/panel/version', { cache: 'no-store' });
           if (checkRes.ok) {
             toast(t('toast_panel_restarted'), 'success');
-            setTimeout(() => window.location.reload(), 1500);
+            setTimeout(() => {
+              window.location.href = window.location.pathname + '?_v=' + Date.now();
+            }, 1500);
             return;
           }
         } catch (_) {
@@ -502,7 +504,7 @@ async function openRollbackModal(type) {
 
   if (type === 'panel') {
     if (titleEl) titleEl.textContent = isRu ? 'Смена / Откат версии панели' : 'Switch / Rollback Panel Version';
-    const curVer = (panelInfoCache && panelInfoCache.currentVersion) ? panelInfoCache.currentVersion : 'v1.0.32';
+    const curVer = (panelInfoCache && panelInfoCache.currentVersion) ? panelInfoCache.currentVersion : 'v1.0.33';
     if (descEl) {
       descEl.innerHTML = isRu 
         ? `Текущая версия панели: <strong>${escapeHtml(curVer)}</strong>. Выберите версию из официальных релизов GitHub (BizhQwe/openflux-zen-server) для установки или отката:`
@@ -630,7 +632,9 @@ async function submitRollback() {
             const checkRes = await fetch('api/panel/version', { cache: 'no-store' });
             if (checkRes.ok) {
               toast(t('toast_panel_restarted'), 'success');
-              setTimeout(() => window.location.reload(), 1500);
+              setTimeout(() => {
+                window.location.href = window.location.pathname + '?_v=' + Date.now();
+              }, 1500);
               return;
             }
           } catch (_) { }

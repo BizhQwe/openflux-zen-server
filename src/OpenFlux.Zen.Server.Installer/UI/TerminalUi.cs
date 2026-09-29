@@ -92,29 +92,12 @@ public static class TerminalUi
         return string.IsNullOrEmpty(input) ? defaultValue : input;
     }
 
-    public static void ShowBanner(string panelVersion = "v1.0.32", string coreVersion = "v0.2.0")
-    {
-        Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine();
-        Console.WriteLine("  ==============================================================");
-        Console.WriteLine($"    OpenFlux Zen Server {panelVersion}");
-        Console.ForegroundColor = ConsoleColor.Green;
-        var coreLabel = IsRussian ? "Официальное ядро OpenFlux" : "Official OpenFlux Core";
-        Console.WriteLine($"    {coreLabel}: {coreVersion}");
-        Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine("  ==============================================================");
-        Console.ResetColor();
-        Console.WriteLine();
-    }
-
     public static void ShowSummaryCard(
         string publicUrl,
         string localUrl,
         string username,
         string password,
-        string publishMode = "",
-        string panelVersion = "v1.0.32",
-        string coreVersion = "v0.2.0")
+        string publishMode = "")
     {
         Console.WriteLine();
         Console.ForegroundColor = ConsoleColor.Green;
@@ -127,17 +110,14 @@ public static class TerminalUi
         Console.ResetColor();
         Console.WriteLine();
 
-        PrintField(IsRussian ? "Версия панели:" : "Panel Version:", panelVersion, ConsoleColor.Green);
-        PrintField(IsRussian ? "Ядро OpenFlux:" : "OpenFlux Core:", $"{coreVersion} (Official)", ConsoleColor.Green);
-
         bool isLan = publishMode == "local" || publishMode == "lan";
         string mainLabel = isLan
-            ? (IsRussian ? "Вход по LAN / Wi-Fi:" : "LAN / Wi-Fi Access:")
-            : (IsRussian ? "Панель управления:" : "Web Dashboard:");
+            ? (IsRussian ? "Вход по LAN / Wi-Fi:\t" : "LAN / Wi-Fi Access:\t")
+            : (IsRussian ? "Панель управления:\t" : "Web Dashboard:\t");
 
         string localLabel = isLan
-            ? (IsRussian ? "Этот ПК (localhost):" : "This PC (localhost):")
-            : (IsRussian ? "Локальный адрес:" : "Local Access:");
+            ? (IsRussian ? "Этот ПК (localhost):\t" : "This PC (localhost):\t")
+            : (IsRussian ? "Локальный адрес:\t" : "Local Access:\t");
 
         PrintField(mainLabel, publicUrl, ConsoleColor.Yellow);
 
@@ -146,8 +126,8 @@ public static class TerminalUi
             PrintField(localLabel, localUrl, ConsoleColor.White);
         }
 
-        PrintField(IsRussian ? "Логин:" : "Username:", username);
-        PrintField(IsRussian ? "Пароль:" : "Password:", password);
+        PrintField(IsRussian ? "Логин: \t\t" : "Username:\t", username);
+        PrintField(IsRussian ? "Пароль:\t\t" : "Password:\t", password);
 
         Console.WriteLine();
         Console.ForegroundColor = ConsoleColor.Green;
@@ -159,7 +139,7 @@ public static class TerminalUi
     private static void PrintField(string label, string value, ConsoleColor valueColor = ConsoleColor.White)
     {
         Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.Write($"  {label,-22} ");
+        Console.Write($"  {label}");
         Console.ForegroundColor = valueColor;
         Console.WriteLine(value);
         Console.ResetColor();

@@ -3,13 +3,16 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <title>OpenFlux Zen Server</title>
   <link rel="icon" type="image/png" href="assets/images/logo-32x32.png" />
   <link rel="apple-touch-icon" href="assets/images/logo-180x180.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/app.css?v=1.0.7" />
+  <link rel="stylesheet" href="css/app.css?v=1.0.33" />
 </head>
 <body>
 
@@ -34,7 +37,7 @@
       <div class="header-actions" style="display: flex; gap: 8px; align-items: center;">
         <button class="btn btn-outline btn-sm" id="header-update-badge" onclick="switchTab('settings')" title="Обновления и система" style="display: inline-flex; align-items: center; gap: 6px;">
           <span id="header-update-dot" style="width: 7px; height: 7px; border-radius: 50%; background: #10b981; display: inline-block;"></span>
-          <span id="header-version-text">v1.0.32</span>
+          <span id="header-version-text">v1.0.33</span>
         </button>
         <button class="btn btn-outline btn-sm" onclick="logout()" data-i18n="nav_logout">Выход</button>
       </div>
@@ -555,11 +558,11 @@
   <!-- Toast notifications -->
   <div id="toast-container" role="status" aria-live="polite"></div>
 
-  <script src="js/i18n.js?v=1.1.0"></script>
-  <script src="js/api.js?v=1.1.0"></script>
-  <script src="js/tunnels.js?v=1.1.0"></script>
-  <script src="js/logs.js?v=1.1.0"></script>
-  <script src="js/settings.js?v=1.1.0"></script>
-  <script src="js/app.js?v=1.1.0"></script>
+  <script src="js/i18n.js?v=1.0.33"></script>
+  <script src="js/api.js?v=1.0.33"></script>
+  <script src="js/tunnels.js?v=1.0.33"></script>
+  <script src="js/logs.js?v=1.0.33"></script>
+  <script src="js/settings.js?v=1.0.33"></script>
+  <script src="js/app.js?v=1.0.33"></script>
 </body>
 </html>

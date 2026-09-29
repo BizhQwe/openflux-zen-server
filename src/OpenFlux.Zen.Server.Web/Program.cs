@@ -84,16 +84,31 @@ var app = builder.Build();
 // 5. Secret Path Middleware (Stealth Protection)
 app.UseMiddleware<SecretPathMiddleware>();
 
-// 6. Routing & Static Files
+// 6. Routing & Static Files (Strict No-Cache to ensure instant UI updates)
+app.Use(async (context, next) =>
+{
+    var p = context.Request.Path.Value ?? "";
+    if (p.EndsWith(".html", StringComparison.OrdinalIgnoreCase) ||
+        p.EndsWith(".js", StringComparison.OrdinalIgnoreCase) ||
+        p.EndsWith(".css", StringComparison.OrdinalIgnoreCase) ||
+        p == "/" || string.IsNullOrEmpty(p))
+    {
+        context.Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0";
+        context.Response.Headers["Pragma"] = "no-cache";
+        context.Response.Headers["Expires"] = "-1";
+    }
+    await next();
+});
+
 app.UseRouting();
 app.UseDefaultFiles();
 app.UseStaticFiles(new StaticFileOptions
 {
     OnPrepareResponse = ctx =>
     {
-        ctx.Context.Response.Headers.Append("Cache-Control", "no-cache, no-store, must-revalidate");
-        ctx.Context.Response.Headers.Append("Pragma", "no-cache");
-        ctx.Context.Response.Headers.Append("Expires", "0");
+        ctx.Context.Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0";
+        ctx.Context.Response.Headers["Pragma"] = "no-cache";
+        ctx.Context.Response.Headers["Expires"] = "-1";
     }
 });
 
