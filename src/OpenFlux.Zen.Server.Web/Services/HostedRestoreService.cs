@@ -107,6 +107,18 @@ public sealed class HostedRestoreService : IHostedService
             }
             catch { }
 
+            // Ensure schema resiliency for OpenFlux v0.2.0+ columns on upgraded databases
+            try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Tunnels\" ADD COLUMN \"EnableShare\" INTEGER NOT NULL DEFAULT 1;", cancellationToken); } catch { }
+            try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Tunnels\" ADD COLUMN \"ShareHost\" TEXT NULL;", cancellationToken); } catch { }
+            try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Tunnels\" ADD COLUMN \"ShareLink\" TEXT NULL;", cancellationToken); } catch { }
+            try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Tunnels\" ADD COLUMN \"DirectListen\" TEXT NULL;", cancellationToken); } catch { }
+            try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Tunnels\" ADD COLUMN \"DirectDial\" TEXT NULL;", cancellationToken); } catch { }
+            try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Tunnels\" ADD COLUMN \"SessionContext\" TEXT NULL;", cancellationToken); } catch { }
+            try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Tunnels\" ADD COLUMN \"Negotiate\" INTEGER NOT NULL DEFAULT 0;", cancellationToken); } catch { }
+            try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Tunnels\" ADD COLUMN \"Transports\" TEXT NULL;", cancellationToken); } catch { }
+            try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Tunnels\" ADD COLUMN \"MaxPacketSize\" INTEGER NOT NULL DEFAULT 65000;", cancellationToken); } catch { }
+            try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Tunnels\" ADD COLUMN \"YandexCookiesFile\" TEXT NULL;", cancellationToken); } catch { }
+
             // Ensure settings and admin account exist
             var currentSettings = await db.Settings.FirstOrDefaultAsync(s => s.Id == 1, cancellationToken);
             if (currentSettings == null)

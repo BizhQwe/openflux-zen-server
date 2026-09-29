@@ -45,6 +45,13 @@ public sealed class AppDbContext : DbContext
             entity.Property(e => e.Mode).HasMaxLength(32).HasDefaultValue("l4");
             entity.Property(e => e.Codec).HasMaxLength(32).HasDefaultValue("batched");
             entity.Property(e => e.Status).HasConversion<int>();
+            entity.Property(e => e.ShareHost).HasMaxLength(256);
+            entity.Property(e => e.ShareLink).HasMaxLength(2048);
+            entity.Property(e => e.DirectListen).HasMaxLength(128);
+            entity.Property(e => e.DirectDial).HasMaxLength(128);
+            entity.Property(e => e.SessionContext).HasMaxLength(512);
+            entity.Property(e => e.Transports).HasMaxLength(512);
+            entity.Property(e => e.YandexCookiesFile).HasMaxLength(512);
             entity.HasIndex(e => e.Name);
             entity.HasIndex(e => e.IsEnabled);
         });

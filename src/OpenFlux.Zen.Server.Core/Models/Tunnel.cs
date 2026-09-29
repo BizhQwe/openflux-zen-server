@@ -23,6 +23,18 @@ public sealed class Tunnel
     public bool BenchCompressible { get; set; } = false;
     public string? ExtraArgs { get; set; }
 
+    // OpenFlux v0.2.0+ Session & Transport Features
+    public bool EnableShare { get; set; } = true; // --share
+    public string? ShareHost { get; set; } // --share-host
+    public string? ShareLink { get; set; } // openflux:// link captured from stdout/stderr or constructed
+    public string? DirectListen { get; set; } // --direct-listen (e.g. 0.0.0.0:8445)
+    public string? DirectDial { get; set; } // --direct-dial
+    public string? SessionContext { get; set; } // --session-context
+    public bool Negotiate { get; set; } = false; // --negotiate
+    public string? Transports { get; set; } // --transports=direct:100,yandex:50
+    public int MaxPacketSize { get; set; } = 65000; // --max-packet-size (1280..65000)
+    public string? YandexCookiesFile { get; set; } // --yandex-cookies-file
+
     // Limits & Statistics
     public int ClientLimit { get; set; } = 0; // 0 = unlimited
     public long TrafficLimitBytes { get; set; } = 0; // 0 = unlimited

@@ -335,9 +335,18 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         // Role on server is strictly EXIT node
         parts.Add("--role=exit");
 
-        // Transport: yandex | vyandex | oneme | cupsonline | mailru
+        // Transport: yandex | vyandex | boards | oneme | cupsonline | mailru | direct | multi
         var transport = string.IsNullOrWhiteSpace(t.Transport) ? "yandex" : t.Transport.Trim();
-        parts.Add($"--transport={transport}");
+
+        if (transport == "multi" || !string.IsNullOrWhiteSpace(t.Transports))
+        {
+            var multi = string.IsNullOrWhiteSpace(t.Transports) ? "direct:100,yandex:50" : t.Transports.Trim();
+            parts.Add($"--transports=\"{multi}\"");
+        }
+        else
+        {
+            parts.Add($"--transport={transport}");
+        }
 
         // Mode: l4 | l3
         var mode = string.IsNullOrWhiteSpace(t.Mode) ? "l4" : t.Mode.Trim();
@@ -352,7 +361,7 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         var codec = string.IsNullOrWhiteSpace(t.Codec) ? "batched" : t.Codec.Trim();
         parts.Add($"--codec={codec}");
 
-        // Url (for yandex, vyandex, cupsonline, mailru)
+        // Url (for yandex, vyandex, boards, cupsonline, mailru)
         if (!string.IsNullOrWhiteSpace(t.Url))
         {
             parts.Add($"--url=\"{t.Url.Trim()}\"");
@@ -371,44 +380,101 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
             }
         }
 
-        // Encryption key file
-        if (!string.IsNullOrWhiteSpace(t.EncryptionKey))
+        // Direct transport configuration (--direct-listen and --direct-dial)
+        if (transport == "direct" || !string.IsNullOrWhiteSpace(t.DirectListen))
         {
-            var keyFilePath = Path.Combine(_keysDirectory, $"{t.Id}.key");
-            File.WriteAllText(keyFilePath, t.EncryptionKey.Trim());
-            parts.Add($"--encryption-key-file=\"{keyFilePath}\"");
+            var listen = string.IsNullOrWhiteSpace(t.DirectListen) ? "0.0.0.0:8445" : t.DirectListen.Trim();
+            parts.Add($"--direct-listen=\"{listen}\"");
+        }
+        if (!string.IsNullOrWhiteSpace(t.DirectDial))
+        {
+            parts.Add($"--direct-dial=\"{t.DirectDial.Trim()}\"");
         }
 
-        // Cookie store for transports that require HTTP cookies
-        var dataDir = Path.Combine(AppContext.BaseDirectory, "data");
-        Directory.CreateDirectory(dataDir);
-        var cookiePath = Path.Combine(dataDir, $"cookies-{transport}.json");
-
-        if (!File.Exists(cookiePath))
+        // Ensure encryption key exists (required by OpenFlux v0.2.0+ for modern clients)
+        if (string.IsNullOrWhiteSpace(t.EncryptionKey) || t.EncryptionKey.Trim().Length < 16)
         {
-            var seedCandidates = new[]
+            // Auto-generate strong 32-byte (64 hex characters) key
+            t.EncryptionKey = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
+        }
+
+        var keyFilePath = Path.Combine(_keysDirectory, $"{t.Id}.key");
+        File.WriteAllText(keyFilePath, t.EncryptionKey.Trim());
+        parts.Add($"--encryption-key-file=\"{keyFilePath}\"");
+
+        // Client share link generation (--share and --share-host)
+        if (t.EnableShare)
+        {
+            parts.Add("--share");
+            if (!string.IsNullOrWhiteSpace(t.ShareHost))
             {
-                Path.Combine(AppContext.BaseDirectory, $"cookies-{transport}.json"),
-                Path.Combine(AppContext.BaseDirectory, "runtimes", $"cookies-{transport}.json"),
-                Path.Combine(Directory.GetCurrentDirectory(), $"cookies-{transport}.json"),
-                Path.Combine(Directory.GetCurrentDirectory(), "runtimes", $"cookies-{transport}.json"),
-                Path.Combine("/opt/openflux-zen-server/data", $"cookies-{transport}.json"),
-                Path.Combine("/opt/openflux-zen-server/runtimes", $"cookies-{transport}.json"),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "OpenFluxZenServer", "data", $"cookies-{transport}.json"),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "OpenFluxZenServer", "runtimes", $"cookies-{transport}.json")
-            };
-            foreach (var seed in seedCandidates)
-            {
-                if (File.Exists(seed))
-                {
-                    try { File.Copy(seed, cookiePath, overwrite: false); break; } catch { }
-                }
+                parts.Add($"--share-host=\"{t.ShareHost.Trim()}\"");
             }
         }
 
-        if (t.ExtraArgs == null || !t.ExtraArgs.Contains("--cookie-store"))
+        // Session Context override
+        if (!string.IsNullOrWhiteSpace(t.SessionContext))
         {
-            parts.Add($"--cookie-store=\"{cookiePath}\"");
+            parts.Add($"--session-context=\"{t.SessionContext.Trim()}\"");
+        }
+
+        // Strict Negotiation
+        if (t.Negotiate)
+        {
+            parts.Add("--negotiate");
+        }
+
+        // Max packet size (1280..65000)
+        if (t.MaxPacketSize is >= 1280 and <= 65000 && t.MaxPacketSize != 65000)
+        {
+            parts.Add($"--max-packet-size={t.MaxPacketSize}");
+        }
+
+        // Yandex cookies file
+        if (!string.IsNullOrWhiteSpace(t.YandexCookiesFile) && File.Exists(t.YandexCookiesFile.Trim()))
+        {
+            parts.Add($"--yandex-cookies-file=\"{t.YandexCookiesFile.Trim()}\"");
+        }
+
+        // Cookie store for transports that require HTTP cookies
+        var usesCookies = transport switch
+        {
+            "yandex" or "vyandex" or "boards" or "mailru" or "cupsonline" => true,
+            _ => false
+        };
+
+        if (usesCookies)
+        {
+            var dataDir = Path.Combine(AppContext.BaseDirectory, "data");
+            Directory.CreateDirectory(dataDir);
+            var cookiePath = Path.Combine(dataDir, $"cookies-{transport}.json");
+
+            if (!File.Exists(cookiePath))
+            {
+                var seedCandidates = new[]
+                {
+                    Path.Combine(AppContext.BaseDirectory, $"cookies-{transport}.json"),
+                    Path.Combine(AppContext.BaseDirectory, "runtimes", $"cookies-{transport}.json"),
+                    Path.Combine(Directory.GetCurrentDirectory(), $"cookies-{transport}.json"),
+                    Path.Combine(Directory.GetCurrentDirectory(), "runtimes", $"cookies-{transport}.json"),
+                    Path.Combine("/opt/openflux-zen-server/data", $"cookies-{transport}.json"),
+                    Path.Combine("/opt/openflux-zen-server/runtimes", $"cookies-{transport}.json"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "OpenFluxZenServer", "data", $"cookies-{transport}.json"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "OpenFluxZenServer", "runtimes", $"cookies-{transport}.json")
+                };
+                foreach (var seed in seedCandidates)
+                {
+                    if (File.Exists(seed))
+                    {
+                        try { File.Copy(seed, cookiePath, overwrite: false); break; } catch { }
+                    }
+                }
+            }
+
+            if (t.ExtraArgs == null || !t.ExtraArgs.Contains("--cookie-store"))
+            {
+                parts.Add($"--cookie-store=\"{cookiePath}\"");
+            }
         }
 
         if (t.ExtraArgs == null || !t.ExtraArgs.Contains("--debug"))
@@ -631,13 +697,30 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         catch { }
     }
 
-    private static void DetectConnectionStatus(Tunnel tunnel, string line)
+    private void DetectConnectionStatus(Tunnel tunnel, string line)
     {
+        // 1. Capture OpenFlux client share link (openflux://...)
+        if (line.Contains("openflux://", StringComparison.OrdinalIgnoreCase))
+        {
+            var match = System.Text.RegularExpressions.Regex.Match(line, @"openflux://[^\s""'<>]+", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (match.Success)
+            {
+                var link = match.Value.TrimEnd('.', ',', ';', ')');
+                if (tunnel.ShareLink != link)
+                {
+                    tunnel.ShareLink = link;
+                    _logger.LogInformation("Captured OpenFlux client share link for tunnel {Id}: {Link}", tunnel.Id, link);
+                    _logService.AppendLog(tunnel.Id, "system", $"OpenFlux client link: {link}");
+                }
+            }
+        }
+
+        // 2. Status & warnings
         if (line.Contains("SmartCaptcha detected", StringComparison.OrdinalIgnoreCase) ||
             line.Contains("captcha required", StringComparison.OrdinalIgnoreCase) ||
             line.Contains("showcaptcha?cc=1", StringComparison.OrdinalIgnoreCase))
         {
-            tunnel.ErrorMessage = "Яндекс заблокировал документ капчей (SmartCaptcha). Создайте новый документ на Яндекс Диске или используйте Mail.ru / OneMe.";
+            tunnel.ErrorMessage = "Яндекс заблокировал документ капчей (SmartCaptcha). Создайте новый документ на Яндекс Диске или используйте Mail.ru / Boards / OneMe.";
         }
         else if (line.Contains("showcaptchafast", StringComparison.OrdinalIgnoreCase))
         {
@@ -648,8 +731,14 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         {
             tunnel.ErrorMessage = "Документ недоступен, закрыт или требует авторизации.";
         }
+        else if (line.Contains("key or context mismatch", StringComparison.OrdinalIgnoreCase))
+        {
+            tunnel.ErrorMessage = "Несовпадение ключа или контекста шифрования с подключившимся клиентом.";
+        }
         else if (line.Contains("WebSocket connected", StringComparison.OrdinalIgnoreCase) ||
-                 line.Contains("Auth OK", StringComparison.OrdinalIgnoreCase))
+                 line.Contains("Auth OK", StringComparison.OrdinalIgnoreCase) ||
+                 line.Contains("Authenticated peer", StringComparison.OrdinalIgnoreCase) ||
+                 line.Contains("Running as EXIT NODE", StringComparison.OrdinalIgnoreCase))
         {
             tunnel.ErrorMessage = null;
         }

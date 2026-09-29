@@ -130,6 +130,16 @@ public sealed class TunnelManager : ITunnelManager
             existing.BenchBytes = updated.BenchBytes;
             existing.BenchCompressible = updated.BenchCompressible;
             existing.ExtraArgs = updated.ExtraArgs;
+            existing.EnableShare = updated.EnableShare;
+            existing.ShareHost = updated.ShareHost;
+            existing.ShareLink = updated.ShareLink ?? existing.ShareLink;
+            existing.DirectListen = updated.DirectListen;
+            existing.DirectDial = updated.DirectDial;
+            existing.SessionContext = updated.SessionContext;
+            existing.Negotiate = updated.Negotiate;
+            existing.Transports = updated.Transports;
+            existing.MaxPacketSize = updated.MaxPacketSize > 0 ? updated.MaxPacketSize : 65000;
+            existing.YandexCookiesFile = updated.YandexCookiesFile;
             existing.ClientLimit = updated.ClientLimit;
             existing.TrafficLimitBytes = updated.TrafficLimitBytes;
             existing.IsEnabled = updated.IsEnabled;
@@ -496,6 +506,11 @@ public sealed class TunnelManager : ITunnelManager
                     entity.LastStartedAt = live.LastStartedAt;
                     entity.LastStoppedAt = live.LastStoppedAt;
                     entity.ErrorMessage = live.ErrorMessage;
+                    entity.ShareLink = live.ShareLink;
+                    if (!string.IsNullOrWhiteSpace(live.EncryptionKey) && string.IsNullOrWhiteSpace(entity.EncryptionKey))
+                    {
+                        entity.EncryptionKey = live.EncryptionKey;
+                    }
                 }
             }
 

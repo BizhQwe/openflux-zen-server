@@ -142,11 +142,32 @@ function renderTunnels(list) {
             <span id="tunnel-status-${tItem.id}">${statusBadge}</span>
             <div class="badges">
               <span class="badge badge-tag">${tItem.transport}</span>
+              ${tItem.transports ? `<span class="badge badge-tag" title="${escapeHtml(tItem.transports)}">${escapeHtml(tItem.transports)}</span>` : ''}
               <span class="badge badge-tag">${tItem.mode || 'l4'}</span>
               <span class="badge badge-tag">${tItem.codec}</span>
+              ${tItem.shareLink ? `<span class="badge badge-tag" style="background: rgba(34, 197, 94, 0.15); color: #4ade80; border-color: rgba(34, 197, 94, 0.3);">${t('badge_share_ready') || 'Ссылка готова'}</span>` : ''}
             </div>
           </div>
         </div>
+
+        ${tItem.shareLink ? `
+        <div class="tunnel-share-banner">
+          <div class="tunnel-share-info">
+            <span class="tunnel-share-tag">openflux://</span>
+            <span class="tunnel-share-text" title="${escapeHtml(tItem.shareLink)}">${escapeHtml(tItem.shareLink)}</span>
+          </div>
+          <div class="tunnel-share-actions">
+            <button type="button" class="btn btn-outline btn-xs" onclick="copyShareLink('${escapeHtml(tItem.shareLink)}')" title="${t('btn_copy_openflux')}">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              <span>${t('btn_copy') || 'Скопировать'}</span>
+            </button>
+            <button type="button" class="btn btn-primary btn-xs" onclick="openQrModal('${escapeHtml(tItem.shareLink)}', '${escapeHtml(tItem.name)}')" title="${t('btn_show_qr')}">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+              <span>${t('btn_show_qr') || 'QR-код'}</span>
+            </button>
+          </div>
+        </div>
+        ` : ''}
 
         <div id="tunnel-err-${tItem.id}" class="tunnel-error-banner" style="margin: 8px 0 12px 0; padding: 7px 10px; background: rgba(239, 68, 68, 0.12); border-left: 3px solid #ef4444; border-radius: 4px; font-size: 0.82rem; color: #fca5a5; display: ${tItem.errorMessage ? 'flex' : 'none'}; align-items: center; gap: 8px;">
           ${tItem.errorMessage ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span>${escapeHtml(tItem.errorMessage)}</span>` : ''}
@@ -256,6 +277,76 @@ async function deleteTunnel(id) {
   }
 }
 
+function generateRandomKey() {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function generateAndSetKey() {
+  const key = generateRandomKey();
+  document.getElementById('tunnel-encryption').value = key;
+  toast(currentLanguage === 'ru' ? 'Сгенерирован новый 32-байтный hex-ключ' : 'Generated new 32-byte hex key', 'info');
+}
+
+function copyShareLink(link) {
+  if (!link) return;
+  navigator.clipboard.writeText(link).then(() => {
+    toast(t('toast_link_copied') || 'Ссылка openflux:// скопирована в буфер обмена', 'success');
+  }).catch(() => {
+    toast(t('toast_copied'), 'success');
+  });
+}
+
+let currentQrCode = null;
+
+function openQrModal(link, name) {
+  const modal = document.getElementById('qr-modal');
+  if (!modal) return;
+  const titleEl = document.getElementById('qr-modal-title');
+  if (titleEl) {
+    titleEl.textContent = (name ? `${name} - ` : '') + (t('modal_qr_title') || 'Подключение клиента OpenFlux');
+  }
+  const inputEl = document.getElementById('qr-modal-link-input');
+  if (inputEl) inputEl.value = link;
+
+  const canvasContainer = document.getElementById('qrcode-canvas');
+  if (canvasContainer) {
+    canvasContainer.innerHTML = '';
+    try {
+      if (typeof QRCode !== 'undefined') {
+        currentQrCode = new QRCode(canvasContainer, {
+          text: link,
+          width: 220,
+          height: 220,
+          colorDark: '#000000',
+          colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.M
+        });
+      } else {
+        canvasContainer.innerHTML = `<p style="color:#ef4444;font-size:0.8rem;">Библиотека QR не загружена</p>`;
+      }
+    } catch (err) {
+      console.error('Failed to generate QR code', err);
+      canvasContainer.innerHTML = `<p style="color:#ef4444;font-size:0.8rem;">Ошибка создания QR-кода</p>`;
+    }
+  }
+
+  modal.classList.add('open');
+}
+
+function closeQrModal() {
+  const modal = document.getElementById('qr-modal');
+  if (modal) modal.classList.remove('open');
+}
+
+function copyQrModalLink() {
+  const input = document.getElementById('qr-modal-link-input');
+  if (input && input.value) {
+    copyShareLink(input.value);
+  }
+}
+
 function openTunnelModal(tunnel = null) {
   document.getElementById('tunnel-id').value = tunnel ? tunnel.id : '';
   document.getElementById('tunnel-modal-title').textContent = tunnel ? t('modal_edit_tunnel') : t('modal_new_tunnel');
@@ -267,8 +358,15 @@ function openTunnelModal(tunnel = null) {
   document.getElementById('tunnel-url').value = tunnel ? (tunnel.url || '') : '';
   document.getElementById('tunnel-maxtoken').value = tunnel ? (tunnel.maxToken || '') : '';
   document.getElementById('tunnel-maxuid').value = tunnel ? (tunnel.maxUid || '') : '';
+  document.getElementById('tunnel-direct-listen').value = tunnel ? (tunnel.directListen || '') : '0.0.0.0:8445';
+  document.getElementById('tunnel-share-host').value = tunnel ? (tunnel.shareHost || '') : '';
+  document.getElementById('tunnel-transports').value = tunnel ? (tunnel.transports || '') : '';
   document.getElementById('tunnel-codec').value = tunnel ? (tunnel.codec || 'batched') : 'batched';
-  document.getElementById('tunnel-encryption').value = tunnel ? (tunnel.encryptionKey || '') : '';
+  document.getElementById('tunnel-encryption').value = tunnel ? (tunnel.encryptionKey || '') : generateRandomKey();
+  document.getElementById('tunnel-enable-share').checked = tunnel ? (tunnel.enableShare !== false) : true;
+  document.getElementById('tunnel-session-context').value = tunnel ? (tunnel.sessionContext || '') : '';
+  document.getElementById('tunnel-max-packet').value = tunnel && tunnel.maxPacketSize ? tunnel.maxPacketSize : 65000;
+  document.getElementById('tunnel-negotiate').checked = tunnel ? !!tunnel.negotiate : false;
   document.getElementById('tunnel-client-limit').value = tunnel ? tunnel.clientLimit : 0;
   document.getElementById('tunnel-traffic-limit').value = tunnel && tunnel.trafficLimitBytes > 0 ? Math.round(tunnel.trafficLimitBytes / (1024 * 1024)) : 0;
   document.getElementById('tunnel-extra-args').value = tunnel ? (tunnel.extraArgs || '--debug') : '--debug';
@@ -289,10 +387,33 @@ function editTunnel(id) {
 function onTransportChange() {
   const transport = document.getElementById('tunnel-transport').value;
   document.getElementById('group-oneme').style.display = transport === 'oneme' ? 'grid' : 'none';
+  document.getElementById('group-direct').style.display = transport === 'direct' ? 'grid' : 'none';
+  document.getElementById('group-multi').style.display = transport === 'multi' ? 'block' : 'none';
+
+  const urlGroup = document.getElementById('group-url');
+  urlGroup.style.display = (transport === 'oneme' || transport === 'direct') ? 'none' : 'block';
+
   const urlLabel = document.getElementById('tunnel-url-label');
-  if (transport === 'mailru') urlLabel.textContent = 'Публичная ссылка Mail.ru (--url)';
-  else if (transport === 'cupsonline') urlLabel.textContent = 'Список комнат base64 (--url)';
-  else urlLabel.textContent = 'URL документа (--url)';
+  const urlInput = document.getElementById('tunnel-url');
+  if (transport === 'boards') {
+    urlLabel.textContent = 'URL Яндекс Доски (--url)';
+    urlInput.placeholder = 'https://boards.yandex.ru/p/...';
+  } else if (transport === 'mailru') {
+    urlLabel.textContent = 'Публичная ссылка Mail.ru (--url)';
+    urlInput.placeholder = 'https://cloud.mail.ru/public/...';
+  } else if (transport === 'cupsonline') {
+    urlLabel.textContent = 'Список комнат base64 (--url, опционально)';
+    urlInput.placeholder = 'Оставьте пустым для автосоздания комнат';
+  } else if (transport === 'vyandex') {
+    urlLabel.textContent = 'URL документа Яндекс Волга (--url)';
+    urlInput.placeholder = 'https://disk.yandex.ru/i/...';
+  } else if (transport === 'multi') {
+    urlLabel.textContent = 'Основной URL документа (опционально)';
+    urlInput.placeholder = 'https://disk.yandex.ru/i/...';
+  } else {
+    urlLabel.textContent = 'URL документа (--url)';
+    urlInput.placeholder = 'https://disk.yandex.ru/i/...';
+  }
 }
 
 async function saveTunnel() {
@@ -310,8 +431,15 @@ async function saveTunnel() {
     url: document.getElementById('tunnel-url').value.trim() || null,
     maxToken: document.getElementById('tunnel-maxtoken').value.trim() || null,
     maxUid: document.getElementById('tunnel-maxuid').value.trim() || null,
+    directListen: document.getElementById('tunnel-direct-listen').value.trim() || null,
+    shareHost: document.getElementById('tunnel-share-host').value.trim() || null,
+    transports: document.getElementById('tunnel-transports').value.trim() || null,
     codec: document.getElementById('tunnel-codec').value,
     encryptionKey: document.getElementById('tunnel-encryption').value.trim() || null,
+    enableShare: document.getElementById('tunnel-enable-share').checked,
+    sessionContext: document.getElementById('tunnel-session-context').value.trim() || null,
+    maxPacketSize: parseInt(document.getElementById('tunnel-max-packet').value) || 65000,
+    negotiate: document.getElementById('tunnel-negotiate').checked,
     clientLimit: parseInt(document.getElementById('tunnel-client-limit').value) || 0,
     trafficLimitBytes: trafficMB > 0 ? trafficMB * 1024 * 1024 : 0,
     extraArgs: document.getElementById('tunnel-extra-args').value.trim() || '--debug',

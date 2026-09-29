@@ -429,6 +429,52 @@
       display: inline-block;
     }
 
+    /* OpenFlux Client Share Banner */
+    .tunnel-share-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 10px 0 14px 0;
+      padding: 8px 12px;
+      background: rgba(59, 130, 246, 0.08);
+      border: 1px solid rgba(59, 130, 246, 0.25);
+      border-radius: var(--border-radius);
+      flex-wrap: wrap;
+    }
+    .tunnel-share-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      flex: 1 1 200px;
+    }
+    .tunnel-share-tag {
+      background: rgba(59, 130, 246, 0.2);
+      color: #60a5fa;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      white-space: nowrap;
+    }
+    .tunnel-share-text {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: #93c5fd;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+    .tunnel-share-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
     .tunnel-details {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1135,6 +1181,24 @@
         flex-direction: column;
         gap: 8px;
         width: 100%;
+      }
+      .tunnel-share-banner {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 8px !important;
+        padding: 10px !important;
+      }
+      .tunnel-share-actions {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        width: 100% !important;
+        gap: 8px !important;
+      }
+      .tunnel-share-actions .btn {
+        width: 100% !important;
+        justify-content: center !important;
+        height: 38px !important;
+        min-height: 38px !important;
       }
       .tunnel-actions .action-group {
         display: flex;
