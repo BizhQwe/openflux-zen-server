@@ -191,7 +191,7 @@ const I18N_DICTIONARY = {
     confirm_rollback_core: "Установить ядро OpenFlux версии {version}? Все активные туннели будут перезапущены.",
     confirm_rollback_panel: "Установить панель OpenFlux Zen Server версии {version}? Служба сервера будет перезапущена с сохранением настроек.",
     header_status_up_to_date: "Обновлено",
-    header_status_update_available: "Требует обновления"
+    header_status_update_available: "Требуется обновление"
   },
 
   en: {
