@@ -115,6 +115,8 @@ async function initApp() {
     let isPolling = false;
     statsInterval = setInterval(async () => {
       if (document.hidden || isPolling) return;
+      const tunnelsTab = document.getElementById('tab-tunnels');
+      if (!tunnelsTab || !tunnelsTab.classList.contains('active')) return;
       isPolling = true;
       try {
         await Promise.allSettled([loadStats(), loadTunnels(true)]);
@@ -125,8 +127,11 @@ async function initApp() {
 
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden && document.getElementById('main-view').style.display !== 'none') {
-        loadStats();
-        loadTunnels(true);
+        const tunnelsTab = document.getElementById('tab-tunnels');
+        if (tunnelsTab && tunnelsTab.classList.contains('active')) {
+          loadStats();
+          loadTunnels(true);
+        }
         if (typeof loadPanelVersionInfo === 'function') loadPanelVersionInfo(true);
         if (typeof loadCoreVersionInfo === 'function') loadCoreVersionInfo(true);
       }
@@ -148,6 +153,10 @@ function switchTab(tabId) {
   const tabEl = document.getElementById('tab-' + tabId);
   if (tabEl) tabEl.classList.add('active');
 
+  if (tabId === 'tunnels') {
+    loadStats();
+    loadTunnels(true);
+  }
   if (tabId === 'logs') loadActiveLogs();
   if (tabId === 'settings') loadSettings();
 }

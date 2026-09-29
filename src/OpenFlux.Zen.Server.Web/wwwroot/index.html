@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/app.css?v=1.0.43" />
+  <link rel="stylesheet" href="css/app.css?v=1.0.46" />
 </head>
 <body>
 
@@ -74,8 +74,11 @@
     <!-- Main View -->
     <div id="main-view" style="display: none;">
 
-      <!-- Stats Grid -->
-      <div class="stats-grid">
+      <!-- Tab: Tunnels -->
+      <div id="tab-tunnels" class="tab-content active">
+
+        <!-- Stats Grid (Visible exclusively in Tunnels tab) -->
+        <div class="stats-grid">
         <!-- 1. Активные туннели -->
         <div class="stat-card">
           <div class="stat-header">
@@ -165,8 +168,6 @@
         </div>
       </div>
 
-      <!-- Tab: Tunnels -->
-      <div id="tab-tunnels" class="tab-content active">
         <div class="section-bar">
           <h3 class="section-title" data-i18n="tunnels_title">Список туннелей</h3>
           <div class="toolbar">
@@ -265,7 +266,7 @@
             <h4 data-i18n="settings_panel_title">OpenFlux Zen Server</h4>
             <div style="display: flex; gap: 8px; align-items: center;">
               <span id="panel-status-badge" class="badge-status-update" style="display: none;"></span>
-              <span id="panel-current-version-badge" style="background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #93c5fd; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600;">Server: v1.0.45</span>
+              <span id="panel-current-version-badge" style="background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #93c5fd; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600;">Server: v1.0.46</span>
             </div>
           </div>
           <p style="color: var(--text-dim); margin-bottom: 16px; font-size: 0.9rem;" data-i18n="settings_panel_desc">
@@ -410,24 +411,23 @@
             <p class="settings-card-description" data-i18n="settings_change_network_mode_desc">
               Выберите, откуда разрешён доступ к веб-панели сервера.
             </p>
-            <div class="network-placement-row">
-              <div class="form-group network-mode-field">
-                <label for="setting-network-mode-select" data-i18n="settings_select_mode_label">Тип размещения</label>
+            <div class="network-placement-group">
+              <label for="setting-network-mode-select" class="network-placement-label" data-i18n="settings_select_mode_label">Тип размещения</label>
+              <div class="network-placement-controls">
                 <select id="setting-network-mode-select" class="form-control" onchange="onNetworkModeSelectChanged()" aria-describedby="network-mode-info-box">
                   <option value="local" data-i18n="mode_local">Локальная сеть (LAN / Wi-Fi)</option>
                   <option value="localtunnel" data-i18n="mode_localtunnel">Localtunnel (доступ из интернета)</option>
                   <option value="domain" data-i18n="mode_domain">Домен / публичный IP</option>
                   <option value="localhost" data-i18n="mode_localhost">Только этот компьютер</option>
                 </select>
-              </div>
-              <div id="network-domain-container" class="form-group network-domain-field" style="display: none;">
-                <label for="setting-domain-input" data-i18n="settings_domain_label">Домен (опционально)</label>
-                <input type="text" id="setting-domain-input" class="form-control" placeholder="my-domain.com" autocapitalize="none" spellcheck="false" />
-              </div>
+                <div id="network-domain-container" class="network-domain-field" style="display: none;">
+                  <input type="text" id="setting-domain-input" class="form-control" placeholder="my-domain.com" autocapitalize="none" spellcheck="false" />
+                </div>
                 <button id="btn-save-network-mode" type="button" class="btn btn-primary" onclick="saveNetworkPlacement()">
                   <span id="btn-save-network-spinner" style="display: none;" class="spinner-inline"></span>
                   <span data-i18n="btn_apply_network_mode">Применить</span>
                 </button>
+              </div>
             </div>
             <p id="network-mode-info-box" class="network-mode-info" aria-live="polite"></p>
         </div>
@@ -556,21 +556,21 @@
         <h4 class="modal-title" id="rollback-modal-title" data-i18n="modal_rollback_title">Смена версии</h4>
         <button class="modal-close" aria-label="Закрыть" onclick="closeRollbackModal()">&times;</button>
       </div>
-      <div class="modal-body">
-        <p id="rollback-modal-desc" style="color: var(--text-dim); font-size: 0.9rem; margin-bottom: 16px;"></p>
+      <div class="modal-body rollback-modal-body">
+        <p id="rollback-modal-desc" class="rollback-desc"></p>
         
-        <div class="form-group">
-          <label id="rollback-select-label" for="rollback-version-select" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px;" data-i18n="modal_rollback_select_label">Выберите версию для установки:</label>
+        <div class="form-group rollback-form-group">
+          <label id="rollback-select-label" for="rollback-version-select" class="rollback-label" data-i18n="modal_rollback_select_label">Выберите версию для установки:</label>
           <select id="rollback-version-select" class="form-control" onchange="onRollbackVersionChange()">
             <option value="">Загрузка списка версий с GitHub...</option>
           </select>
         </div>
 
-        <div id="rollback-warning-box" style="margin-top: 14px; padding: 12px; background: rgba(234, 179, 8, 0.1); border: 1px solid rgba(234, 179, 8, 0.25); border-radius: 8px; font-size: 0.82rem; color: #fde047;">
+        <div id="rollback-warning-box" class="rollback-warning-card">
           <strong id="rollback-warning-title" data-i18n="modal_rollback_warn_title">Внимание:</strong> <span id="rollback-warning-text" data-i18n="modal_rollback_warn_text">При смене версии будет загружен и применен выбранный релиз.</span>
         </div>
       </div>
-      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding: 16px 20px; border-top: 1px solid var(--border-color);">
+      <div class="modal-footer rollback-modal-footer">
         <button type="button" class="btn btn-outline" onclick="closeRollbackModal()" data-i18n="btn_cancel">Отмена</button>
         <button type="button" id="btn-submit-rollback" class="btn btn-primary" onclick="submitRollback()">
           <span id="btn-rollback-spinner" style="display: none;" class="spinner-inline"></span>
@@ -583,11 +583,11 @@
   <!-- Toast notifications -->
   <div id="toast-container" role="status" aria-live="polite"></div>
 
-  <script src="js/i18n.js?v=1.0.43"></script>
-  <script src="js/api.js?v=1.0.43"></script>
-  <script src="js/tunnels.js?v=1.0.43"></script>
-  <script src="js/logs.js?v=1.0.43"></script>
-  <script src="js/settings.js?v=1.0.43"></script>
-  <script src="js/app.js?v=1.0.43"></script>
+  <script src="js/i18n.js?v=1.0.46"></script>
+  <script src="js/api.js?v=1.0.46"></script>
+  <script src="js/tunnels.js?v=1.0.46"></script>
+  <script src="js/logs.js?v=1.0.46"></script>
+  <script src="js/settings.js?v=1.0.46"></script>
+  <script src="js/app.js?v=1.0.46"></script>
 </body>
 </html>
