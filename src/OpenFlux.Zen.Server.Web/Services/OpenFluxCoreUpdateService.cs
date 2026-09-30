@@ -12,7 +12,11 @@ public sealed class OpenFluxCoreUpdateService : IOpenFluxCoreUpdateService
     private const string GitHubApiLatestRelease = "https://api.github.com/repos/p1neappleXpress/OpenFlux/releases/latest";
     private const string GitHubApiReleases = "https://api.github.com/repos/p1neappleXpress/OpenFlux/releases?per_page=30";
     private const string GitHubApiReleaseByTag = "https://api.github.com/repos/p1neappleXpress/OpenFlux/releases/tags/";
+    private const string GitHubAtomReleases = "https://github.com/p1neappleXpress/OpenFlux/releases.atom";
     private const string FallbackDefaultVersion = "v0.2.0";
+
+    private static List<ReleaseItemDto>? _cachedReleases;
+    private static DateTime? _releasesCacheTime;
 
     private readonly ILogger<OpenFluxCoreUpdateService> _logger;
     private readonly IOpenFluxBinaryResolver _binaryResolver;
@@ -39,31 +43,104 @@ public sealed class OpenFluxCoreUpdateService : IOpenFluxCoreUpdateService
 
     public async Task<List<ReleaseItemDto>> GetAvailableReleasesAsync(CancellationToken ct = default)
     {
+        if (_cachedReleases != null && _releasesCacheTime != null &&
+            DateTime.UtcNow - _releasesCacheTime.Value < TimeSpan.FromMinutes(5))
+        {
+            return _cachedReleases;
+        }
+
         try
         {
             using var response = await _httpClient.GetAsync(GitHubApiReleases, ct);
-            if (!response.IsSuccessStatusCode) return new List<ReleaseItemDto>();
-            var json = await response.Content.ReadAsStringAsync(ct);
-            var releases = JsonSerializer.Deserialize<List<GitHubRelease>>(json, new JsonSerializerOptions
+            if (response.IsSuccessStatusCode)
             {
-                PropertyNameCaseInsensitive = true
-            });
-            if (releases == null) return new List<ReleaseItemDto>();
-
-            return releases
-                .Where(r => !string.IsNullOrWhiteSpace(r.TagName))
-                .Select(r => new ReleaseItemDto
+                var json = await response.Content.ReadAsStringAsync(ct);
+                var releases = JsonSerializer.Deserialize<List<GitHubRelease>>(json, new JsonSerializerOptions
                 {
-                    TagName = r.TagName,
-                    Name = string.IsNullOrWhiteSpace(r.Name) ? r.TagName : r.Name,
-                    PublishedAt = r.PublishedAt,
-                    Prerelease = r.Prerelease,
-                    HtmlUrl = r.HtmlUrl
-                }).ToList();
+                    PropertyNameCaseInsensitive = true
+                });
+                if (releases != null)
+                {
+                    var result = releases
+                        .Where(r => !string.IsNullOrWhiteSpace(r.TagName))
+                        .Select(r => new ReleaseItemDto
+                        {
+                            TagName = r.TagName,
+                            Name = string.IsNullOrWhiteSpace(r.Name) ? r.TagName : r.Name,
+                            PublishedAt = r.PublishedAt,
+                            Prerelease = r.Prerelease,
+                            HtmlUrl = r.HtmlUrl
+                        }).ToList();
+
+                    _cachedReleases = result;
+                    _releasesCacheTime = DateTime.UtcNow;
+                    return result;
+                }
+            }
+            else
+            {
+                _logger.LogWarning("GitHub REST API releases check for OpenFlux returned status code: {Code}. Falling back to Atom feed...", response.StatusCode);
+            }
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to fetch OpenFlux core releases list from GitHub");
+            _logger.LogWarning(ex, "Failed to fetch OpenFlux core releases list from GitHub API. Falling back to Atom feed...");
+        }
+
+        // Fallback: Atom feed (no rate limits)
+        var atomReleases = await FetchReleasesFromAtomFeedAsync(ct);
+        if (atomReleases.Count > 0)
+        {
+            _cachedReleases = atomReleases;
+            _releasesCacheTime = DateTime.UtcNow;
+            return atomReleases;
+        }
+
+        return _cachedReleases ?? new List<ReleaseItemDto>();
+    }
+
+    private async Task<List<ReleaseItemDto>> FetchReleasesFromAtomFeedAsync(CancellationToken ct)
+    {
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Get, GitHubAtomReleases);
+            req.Headers.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)");
+            using var response = await _httpClient.SendAsync(req, ct);
+            if (!response.IsSuccessStatusCode) return new List<ReleaseItemDto>();
+
+            var xml = await response.Content.ReadAsStringAsync(ct);
+            var result = new List<ReleaseItemDto>();
+
+            var entryMatches = System.Text.RegularExpressions.Regex.Matches(
+                xml,
+                @"<entry>[\s\S]*?<link[^>]+href=""(?<url>https://github\.com/[^""]+/releases/tag/(?<tag>[^""]+))""[\s\S]*?<title>(?<title>[^<]*)</title>[\s\S]*?<updated>(?<date>[^<]*)</updated>",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+            foreach (System.Text.RegularExpressions.Match m in entryMatches)
+            {
+                var tag = m.Groups["tag"].Value.Trim();
+                var title = m.Groups["title"].Value.Trim();
+                var url = m.Groups["url"].Value.Trim();
+                var dateStr = m.Groups["date"].Value.Trim();
+                DateTime.TryParse(dateStr, out var publishedAt);
+
+                if (!string.IsNullOrWhiteSpace(tag))
+                {
+                    result.Add(new ReleaseItemDto
+                    {
+                        TagName = tag,
+                        Name = string.IsNullOrWhiteSpace(title) ? tag : title,
+                        HtmlUrl = url,
+                        PublishedAt = publishedAt != default ? publishedAt : DateTime.UtcNow
+                    });
+                }
+            }
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to parse OpenFlux releases from GitHub Atom feed");
             return new List<ReleaseItemDto>();
         }
     }
@@ -87,7 +164,7 @@ public sealed class OpenFluxCoreUpdateService : IOpenFluxCoreUpdateService
 
         var shouldCheckRemote = forceCheck ||
                                 meta.LastCheckedAt == null ||
-                                DateTime.UtcNow - meta.LastCheckedAt.Value > TimeSpan.FromMinutes(3);
+                                DateTime.UtcNow - meta.LastCheckedAt.Value > TimeSpan.FromMinutes(15);
 
         if (shouldCheckRemote)
         {
@@ -100,13 +177,15 @@ public sealed class OpenFluxCoreUpdateService : IOpenFluxCoreUpdateService
                     meta.ReleaseUrl = remoteRelease.HtmlUrl;
                     meta.ReleaseNotes = remoteRelease.Body;
                     meta.PublishedAt = remoteRelease.PublishedAt;
-                    meta.LastCheckedAt = DateTime.UtcNow;
-                    await SaveMetadataAsync(meta);
                 }
+                meta.LastCheckedAt = DateTime.UtcNow;
+                await SaveMetadataAsync(meta);
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to check latest OpenFlux release from GitHub");
+                meta.LastCheckedAt = DateTime.UtcNow;
+                try { await SaveMetadataAsync(meta); } catch { }
             }
         }
 
@@ -406,23 +485,44 @@ public sealed class OpenFluxCoreUpdateService : IOpenFluxCoreUpdateService
         try
         {
             using var response = await _httpClient.GetAsync(GitHubApiLatestRelease, ct);
-            if (!response.IsSuccessStatusCode)
+            if (response.IsSuccessStatusCode)
             {
-                _logger.LogWarning("GitHub release check returned status code: {Code}", response.StatusCode);
-                return null;
+                var json = await response.Content.ReadAsStringAsync(ct);
+                var release = JsonSerializer.Deserialize<GitHubRelease>(json, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+                if (release != null) return release;
             }
-
-            var json = await response.Content.ReadAsStringAsync(ct);
-            return JsonSerializer.Deserialize<GitHubRelease>(json, new JsonSerializerOptions
+            else
             {
-                PropertyNameCaseInsensitive = true
-            });
+                _logger.LogWarning("GitHub release check for OpenFlux returned status code: {Code}. Falling back to Atom feed...", response.StatusCode);
+            }
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to fetch latest GitHub release for OpenFlux");
-            return null;
+            _logger.LogWarning(ex, "Failed to fetch latest GitHub release from API for OpenFlux. Falling back to Atom feed...");
         }
+
+        // Fallback: Atom feed (has NO rate limit and always works!)
+        try
+        {
+            var atomReleases = await FetchReleasesFromAtomFeedAsync(ct);
+            if (atomReleases.Count > 0)
+            {
+                var first = atomReleases[0];
+                return new GitHubRelease
+                {
+                    TagName = first.TagName,
+                    Name = first.Name,
+                    HtmlUrl = first.HtmlUrl ?? "",
+                    PublishedAt = first.PublishedAt
+                };
+            }
+        }
+        catch { }
+
+        return null;
     }
 
     private async Task<GitHubRelease?> FetchReleaseByTagAsync(string tagName, CancellationToken ct)
@@ -431,23 +531,32 @@ public sealed class OpenFluxCoreUpdateService : IOpenFluxCoreUpdateService
         {
             var url = $"{GitHubApiReleaseByTag}{Uri.EscapeDataString(tagName)}";
             using var response = await _httpClient.GetAsync(url, ct);
-            if (!response.IsSuccessStatusCode)
+            if (response.IsSuccessStatusCode)
             {
-                _logger.LogWarning("GitHub release check for OpenFlux tag {Tag} returned status code: {Code}", tagName, response.StatusCode);
-                return null;
+                var json = await response.Content.ReadAsStringAsync(ct);
+                var release = JsonSerializer.Deserialize<GitHubRelease>(json, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+                if (release != null) return release;
             }
-
-            var json = await response.Content.ReadAsStringAsync(ct);
-            return JsonSerializer.Deserialize<GitHubRelease>(json, new JsonSerializerOptions
+            else
             {
-                PropertyNameCaseInsensitive = true
-            });
+                _logger.LogWarning("GitHub release check for OpenFlux tag {Tag} returned status code: {Code}. Using synthetic release info...", tagName, response.StatusCode);
+            }
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to fetch OpenFlux release for tag {Tag}", tagName);
-            return null;
+            _logger.LogWarning(ex, "Failed to fetch OpenFlux release for tag {Tag}. Using synthetic release info...", tagName);
         }
+
+        // Fallback: Return synthetic GitHubRelease with standard download URLs
+        return new GitHubRelease
+        {
+            TagName = tagName,
+            Name = tagName,
+            HtmlUrl = $"https://github.com/p1neappleXpress/OpenFlux/releases/tag/{tagName}"
+        };
     }
 
     private async Task<CoreVersionMetadata> LoadMetadataAsync()
