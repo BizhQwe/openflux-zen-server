@@ -388,6 +388,12 @@
       margin-bottom: 14px;
     }
     .tunnel-title-group { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; min-width: 0; width: 100%; }
+    .tunnel-title-group > span {
+      display: inline-flex;
+      align-items: center;
+      height: 24px;
+      line-height: 1;
+    }
     .tunnel-name { font-size: 1.1rem; font-weight: 700; color: #fff; min-width: 0; overflow-wrap: anywhere; }
     .tunnel-title-group .badges { margin-left: auto; }
     .badges { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -436,6 +442,10 @@
       height: 24px;
       box-sizing: border-box;
       line-height: 1;
+    }
+    .badge-warning-error svg {
+      display: block;
+      flex-shrink: 0;
     }
     .badge-tag { background: #1a2538; color: #93c5fd; border: 1px solid #283955; height: 24px; box-sizing: border-box; line-height: 1; }
     .rate-badge {
@@ -1271,6 +1281,12 @@
         align-items: center;
         gap: 8px;
         width: 100%;
+      }
+      .tunnel-title-group > span {
+        display: inline-flex;
+        align-items: center;
+        height: 24px;
+        line-height: 1;
       }
       .tunnel-name {
         font-size: 1.05rem;
