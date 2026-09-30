@@ -733,14 +733,15 @@ async function submitManualCaptchaCookies() {
       body: JSON.stringify({ cookies: rawVal })
     });
 
-    if (res && res.success) {
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data && data.success) {
       toast(t('toast_captcha_applied') || 'Куки успешно применены! Туннель возобновил работу.', 'success');
       closeCaptchaSolverModal();
       if (typeof loadTunnels === 'function') {
         await loadTunnels();
       }
     } else {
-      toast((t('toast_captcha_error') || 'Ошибка: ') + (res && res.error ? res.error : 'Не удалось применить куки'), 'error');
+      toast((t('toast_captcha_error') || 'Ошибка: ') + (data && data.error ? data.error : 'Не удалось применить куки'), 'error');
     }
   } catch (err) {
     console.error('Failed to submit captcha cookies', err);

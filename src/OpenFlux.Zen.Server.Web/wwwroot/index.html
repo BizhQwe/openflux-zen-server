@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/app.css?v=1.0.74" />
+  <link rel="stylesheet" href="css/app.css?v=1.0.75" />
 </head>
 <body>
 
@@ -737,6 +737,20 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
           <span>После нажатия «Я не робот» туннель автоматически применит ключ и возобновит работу.</span>
         </div>
+
+        <details style="margin-top: 14px;">
+          <summary style="cursor: pointer; color: #93c5fd; font-size: 0.82rem;">Если проверка не открывается: вставить spravka вручную</summary>
+          <div style="margin-top: 10px;">
+            <textarea id="captcha-manual-input" class="form-control" rows="3" style="font-family: var(--font-mono); font-size: 0.8rem; resize: vertical;" placeholder="spravka=... или JSON с cookies"></textarea>
+            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
+              <button type="button" class="btn btn-outline btn-sm" onclick="pasteFromClipboardToManualInput()">Вставить из буфера</button>
+              <button type="button" id="btn-submit-captcha-cookies" class="btn btn-primary btn-sm" onclick="submitManualCaptchaCookies()">
+                <span id="btn-captcha-spinner" style="display: none;" class="spinner-inline"></span>
+                Применить куки
+              </button>
+            </div>
+          </div>
+        </details>
       </div>
 
       <div class="modal-footer" style="padding: 12px 20px; border-top: 1px solid var(--card-border); display: flex; justify-content: flex-end;">
@@ -748,12 +762,12 @@
   <!-- Toast notifications -->
   <div id="toast-container" role="status" aria-live="polite"></div>
 
-  <script src="js/qrcode.min.js?v=1.0.74"></script>
-  <script src="js/i18n.js?v=1.0.74"></script>
-  <script src="js/api.js?v=1.0.74"></script>
-  <script src="js/tunnels.js?v=1.0.74"></script>
-  <script src="js/logs.js?v=1.0.74"></script>
-  <script src="js/settings.js?v=1.0.74"></script>
-  <script src="js/app.js?v=1.0.74"></script>
+  <script src="js/qrcode.min.js?v=1.0.75"></script>
+  <script src="js/i18n.js?v=1.0.75"></script>
+  <script src="js/api.js?v=1.0.75"></script>
+  <script src="js/tunnels.js?v=1.0.75"></script>
+  <script src="js/logs.js?v=1.0.75"></script>
+  <script src="js/settings.js?v=1.0.75"></script>
+  <script src="js/app.js?v=1.0.75"></script>
 </body>
 </html>
