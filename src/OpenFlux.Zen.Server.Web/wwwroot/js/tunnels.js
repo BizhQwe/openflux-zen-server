@@ -79,7 +79,7 @@ function updateTunnelsInPlace(list) {
     if (warningEl) {
       const hasError = Boolean(tItem.errorMessage);
       const expectedWarningHtml = hasError
-        ? `<span class="badge badge-warning-error" onclick="openTunnelErrorModal('${tItem.id}')" title="${escapeHtml(tItem.errorMessage)}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>${t('badge_error')}</span></span>`
+        ? `<span class="badge badge-warning-error" title="${escapeHtml(tItem.errorMessage)}" style="cursor: default;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>${t('badge_error')}</span></span>`
         : '';
       if (warningEl.innerHTML !== expectedWarningHtml) {
         warningEl.innerHTML = expectedWarningHtml;
@@ -163,7 +163,7 @@ function renderTunnels(list) {
     const isRunning = tItem.status === 2;
     const hasError = Boolean(tItem.errorMessage);
     const warningBadge = hasError
-      ? `<span class="badge badge-warning-error" onclick="openTunnelErrorModal('${tItem.id}')" title="${escapeHtml(tItem.errorMessage)}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>${t('badge_error')}</span></span>`
+      ? `<span class="badge badge-warning-error" title="${escapeHtml(tItem.errorMessage)}" style="cursor: default;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>${t('badge_error')}</span></span>`
       : '';
     const totalBytes = (tItem.uploadBytes || 0) + (tItem.downloadBytes || 0);
     let trafficLimitStr = currentLanguage === 'en' ? 'Unlimited' : 'Без лимита';
@@ -226,15 +226,15 @@ function renderTunnels(list) {
                 `<button class="btn btn-danger btn-sm" onclick="stopTunnel('${tItem.id}')"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>${t('btn_stop')}</button>` :
                 `<button class="btn btn-success btn-sm" onclick="startTunnel('${tItem.id}')"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>${t('btn_start')}</button>`}
             </span>
+            <span id="tunnel-captcha-action-${tItem.id}">
+              ${isCaptchaRequired(tItem) ? renderCaptchaActionBtn(tItem.id) : ''}
+            </span>
             <button class="btn btn-outline btn-sm" onclick="showTunnelConnect('${tItem.id}')" title="${t('btn_connect_qr') || 'Подключение'}">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
               </svg>
               <span>${t('btn_connect_qr') || 'Подключение'}</span>
             </button>
-            <span id="tunnel-captcha-action-${tItem.id}">
-              ${isCaptchaRequired(tItem) ? renderCaptchaActionBtn(tItem.id) : ''}
-            </span>
           </div>
 
           <div class="action-group">
@@ -690,15 +690,6 @@ async function openCaptchaSolverModal(tunnelId) {
   const idInput = document.getElementById('captcha-tunnel-id');
   if (idInput) idInput.value = tunnelId;
 
-  const manualInput = document.getElementById('captcha-manual-input');
-  if (manualInput) manualInput.value = '';
-
-  const tItem = (typeof tunnelsData !== 'undefined' && Array.isArray(tunnelsData))
-    ? tunnelsData.find(x => x.id === tunnelId) : null;
-
-  // Default to the online interactive solver
-  switchCaptchaTab('online');
-
   // Prepare iframe URL with token
   const token = localStorage.getItem('zen_token') || '';
   const tokenQuery = token ? '?token=' + encodeURIComponent(token) : '';
@@ -718,13 +709,6 @@ async function openCaptchaSolverModal(tunnelId) {
       if (spinner) spinner.style.display = 'none';
     };
     iframe.src = viewUrl;
-  }
-
-  // Pre-fill quick URL input if on newdoc tab
-  const newDocInput = document.getElementById('captcha-new-doc-url');
-  if (newDocInput && tItem && tItem.url) {
-    newDocInput.value = '';
-    newDocInput.placeholder = tItem.url;
   }
 
   modal.classList.add('open');

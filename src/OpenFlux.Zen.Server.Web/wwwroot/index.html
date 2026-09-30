@@ -748,124 +748,35 @@
       <div class="modal-body" style="padding: 16px 20px;">
         <input type="hidden" id="captcha-tunnel-id" value="" />
 
-        <!-- Method Switcher Tabs -->
-        <div style="display: flex; gap: 6px; margin-bottom: 14px; border-bottom: 1px solid var(--card-border); padding-bottom: 8px; flex-wrap: wrap;">
-          <button type="button" id="tab-btn-online" class="btn btn-sm btn-outline active-solver-tab" onclick="switchCaptchaTab('online')">
-            🚀 Пройти онлайн
-          </button>
-          <button type="button" id="tab-btn-newdoc" class="btn btn-sm btn-outline" onclick="switchCaptchaTab('newdoc')">
-            ✨ Новый документ
-          </button>
-          <button type="button" id="tab-btn-direct" class="btn btn-sm btn-outline" onclick="switchCaptchaTab('direct')">
-            ⚡ Direct (без капч)
-          </button>
-          <button type="button" id="tab-btn-manual" class="btn btn-sm btn-outline" onclick="switchCaptchaTab('manual')">
-            📋 Вручную (spravka)
-          </button>
-        </div>
-
-        <!-- TAB 1: Online Solver (Default) -->
-        <div id="captcha-tab-online">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 8px; flex-wrap: wrap;">
-            <div style="font-size: 0.85rem; color: #94a3b8;">
-              Решите проверку <strong style="color: #f1f5f9;">«Я не робот»</strong> в окне ниже:
-            </div>
-            <div style="display: flex; gap: 6px;">
-              <button type="button" class="btn btn-outline btn-sm" onclick="reloadCaptchaIframe()" title="Перезагрузить окно" style="height: 30px !important; min-height: 30px !important; padding: 0 10px !important;">
-                🔄 Обновить
-              </button>
-              <a id="captcha-fullscreen-btn" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm" style="display: inline-flex; align-items: center; gap: 5px; height: 30px !important; min-height: 30px !important; padding: 0 10px !important; text-decoration: none;">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                <span>На весь экран ↗</span>
-              </a>
-            </div>
+        <!-- Interactive Captcha Solver -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 8px; flex-wrap: wrap;">
+          <div style="font-size: 0.85rem; color: #94a3b8;">
+            Решите проверку <strong style="color: #f1f5f9;">«Я не робот»</strong> в окне ниже:
           </div>
-
-          <div id="captcha-iframe-wrapper" style="position: relative; width: 100%; height: 490px; border-radius: 12px; overflow: hidden; border: 1px solid var(--card-border); background: #0b0f19;">
-            <div id="captcha-iframe-spinner" style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: #0b0f19; z-index: 1;">
-              <div style="text-align: center; color: var(--text-dim);">
-                <div class="spinner-inline" style="width: 24px; height: 24px; margin-bottom: 8px;"></div>
-                <div style="font-size: 0.85rem;">Загрузка проверки...</div>
-              </div>
-            </div>
-            <iframe id="captcha-solver-iframe" style="position: absolute; inset: 0; width: 100%; height: 100%; border: none;" allow="clipboard-read; clipboard-write"></iframe>
-          </div>
-
-          <div style="margin-top: 10px; font-size: 0.8rem; color: var(--text-dim); display: flex; align-items: center; gap: 6px;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
-            <span>После нажатия «Я не робот» туннель автоматически применит ключ и запустится.</span>
+          <div style="display: flex; gap: 6px;">
+            <button type="button" class="btn btn-outline btn-sm" onclick="reloadCaptchaIframe()" title="Перезагрузить окно" style="height: 30px !important; min-height: 30px !important; padding: 0 10px !important;">
+              🔄 Обновить
+            </button>
+            <a id="captcha-fullscreen-btn" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm" style="display: inline-flex; align-items: center; gap: 5px; height: 30px !important; min-height: 30px !important; padding: 0 10px !important; text-decoration: none;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              <span>На весь экран ↗</span>
+            </a>
           </div>
         </div>
 
-        <!-- TAB 2: New Document -->
-        <div id="captcha-tab-newdoc" style="display: none;">
-          <div style="background: rgba(34, 197, 94, 0.08); border-left: 3px solid #22c55e; border-radius: 6px; padding: 12px 14px; margin-bottom: 14px;">
-            <div style="font-weight: 600; color: #4ade80; font-size: 0.88rem; margin-bottom: 4px;">
-              Мгновенное решение без капчи
+        <div id="captcha-iframe-wrapper" style="position: relative; width: 100%; height: 500px; border-radius: 12px; overflow: hidden; border: 1px solid var(--card-border); background: #0b0f19;">
+          <div id="captcha-iframe-spinner" style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: #0b0f19; z-index: 1;">
+            <div style="text-align: center; color: var(--text-dim);">
+              <div class="spinner-inline" style="width: 24px; height: 24px; margin-bottom: 8px;"></div>
+              <div style="font-size: 0.85rem;">Загрузка проверки...</div>
             </div>
-            <p style="font-size: 0.82rem; color: var(--text-dim); line-height: 1.5; margin: 0;">
-              Яндекс блокирует капчей только ссылки, получившие слишком много запросов. Новый созданный документ Word или Excel работает сразу без каких-либо капч!
-            </p>
           </div>
-          <ol style="font-size: 0.82rem; color: var(--text-dim); line-height: 1.6; margin: 0 0 14px 18px; padding: 0;">
-            <li>Откройте ваш <a href="https://disk.yandex.ru/client/disk" target="_blank" rel="noopener noreferrer" style="color: #93c5fd; text-decoration: underline;">Яндекс Диск ↗</a>.</li>
-            <li>Создайте <strong>новый пустой документ Word или таблицу Excel</strong>.</li>
-            <li>Нажмите <strong>«Поделиться»</strong> и скопируйте публичную ссылку.</li>
-            <li>Вставьте её ниже и нажмите «Сохранить и запустить».</li>
-          </ol>
-          <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-            <input type="text" id="captcha-new-doc-url" class="form-control" placeholder="https://disk.yandex.ru/i/..." style="font-size: 0.825rem;" />
-            <button type="button" class="btn btn-primary btn-sm" onclick="submitQuickDocumentUrl()" style="white-space: nowrap;">
-              Сохранить и запустить
-            </button>
-          </div>
+          <iframe id="captcha-solver-iframe" style="position: absolute; inset: 0; width: 100%; height: 100%; border: none;" allow="clipboard-read; clipboard-write"></iframe>
         </div>
 
-        <!-- TAB 3: Direct Transport -->
-        <div id="captcha-tab-direct" style="display: none;">
-          <div style="background: rgba(59, 130, 246, 0.08); border-left: 3px solid #3b82f6; border-radius: 6px; padding: 12px 14px; margin-bottom: 14px;">
-            <div style="font-weight: 600; color: #60a5fa; font-size: 0.88rem; margin-bottom: 4px;">
-              Прямой транспорт (Direct) — навсегда без капч
-            </div>
-            <p style="font-size: 0.82rem; color: var(--text-dim); line-height: 1.5; margin: 0;">
-              Direct не использует облачные диски Яндекса или Mail.ru. Это прямое шифрованное P2P соединение между клиентом и сервером с максимальной скоростью и нулевым шансом блокировок капчей.
-            </p>
-          </div>
-          <p style="font-size: 0.82rem; color: var(--text-dim); margin-bottom: 16px;">
-            При переключении туннель будет переведен в режим прямого подключения Direct. Вам останется лишь скопировать новую ссылку подключения для ваших устройств.
-          </p>
-          <div style="display: flex; justify-content: flex-end;">
-            <button type="button" class="btn btn-primary btn-sm" onclick="submitSwitchToDirect()">
-              ⚡ Переключить на Direct
-            </button>
-          </div>
-        </div>
-
-        <!-- TAB 4: Manual Cookie Input (Fallback) -->
-        <div id="captcha-tab-manual" style="display: none;">
-          <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--card-border); border-radius: 6px; padding: 12px; margin-bottom: 12px; font-size: 0.8rem; line-height: 1.5;">
-            <div style="font-weight: 600; color: #93c5fd; margin-bottom: 6px;">💡 Ручная вставка ключа (spravka):</div>
-            <div style="color: var(--text-dim); margin-bottom: 8px;">
-              Если вы уже скопировали значение <code>spravka</code> из другого браузера, вставьте его сюда:
-            </div>
-          </div>
-
-          <div style="margin-bottom: 10px;">
-            <label for="captcha-manual-input" style="font-size: 0.8rem; color: var(--text-main); font-weight: 600; display: block; margin-bottom: 6px;">
-              Значение spravka, строка кук или JSON:
-            </label>
-            <textarea id="captcha-manual-input" class="form-control" rows="3" style="font-family: var(--font-mono); font-size: 0.8rem; resize: vertical;" placeholder="d09f... или spravka=d09f..."></textarea>
-          </div>
-          <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
-            <button type="button" class="btn btn-outline btn-sm" onclick="pasteFromClipboardToManualInput()" style="display: inline-flex; align-items: center; gap: 6px;">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
-              <span>Вставить из буфера</span>
-            </button>
-            <button type="button" id="btn-submit-captcha-cookies" class="btn btn-primary btn-sm" onclick="submitManualCaptchaCookies()" style="display: inline-flex; align-items: center; gap: 6px;">
-              <span id="btn-captcha-spinner" style="display: none;" class="spinner-inline"></span>
-              <span>Применить куки</span>
-            </button>
-          </div>
+        <div style="margin-top: 10px; font-size: 0.8rem; color: var(--text-dim); display: flex; align-items: center; gap: 6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+          <span>После нажатия «Я не робот» туннель автоматически применит ключ и возобновит работу.</span>
         </div>
       </div>
 
@@ -878,12 +789,12 @@
   <!-- Toast notifications -->
   <div id="toast-container" role="status" aria-live="polite"></div>
 
-  <script src="js/qrcode.min.js?v=1.0.71"></script>
-  <script src="js/i18n.js?v=1.0.71"></script>
-  <script src="js/api.js?v=1.0.71"></script>
-  <script src="js/tunnels.js?v=1.0.71"></script>
-  <script src="js/logs.js?v=1.0.71"></script>
-  <script src="js/settings.js?v=1.0.71"></script>
-  <script src="js/app.js?v=1.0.71"></script>
+  <script src="js/qrcode.min.js?v=1.0.72"></script>
+  <script src="js/i18n.js?v=1.0.72"></script>
+  <script src="js/api.js?v=1.0.72"></script>
+  <script src="js/tunnels.js?v=1.0.72"></script>
+  <script src="js/logs.js?v=1.0.72"></script>
+  <script src="js/settings.js?v=1.0.72"></script>
+  <script src="js/app.js?v=1.0.72"></script>
 </body>
 </html>

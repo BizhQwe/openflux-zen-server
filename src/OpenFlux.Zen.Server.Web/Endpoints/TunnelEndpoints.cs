@@ -156,32 +156,6 @@ public static class TunnelEndpoints
             var finalUri = resp.RequestMessage?.RequestUri ?? new Uri(targetUrl);
             var originHost = finalUri.Host;
             var html = await resp.Content.ReadAsStringAsync();
-
-            // Check if captcha is not needed or already solved
-            if (!html.Contains("checkbox-captcha") && !html.Contains("smart-captcha") && !html.Contains("showcaptcha"))
-            {
-                var cookies = cookieContainer.GetCookies(finalUri);
-                var spravka = cookies["spravka"]?.Value;
-                if (!string.IsNullOrEmpty(spravka))
-                {
-                    await manager.ApplyCookiesAsync(id, $"spravka={spravka}");
-                }
-
-                return Results.Content(@"<!DOCTYPE html>
-<html>
-<head><meta charset='utf-8'><style>body{background:#0f172a;color:#10b981;font-family:sans-serif;text-align:center;padding:50px;}</style></head>
-<body>
-  <h2>✅ Проверка не требуется</h2>
-  <p style='color:#94a3b8;'>Документ доступен без капчи. Туннель активен.</p>
-  <script>
-    setTimeout(function() {
-      if (window.parent) window.parent.postMessage({ type: 'openflux-captcha-solved' }, '*');
-    }, 1500);
-  </script>
-</body>
-</html>", "text/html; charset=utf-8");
-            }
-
             var token = SecretPathMiddleware.ExtractToken(context);
             return RenderCaptchaHtml(html, originHost, id, context, token);
         });
@@ -471,17 +445,35 @@ public static class TunnelEndpoints
 
         // Replace form action with our absolute submitUrl
         html = Regex.Replace(html, @"(?i)(<form[^>]*action=)[""'][^""']*[""']", $"$1\"{submitUrl}\"", RegexOptions.IgnoreCase);
+        html = Regex.Replace(html, @"formAction:\s*""[^""]*""", $"formAction:\"{submitUrl}\"");
 
-        // Inject message listener before </body>
-        var injectedScript = @"
+        // Inject form submit interceptor and message listener before </body>
+        var injectedScript = $@"
 <script>
-  (function() {
-    window.addEventListener('message', function(e) {
-      if (e.data && e.data.type === 'openflux-captcha-solved') {
+  (function() {{
+    var submitUrl = '{submitUrl}';
+    function ensureSubmitUrl() {{
+      var forms = document.getElementsByTagName('form');
+      for (var i = 0; i < forms.length; i++) {{
+        forms[i].action = submitUrl;
+      }}
+      if (window.__SSR_DATA__) {{
+        window.__SSR_DATA__.formAction = submitUrl;
+      }}
+    }}
+    document.addEventListener('DOMContentLoaded', ensureSubmitUrl);
+    setInterval(ensureSubmitUrl, 200);
+    window.addEventListener('submit', function(e) {{
+      if (e.target && e.target.tagName === 'FORM') {{
+        e.target.action = submitUrl;
+      }}
+    }}, true);
+    window.addEventListener('message', function(e) {{
+      if (e.data && e.data.type === 'openflux-captcha-solved') {{
         if (window.parent) window.parent.postMessage(e.data, '*');
-      }
-    });
-  })();
+      }}
+    }});
+  }})();
 </script>
 ";
         html = html.Replace("</body>", injectedScript + "</body>");

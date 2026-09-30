@@ -826,35 +826,39 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         }
 
         // 2. Status & warnings
-        if (line.Contains("SmartCaptcha", StringComparison.OrdinalIgnoreCase) ||
-            line.Contains("captcha", StringComparison.OrdinalIgnoreCase) ||
-            line.Contains("showcaptcha", StringComparison.OrdinalIgnoreCase) ||
-            line.Contains("external solver", StringComparison.OrdinalIgnoreCase) ||
-            line.Contains("needs external help", StringComparison.OrdinalIgnoreCase) ||
-            line.Contains("smart-captcha", StringComparison.OrdinalIgnoreCase) ||
-            line.Contains("cannot open the document", StringComparison.OrdinalIgnoreCase) ||
-            line.Contains("config not found", StringComparison.OrdinalIgnoreCase) ||
-            line.Contains("no client-config script", StringComparison.OrdinalIgnoreCase) ||
-            line.Contains("Верификация", StringComparison.OrdinalIgnoreCase) ||
-            line.Contains("fetchDocInfo failed", StringComparison.OrdinalIgnoreCase))
+        if (line.Contains("showcaptchafast", StringComparison.OrdinalIgnoreCase))
         {
-            if (string.IsNullOrEmpty(tunnel.PendingCaptchaUrl))
+            // Internal fast PoW challenge handled automatically by OpenFlux core
+            _logService.AppendLog(tunnel.Id, "info", "[CAPTCHA] Проверка PoW-капчи...");
+        }
+        else if (line.Contains("SmartCaptcha", StringComparison.OrdinalIgnoreCase) ||
+                 line.Contains("showcaptcha", StringComparison.OrdinalIgnoreCase) ||
+                 line.Contains("external solver", StringComparison.OrdinalIgnoreCase) ||
+                 line.Contains("needs external help", StringComparison.OrdinalIgnoreCase) ||
+                 line.Contains("smart-captcha", StringComparison.OrdinalIgnoreCase) ||
+                 line.Contains("cannot open the document", StringComparison.OrdinalIgnoreCase) ||
+                 line.Contains("config not found", StringComparison.OrdinalIgnoreCase) ||
+                 line.Contains("no client-config script", StringComparison.OrdinalIgnoreCase) ||
+                 line.Contains("Верификация", StringComparison.OrdinalIgnoreCase) ||
+                 line.Contains("fetchDocInfo failed", StringComparison.OrdinalIgnoreCase) ||
+                 line.Contains("captcha", StringComparison.OrdinalIgnoreCase))
+        {
+            var captchaUrlMatch = System.Text.RegularExpressions.Regex.Match(line, @"https?://[^\s""'<>]+/showcaptcha[^\s""'<>]*", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (captchaUrlMatch.Success)
+            {
+                tunnel.PendingCaptchaUrl = captchaUrlMatch.Value;
+                _logger.LogInformation("Captured exact SmartCaptcha challenge URL for tunnel {Id}: {Url}", tunnel.Id, tunnel.PendingCaptchaUrl);
+            }
+            else if (string.IsNullOrEmpty(tunnel.PendingCaptchaUrl))
             {
                 tunnel.PendingCaptchaUrl = tunnel.Url;
             }
+
             var msg = "Яндекс заблокировал документ капчей (SmartCaptcha) или документ недоступен. Пройдите капчу в браузере или создайте новый документ на Яндекс Диске.";
             if (tunnel.ErrorMessage != msg)
             {
                 tunnel.ErrorMessage = msg;
                 _logService.AppendLog(tunnel.Id, "error", $"[CAPTCHA/ERROR] {msg}");
-                NotifyStatusChange(tunnel.Id);
-            }
-        }
-        else if (line.Contains("showcaptchafast", StringComparison.OrdinalIgnoreCase))
-        {
-            if (tunnel.ErrorMessage != "Яндекс проверяет PoW-капчу...")
-            {
-                tunnel.ErrorMessage = "Яндекс проверяет PoW-капчу...";
                 NotifyStatusChange(tunnel.Id);
             }
         }
