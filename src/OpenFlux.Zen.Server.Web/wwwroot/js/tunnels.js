@@ -48,26 +48,6 @@ function updateTunnelsInPlace(list) {
       downloadEl.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>${fmtBytes(tItem.downloadBytes)}${downRateStr}`;
     }
 
-    const warnEl = document.getElementById('tunnel-warning-' + tItem.id);
-    if (warnEl) {
-      const isRunning = tItem.status === 2;
-      const hasError = isRunning && Boolean(tItem.errorMessage);
-      const expectedWarnHtml = hasError
-        ? `<span class="badge badge-warning-error" onclick="openTunnelErrorModal('${tItem.id}')" title="${escapeHtml(tItem.errorMessage)}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>${t('badge_error')}</span></span>`
-        : '';
-      if (warnEl.innerHTML !== expectedWarnHtml) {
-        warnEl.innerHTML = expectedWarnHtml;
-      }
-    }
-
-    const captchaActionEl = document.getElementById('tunnel-captcha-action-' + tItem.id);
-    if (captchaActionEl) {
-      const required = isCaptchaRequired(tItem);
-      const expectedHtml = required ? renderCaptchaActionBtn(tItem.id) : '';
-      if (captchaActionEl.innerHTML !== expectedHtml) {
-        captchaActionEl.innerHTML = expectedHtml;
-      }
-    }
 
     const startStopEl = document.getElementById('tunnel-startstop-' + tItem.id);
     if (startStopEl) {
