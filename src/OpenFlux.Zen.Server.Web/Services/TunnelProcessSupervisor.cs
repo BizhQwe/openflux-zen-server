@@ -479,13 +479,16 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
 
         if (t.ExtraArgs == null || !t.ExtraArgs.Contains("--debug"))
         {
-            parts.Add("--debug");
+            parts.Add("--debug=2");
         }
 
         // Extra custom arguments
         if (!string.IsNullOrWhiteSpace(t.ExtraArgs))
         {
-            parts.Add(t.ExtraArgs.Trim());
+            var extra = t.ExtraArgs.Trim();
+            // Upgrade bare --debug to --debug=2 so OpenFlux outputs operational events and packets
+            extra = System.Text.RegularExpressions.Regex.Replace(extra, @"(?<=^|\s)--debug(?=\s|$)", "--debug=2");
+            parts.Add(extra);
         }
 
         return string.Join(" ", parts);
@@ -547,7 +550,23 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
                 }
             }
 
-            // 2. Legacy fallback: fast packet line parsing in L4 mode:
+            // 2. Parse session handshake lines to detect connected client peers
+            if (line.Contains("[SESSION] handshake OK", StringComparison.OrdinalIgnoreCase))
+            {
+                state.LastPacketActivity = DateTime.UtcNow;
+                var peerMatch = System.Text.RegularExpressions.Regex.Match(line, @"peer=([^\s]+)");
+                var peerKey = peerMatch.Success ? peerMatch.Groups[1].Value : "peer-1";
+                state.ActiveClients[peerKey] = DateTime.UtcNow;
+                return;
+            }
+            if (line.Contains("Authenticated peer", StringComparison.OrdinalIgnoreCase))
+            {
+                state.LastPacketActivity = DateTime.UtcNow;
+                state.ActiveClients["peer-auth"] = DateTime.UtcNow;
+                return;
+            }
+
+            // 3. Fast packet line parsing in L4 mode:
             // "<- 52 bytes - TCP 10.10.10.2:33128 -> 66.90.91.4:8080"
             // "-> 1472 bytes - TCP 62.63.162.194:8080 -> 10.10.10.2:64025"
             if (line.Contains(" bytes - "))
@@ -718,9 +737,19 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         // 2. Status & warnings
         if (line.Contains("SmartCaptcha detected", StringComparison.OrdinalIgnoreCase) ||
             line.Contains("captcha required", StringComparison.OrdinalIgnoreCase) ||
-            line.Contains("showcaptcha?cc=1", StringComparison.OrdinalIgnoreCase))
+            line.Contains("showcaptcha", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("cannot open the document", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("config not found", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("no client-config script", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("Верификация", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("fetchDocInfo failed", StringComparison.OrdinalIgnoreCase))
         {
-            tunnel.ErrorMessage = "Яндекс заблокировал документ капчей (SmartCaptcha). Создайте новый документ на Яндекс Диске или используйте Mail.ru / Boards / OneMe.";
+            var msg = "Яндекс заблокировал документ капчей (SmartCaptcha) или документ недоступен. Создайте новый публичный документ (Word/Excel) на Яндекс Диске и укажите новую ссылку в настройках туннеля, либо используйте Direct / Mail.ru.";
+            if (tunnel.ErrorMessage != msg)
+            {
+                tunnel.ErrorMessage = msg;
+                _logService.AppendLog(tunnel.Id, "error", $"[CAPTCHA/ERROR] {msg}");
+            }
         }
         else if (line.Contains("showcaptchafast", StringComparison.OrdinalIgnoreCase))
         {
@@ -729,16 +758,27 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         else if (line.Contains("looks like a login page", StringComparison.OrdinalIgnoreCase) || 
                  line.Contains("doc not public", StringComparison.OrdinalIgnoreCase))
         {
-            tunnel.ErrorMessage = "Документ недоступен, закрыт или требует авторизации.";
+            var msg = "Документ недоступен, закрыт или требует авторизации.";
+            if (tunnel.ErrorMessage != msg)
+            {
+                tunnel.ErrorMessage = msg;
+                _logService.AppendLog(tunnel.Id, "error", $"[ERROR] {msg}");
+            }
         }
         else if (line.Contains("key or context mismatch", StringComparison.OrdinalIgnoreCase))
         {
-            tunnel.ErrorMessage = "Несовпадение ключа или контекста шифрования с подключившимся клиентом.";
+            var msg = "Несовпадение ключа или контекста шифрования с подключившимся клиентом.";
+            if (tunnel.ErrorMessage != msg)
+            {
+                tunnel.ErrorMessage = msg;
+                _logService.AppendLog(tunnel.Id, "error", $"[ERROR] {msg}");
+            }
         }
         else if (line.Contains("WebSocket connected", StringComparison.OrdinalIgnoreCase) ||
                  line.Contains("Auth OK", StringComparison.OrdinalIgnoreCase) ||
                  line.Contains("Authenticated peer", StringComparison.OrdinalIgnoreCase) ||
-                 line.Contains("Running as EXIT NODE", StringComparison.OrdinalIgnoreCase))
+                 line.Contains("handshake OK", StringComparison.OrdinalIgnoreCase) ||
+                 line.Contains("peer confirmed KDF context", StringComparison.OrdinalIgnoreCase))
         {
             tunnel.ErrorMessage = null;
         }

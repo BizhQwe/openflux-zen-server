@@ -464,6 +464,11 @@ public sealed class OpenFluxCoreUpdateService : IOpenFluxCoreUpdateService
                 });
                 if (meta != null && !string.IsNullOrWhiteSpace(meta.CurrentVersion))
                 {
+                    if (IsNewerVersion(FallbackDefaultVersion, meta.CurrentVersion))
+                    {
+                        meta.CurrentVersion = FallbackDefaultVersion;
+                        await SaveMetadataAsync(meta);
+                    }
                     return meta;
                 }
             }
@@ -505,22 +510,48 @@ public sealed class OpenFluxCoreUpdateService : IOpenFluxCoreUpdateService
         }
     }
 
-    private static bool IsNewerVersion(string latestTag, string currentTag)
+    private static bool IsNewerVersion(string? latestTag, string? currentTag)
     {
-        if (string.Equals(latestTag, currentTag, StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrWhiteSpace(latestTag) || string.IsNullOrWhiteSpace(currentTag))
         {
             return false;
         }
 
-        var vLatest = latestTag.TrimStart('v', 'V');
-        var vCurrent = currentTag.TrimStart('v', 'V');
+        if (string.Equals(latestTag.Trim(), currentTag.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var vLatest = NormalizeVersionString(latestTag);
+        var vCurrent = NormalizeVersionString(currentTag);
+
+        if (string.Equals(vLatest, vCurrent, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
 
         if (Version.TryParse(vLatest, out var parsedLatest) && Version.TryParse(vCurrent, out var parsedCurrent))
         {
             return parsedLatest > parsedCurrent;
         }
 
-        return !string.Equals(latestTag, currentTag, StringComparison.OrdinalIgnoreCase);
+        return false;
+    }
+
+    private static string NormalizeVersionString(string tag)
+    {
+        var clean = tag.Trim().TrimStart('v', 'V');
+        var dashIdx = clean.IndexOf('-');
+        if (dashIdx > 0)
+        {
+            clean = clean.Substring(0, dashIdx);
+        }
+        var plusIdx = clean.IndexOf('+');
+        if (plusIdx > 0)
+        {
+            clean = clean.Substring(0, plusIdx);
+        }
+        return clean.Trim();
     }
 
     private sealed class CoreVersionMetadata

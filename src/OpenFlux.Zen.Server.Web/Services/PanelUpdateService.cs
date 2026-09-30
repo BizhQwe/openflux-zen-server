@@ -13,7 +13,7 @@ public sealed class PanelUpdateService : IPanelUpdateService
     private const string GitHubApiLatestRelease = "https://api.github.com/repos/BizhQwe/openflux-zen-server/releases/latest";
     private const string GitHubApiReleases = "https://api.github.com/repos/BizhQwe/openflux-zen-server/releases?per_page=30";
     private const string GitHubApiReleaseByTag = "https://api.github.com/repos/BizhQwe/openflux-zen-server/releases/tags/";
-    private const string FallbackDefaultVersion = "v1.0.52";
+    private const string FallbackDefaultVersion = "v1.0.53";
 
     private readonly ILogger<PanelUpdateService> _logger;
     private readonly HttpClient _httpClient;
@@ -632,22 +632,48 @@ del ""%~f0"" >nul 2>&1
         }
     }
 
-    private static bool IsNewerVersion(string latestTag, string currentTag)
+    private static bool IsNewerVersion(string? latestTag, string? currentTag)
     {
-        if (string.Equals(latestTag, currentTag, StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrWhiteSpace(latestTag) || string.IsNullOrWhiteSpace(currentTag))
         {
             return false;
         }
 
-        var vLatest = latestTag.TrimStart('v', 'V');
-        var vCurrent = currentTag.TrimStart('v', 'V');
+        if (string.Equals(latestTag.Trim(), currentTag.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var vLatest = NormalizeVersionString(latestTag);
+        var vCurrent = NormalizeVersionString(currentTag);
+
+        if (string.Equals(vLatest, vCurrent, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
 
         if (Version.TryParse(vLatest, out var parsedLatest) && Version.TryParse(vCurrent, out var parsedCurrent))
         {
             return parsedLatest > parsedCurrent;
         }
 
-        return !string.Equals(latestTag, currentTag, StringComparison.OrdinalIgnoreCase);
+        return false;
+    }
+
+    private static string NormalizeVersionString(string tag)
+    {
+        var clean = tag.Trim().TrimStart('v', 'V');
+        var dashIdx = clean.IndexOf('-');
+        if (dashIdx > 0)
+        {
+            clean = clean.Substring(0, dashIdx);
+        }
+        var plusIdx = clean.IndexOf('+');
+        if (plusIdx > 0)
+        {
+            clean = clean.Substring(0, plusIdx);
+        }
+        return clean.Trim();
     }
 
     private sealed class PanelVersionMetadata
