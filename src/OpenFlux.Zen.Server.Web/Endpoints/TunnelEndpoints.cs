@@ -156,6 +156,25 @@ public static class TunnelEndpoints
             var finalUri = resp.RequestMessage?.RequestUri ?? new Uri(targetUrl);
             var originHost = finalUri.Host;
             var html = await resp.Content.ReadAsStringAsync();
+
+            // A Yandex document can become available without showing a challenge (for
+            // example after the IP was already verified).  In that case the response
+            // contains the access cookie and must be handed to OpenFlux immediately.
+            // Without this check the panel renders the normal document inside the
+            // solver iframe and leaves the tunnel in the captcha state forever.
+            var spravka = ExtractSpravkaCookie(resp, cookieContainer, finalUri.ToString());
+            if (!ContainsCaptchaChallenge(html) && !string.IsNullOrWhiteSpace(spravka))
+            {
+                var applied = await manager.ApplyCookiesAsync(id, $"spravka={spravka}");
+                if (applied.Success)
+                {
+                    _captchaSessions.TryRemove(id, out _);
+                    return Results.Content(GetSuccessHtml(), "text/html; charset=utf-8");
+                }
+
+                return Results.Content(GetErrorHtml("Кука доступа получена, но не удалось применить её к туннелю. Повторите запуск туннеля."), "text/html; charset=utf-8");
+            }
+
             var token = SecretPathMiddleware.ExtractToken(context);
             return RenderCaptchaHtml(html, originHost, id, context, token);
         });
@@ -423,6 +442,25 @@ public static class TunnelEndpoints
 
         return string.Empty;
     }
+
+    private static bool ContainsCaptchaChallenge(string html)
+    {
+        if (string.IsNullOrWhiteSpace(html)) return false;
+
+        // Keep this list specific to challenge pages.  A generic "captcha" search
+        // also matches analytics and help text on ordinary Yandex documents.
+        return Regex.IsMatch(
+            html,
+            @"(?i)(showcaptcha|smartcaptcha|smart-captcha|checkbox-captcha|captcha__challenge|captcha-container|captcha-challenge)",
+            RegexOptions.CultureInvariant);
+    }
+
+    private static string GetErrorHtml(string message) => $@"<!DOCTYPE html>
+<html><head><meta charset='utf-8'><style>
+body {{ background:#0f172a; color:#f87171; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0; padding:24px; text-align:center; }}
+.card {{ background:#1e293b; border:1px solid #334155; border-radius:14px; padding:28px; max-width:480px; }}
+p {{ color:#cbd5e1; line-height:1.5; }}
+</style></head><body><div class='card'><h3>Не удалось применить проверку</h3><p>{WebUtility.HtmlEncode(message)}</p></div></body></html>";
 
     private static IResult RenderCaptchaHtml(string html, string originHost, Guid id, HttpContext context, string? token)
     {
