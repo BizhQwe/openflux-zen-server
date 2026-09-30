@@ -32,6 +32,8 @@ const I18N_DICTIONARY = {
     badge_starting: "Запуск...",
     badge_failed: "Ошибка",
     badge_conn_error: "Ошибка связи",
+    badge_captcha: "Капча",
+    badge_warning: "Предупреждение",
 
     detail_transport: "Транспорт",
     detail_mode: "Режим",
@@ -256,6 +258,8 @@ const I18N_DICTIONARY = {
     badge_starting: "Starting...",
     badge_failed: "Failed",
     badge_conn_error: "Connection Error",
+    badge_captcha: "Captcha",
+    badge_warning: "Warning",
 
     detail_transport: "Transport",
     detail_mode: "Mode",

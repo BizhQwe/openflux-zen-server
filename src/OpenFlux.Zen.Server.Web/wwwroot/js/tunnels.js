@@ -48,15 +48,23 @@ function updateTunnelsInPlace(list) {
       downloadEl.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>${fmtBytes(t.downloadBytes)}${downRateStr}`;
     }
 
+    const warnEl = document.getElementById('tunnel-warning-' + t.id);
+    if (warnEl) {
+      const isCaptcha = t.errorMessage && /капч|captcha|smartcaptcha/i.test(t.errorMessage);
+      const warnText = isCaptcha ? (t('badge_captcha') || 'Капча') : (t('badge_warning') || 'Предупреждение');
+      const expectedWarnHtml = t.errorMessage
+        ? `<span class="badge badge-warning-captcha" title="${escapeHtml(t.errorMessage)}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>${warnText}</span></span>`
+        : '';
+      if (warnEl.innerHTML !== expectedWarnHtml) {
+        warnEl.innerHTML = expectedWarnHtml;
+      }
+    }
+
     const statusEl = document.getElementById('tunnel-status-' + t.id);
     if (statusEl) {
       let badgeHtml = `<span class="badge badge-status badge-stopped">${t('badge_stopped')}</span>`;
       if (t.status === 2) {
-        if (t.errorMessage) {
-          badgeHtml = `<span class="badge badge-status badge-failed" title="${escapeHtml(t.errorMessage)}"><span class="pulse" style="background:#ef4444;"></span>${t('badge_conn_error')}</span>`;
-        } else {
-          badgeHtml = `<span class="badge badge-status badge-running"><span class="pulse"></span>${t('badge_running')}</span>`;
-        }
+        badgeHtml = `<span class="badge badge-status badge-running"><span class="pulse"></span>${t('badge_running')}</span>`;
       } else if (t.status === 1) {
         badgeHtml = `<span class="badge badge-status badge-starting">${t('badge_starting')}</span>`;
       } else if (t.status === 4) {
@@ -64,17 +72,6 @@ function updateTunnelsInPlace(list) {
       }
       if (statusEl.innerHTML !== badgeHtml) {
         statusEl.innerHTML = badgeHtml;
-      }
-    }
-
-    const errEl = document.getElementById('tunnel-err-' + t.id);
-    if (errEl) {
-      if (t.errorMessage) {
-        errEl.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span>${escapeHtml(t.errorMessage)}</span>`;
-        errEl.style.display = 'flex';
-      } else {
-        errEl.style.display = 'none';
-        errEl.innerHTML = '';
       }
     }
 
@@ -110,16 +107,18 @@ function renderTunnels(list) {
   container.innerHTML = list.map(tItem => {
     let statusBadge = `<span class="badge badge-status badge-stopped">${t('badge_stopped')}</span>`;
     if (tItem.status === 2) {
-      if (tItem.errorMessage) {
-        statusBadge = `<span class="badge badge-status badge-failed" title="${escapeHtml(tItem.errorMessage)}"><span class="pulse" style="background:#ef4444;"></span>${t('badge_conn_error')}</span>`;
-      } else {
-        statusBadge = `<span class="badge badge-status badge-running"><span class="pulse"></span>${t('badge_running')}</span>`;
-      }
+      statusBadge = `<span class="badge badge-status badge-running"><span class="pulse"></span>${t('badge_running')}</span>`;
     } else if (tItem.status === 1) {
       statusBadge = `<span class="badge badge-status badge-starting">${t('badge_starting')}</span>`;
     } else if (tItem.status === 4) {
       statusBadge = `<span class="badge badge-status badge-failed" title="${escapeHtml(tItem.errorMessage || '')}">${t('badge_failed')}</span>`;
     }
+
+    const isCaptcha = tItem.errorMessage && /капч|captcha|smartcaptcha/i.test(tItem.errorMessage);
+    const warnText = isCaptcha ? (t('badge_captcha') || 'Капча') : (t('badge_warning') || 'Предупреждение');
+    const warningBadge = tItem.errorMessage
+      ? `<span class="badge badge-warning-captcha" title="${escapeHtml(tItem.errorMessage)}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>${warnText}</span></span>`
+      : '';
 
     const isRunning = tItem.status === 2;
     const totalBytes = (tItem.uploadBytes || 0) + (tItem.downloadBytes || 0);
@@ -139,6 +138,7 @@ function renderTunnels(list) {
         <div class="tunnel-top">
           <div class="tunnel-title-group">
             <div class="tunnel-name">${escapeHtml(tItem.name)}</div>
+            <span id="tunnel-warning-${tItem.id}">${warningBadge}</span>
             <span id="tunnel-status-${tItem.id}">${statusBadge}</span>
             <div class="badges">
               <span class="badge badge-tag">${tItem.transport}</span>
@@ -147,10 +147,6 @@ function renderTunnels(list) {
               <span class="badge badge-tag">${tItem.codec}</span>
             </div>
           </div>
-        </div>
-
-        <div id="tunnel-err-${tItem.id}" class="tunnel-error-banner" style="margin: 8px 0 12px 0; padding: 7px 10px; background: rgba(239, 68, 68, 0.12); border-left: 3px solid #ef4444; border-radius: 4px; font-size: 0.82rem; color: #fca5a5; display: ${tItem.errorMessage ? 'flex' : 'none'}; align-items: center; gap: 8px;">
-          ${tItem.errorMessage ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span>${escapeHtml(tItem.errorMessage)}</span>` : ''}
         </div>
 
         <div class="tunnel-details">

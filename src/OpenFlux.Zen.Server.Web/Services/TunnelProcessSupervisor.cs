@@ -735,9 +735,12 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         }
 
         // 2. Status & warnings
-        if (line.Contains("SmartCaptcha detected", StringComparison.OrdinalIgnoreCase) ||
-            line.Contains("captcha required", StringComparison.OrdinalIgnoreCase) ||
+        if (line.Contains("SmartCaptcha", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("captcha", StringComparison.OrdinalIgnoreCase) ||
             line.Contains("showcaptcha", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("external solver", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("needs external help", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("smart-captcha", StringComparison.OrdinalIgnoreCase) ||
             line.Contains("cannot open the document", StringComparison.OrdinalIgnoreCase) ||
             line.Contains("config not found", StringComparison.OrdinalIgnoreCase) ||
             line.Contains("no client-config script", StringComparison.OrdinalIgnoreCase) ||
@@ -749,11 +752,16 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
             {
                 tunnel.ErrorMessage = msg;
                 _logService.AppendLog(tunnel.Id, "error", $"[CAPTCHA/ERROR] {msg}");
+                NotifyStatusChange(tunnel.Id);
             }
         }
         else if (line.Contains("showcaptchafast", StringComparison.OrdinalIgnoreCase))
         {
-            tunnel.ErrorMessage = "Яндекс проверяет PoW-капчу...";
+            if (tunnel.ErrorMessage != "Яндекс проверяет PoW-капчу...")
+            {
+                tunnel.ErrorMessage = "Яндекс проверяет PoW-капчу...";
+                NotifyStatusChange(tunnel.Id);
+            }
         }
         else if (line.Contains("looks like a login page", StringComparison.OrdinalIgnoreCase) || 
                  line.Contains("doc not public", StringComparison.OrdinalIgnoreCase))
@@ -763,6 +771,7 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
             {
                 tunnel.ErrorMessage = msg;
                 _logService.AppendLog(tunnel.Id, "error", $"[ERROR] {msg}");
+                NotifyStatusChange(tunnel.Id);
             }
         }
         else if (line.Contains("key or context mismatch", StringComparison.OrdinalIgnoreCase))
@@ -772,6 +781,7 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
             {
                 tunnel.ErrorMessage = msg;
                 _logService.AppendLog(tunnel.Id, "error", $"[ERROR] {msg}");
+                NotifyStatusChange(tunnel.Id);
             }
         }
         else if (line.Contains("WebSocket connected", StringComparison.OrdinalIgnoreCase) ||
@@ -780,7 +790,26 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
                  line.Contains("handshake OK", StringComparison.OrdinalIgnoreCase) ||
                  line.Contains("peer confirmed KDF context", StringComparison.OrdinalIgnoreCase))
         {
-            tunnel.ErrorMessage = null;
+            if (tunnel.ErrorMessage != null)
+            {
+                tunnel.ErrorMessage = null;
+                NotifyStatusChange(tunnel.Id);
+            }
+        }
+    }
+
+    private void NotifyStatusChange(Guid tunnelId)
+    {
+        if (_tunnelStates.TryGetValue(tunnelId, out var state) && state.Callback != null)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await state.Callback(tunnelId, 0, 0, state.LastClientCount);
+                }
+                catch { }
+            });
         }
     }
 

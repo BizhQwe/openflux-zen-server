@@ -426,11 +426,15 @@ public sealed class TunnelManager : ITunnelManager
         tunnel.DownloadRateBytesPerSec = 0;
         _tunnelRateTrackers.TryRemove(tunnelId, out _);
 
+        bool hasCaptchaError = !string.IsNullOrWhiteSpace(tunnel.ErrorMessage) &&
+            (tunnel.ErrorMessage.Contains("капч", StringComparison.OrdinalIgnoreCase) ||
+             tunnel.ErrorMessage.Contains("SmartCaptcha", StringComparison.OrdinalIgnoreCase));
+
         // If tunnel is supposed to be enabled, attempt auto-recovery
         if (tunnel.IsEnabled)
         {
             tunnel.RestartAttempts++;
-            if (tunnel.RestartAttempts <= 5)
+            if (tunnel.RestartAttempts <= 5 && !hasCaptchaError)
             {
                 tunnel.Status = TunnelStatus.Starting;
                 tunnel.ErrorMessage = $"Unexpected exit (attempt {tunnel.RestartAttempts}/5): {error}";
@@ -447,14 +451,20 @@ public sealed class TunnelManager : ITunnelManager
             else
             {
                 tunnel.Status = TunnelStatus.Failed;
-                tunnel.ErrorMessage = $"Exceeded max restart attempts: {error}";
-                _logger.LogError("Tunnel {Name} failed permanently after 5 restart attempts", tunnel.Name);
+                if (!hasCaptchaError)
+                {
+                    tunnel.ErrorMessage = $"Exceeded max restart attempts: {error}";
+                }
+                _logger.LogError("Tunnel {Name} failed permanently after {Attempts} restart attempts: {Error}", tunnel.Name, tunnel.RestartAttempts, tunnel.ErrorMessage);
             }
         }
         else
         {
             tunnel.Status = TunnelStatus.Stopped;
-            tunnel.ErrorMessage = error;
+            if (!hasCaptchaError)
+            {
+                tunnel.ErrorMessage = error;
+            }
         }
     }
 
