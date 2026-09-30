@@ -538,11 +538,11 @@ function renderPanelVersionInfo(info) {
 
   const curBadge = document.getElementById('panel-current-version-badge');
   if (curBadge) {
-    curBadge.textContent = `Server: ${info.currentVersion || 'v1.0.51'}`;
+    curBadge.textContent = `Server: ${info.currentVersion || 'v1.0.52'}`;
   }
 
   const curVer = document.getElementById('panel-current-version');
-  if (curVer) curVer.textContent = info.currentVersion || 'v1.0.51';
+  if (curVer) curVer.textContent = info.currentVersion || 'v1.0.52';
 
   const latVer = document.getElementById('panel-latest-version');
   if (latVer) latVer.textContent = info.latestVersion || info.currentVersion || '—';
@@ -738,7 +738,7 @@ async function openRollbackModal(type) {
 
   if (type === 'panel') {
     if (titleEl) titleEl.textContent = isRu ? 'Смена версии OpenFlux Zen Server' : 'Change OpenFlux Zen Server Version';
-    const curVer = (panelInfoCache && panelInfoCache.currentVersion) ? panelInfoCache.currentVersion : 'v1.0.51';
+    const curVer = (panelInfoCache && panelInfoCache.currentVersion) ? panelInfoCache.currentVersion : 'v1.0.52';
     if (descEl) {
       descEl.innerHTML = isRu 
         ? `Текущая версия: <strong>${escapeHtml(curVer)}</strong>. Выберите версию из официальных релизов GitHub (BizhQwe/openflux-zen-server) для установки:`

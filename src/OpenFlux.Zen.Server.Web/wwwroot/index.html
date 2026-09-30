@@ -266,7 +266,7 @@
             <h4 data-i18n="settings_panel_title">OpenFlux Zen Server</h4>
             <div style="display: flex; gap: 8px; align-items: center;">
               <span id="panel-status-badge" class="badge-status-update" style="display: none;"></span>
-              <span id="panel-current-version-badge" style="background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #93c5fd; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600;">Server: v1.0.51</span>
+              <span id="panel-current-version-badge" style="background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #93c5fd; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600;">Server: v1.0.52</span>
             </div>
           </div>
           <p style="color: var(--text-dim); margin-bottom: 16px; font-size: 0.9rem;" data-i18n="settings_panel_desc">
@@ -461,7 +461,9 @@
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="tunnel-modal-title">
       <div class="modal-header">
         <h4 class="modal-title" id="tunnel-modal-title" data-i18n="modal_new_tunnel">Новый туннель</h4>
-        <button class="modal-close" aria-label="Закрыть" onclick="closeTunnelModal()">&times;</button>
+        <button class="modal-close" aria-label="Закрыть" onclick="closeTunnelModal()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
       </div>
       <div class="modal-body">
         <form id="tunnel-form">
@@ -622,16 +624,18 @@
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="qr-modal-title" style="max-width: 440px;">
       <div class="modal-header">
         <h4 class="modal-title" id="qr-modal-title">Подключение</h4>
-        <button class="modal-close" aria-label="Закрыть" onclick="closeQrModal()">&times;</button>
+        <button class="modal-close" aria-label="Закрыть" onclick="closeQrModal()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
       </div>
-      <div class="modal-body" style="text-align: center; padding: 20px 24px 10px;">
+      <div class="modal-body" style="text-align: center; padding: 20px 24px 16px;">
         <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;" data-i18n="modal_qr_subtitle">
           Отсканируйте QR-код в приложении OpenFlux или скопируйте ссылку для быстрого импорта конфигурации:
         </p>
         <div id="qrcode-box" style="display: inline-block; background: #ffffff; padding: 14px; border-radius: 12px; margin-bottom: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.4);">
           <div id="qrcode-canvas" style="display: flex; justify-content: center; align-items: center; min-width: 220px; min-height: 220px;"></div>
         </div>
-        <div class="form-group" style="text-align: left; margin-bottom: 12px;">
+        <div class="form-group" style="text-align: left; margin-bottom: 0;">
           <label style="font-size: 0.8rem; color: var(--text-muted);" data-i18n="modal_qr_link_label">Клиентская ссылка OpenFlux:</label>
           <div style="display: flex; gap: 8px; align-items: stretch;">
             <input type="text" id="qr-modal-link-input" class="form-control" readonly style="flex: 1; min-width: 0; height: 42px; min-height: 42px; font-family: monospace; font-size: 0.82rem; box-sizing: border-box;" />
@@ -639,8 +643,8 @@
           </div>
         </div>
       </div>
-      <div class="modal-footer" style="padding: 0 24px 18px; border-top: none;">
-        <button type="button" class="btn btn-outline" onclick="closeQrModal()" style="width: 100%; height: 38px; min-height: 38px;" data-i18n="btn_close">Закрыть</button>
+      <div class="modal-footer" style="padding: 14px 24px; border-top: 1px solid var(--card-border);">
+        <button type="button" class="btn btn-outline" onclick="closeQrModal()" style="width: 100%; height: 40px; min-height: 40px;" data-i18n="btn_close">Закрыть</button>
       </div>
     </div>
   </div>
@@ -650,7 +654,9 @@
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="rollback-modal-title">
       <div class="modal-header">
         <h4 class="modal-title" id="rollback-modal-title" data-i18n="modal_rollback_title">Смена версии</h4>
-        <button class="modal-close" aria-label="Закрыть" onclick="closeRollbackModal()">&times;</button>
+        <button class="modal-close" aria-label="Закрыть" onclick="closeRollbackModal()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
       </div>
       <div class="modal-body rollback-modal-body">
         <p id="rollback-modal-desc" class="rollback-desc"></p>
@@ -660,10 +666,6 @@
           <select id="rollback-version-select" class="form-control" onchange="onRollbackVersionChange()">
             <option value="">Загрузка списка версий с GitHub...</option>
           </select>
-        </div>
-
-        <div id="rollback-warning-box" class="rollback-warning-card">
-          <strong id="rollback-warning-title" data-i18n="modal_rollback_warn_title">Внимание:</strong> <span id="rollback-warning-text" data-i18n="modal_rollback_warn_text">При смене версии будет загружен и применен выбранный релиз.</span>
         </div>
       </div>
       <div class="modal-footer rollback-modal-footer">
@@ -679,12 +681,12 @@
   <!-- Toast notifications -->
   <div id="toast-container" role="status" aria-live="polite"></div>
 
-  <script src="js/qrcode.min.js?v=1.0.51"></script>
-  <script src="js/i18n.js?v=1.0.51"></script>
-  <script src="js/api.js?v=1.0.51"></script>
-  <script src="js/tunnels.js?v=1.0.51"></script>
-  <script src="js/logs.js?v=1.0.51"></script>
-  <script src="js/settings.js?v=1.0.51"></script>
-  <script src="js/app.js?v=1.0.51"></script>
+  <script src="js/qrcode.min.js?v=1.0.52"></script>
+  <script src="js/i18n.js?v=1.0.52"></script>
+  <script src="js/api.js?v=1.0.52"></script>
+  <script src="js/tunnels.js?v=1.0.52"></script>
+  <script src="js/logs.js?v=1.0.52"></script>
+  <script src="js/settings.js?v=1.0.52"></script>
+  <script src="js/app.js?v=1.0.52"></script>
 </body>
 </html>
