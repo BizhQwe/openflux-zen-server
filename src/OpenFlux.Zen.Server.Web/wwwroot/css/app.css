@@ -398,11 +398,19 @@
       border-radius: 6px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
+      box-sizing: border-box;
+      height: 24px;
+      display: inline-flex;
+      align-items: center;
+      line-height: 1;
     }
     .badge-status {
       display: inline-flex;
       align-items: center;
       gap: 6px;
+      height: 24px;
+      box-sizing: border-box;
+      line-height: 1;
     }
     .badge-running { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
     .badge-stopped { background: rgba(107, 114, 128, 0.15); color: #9ca3af; border: 1px solid rgba(107, 114, 128, 0.3); }
@@ -415,18 +423,21 @@
       border: 1px solid rgba(239, 68, 68, 0.45);
       display: inline-flex;
       align-items: center;
-      gap: 4px;
-      font-size: 0.72rem;
+      gap: 5px;
+      font-size: 0.75rem;
       font-weight: 700;
-      padding: 3px 8px;
+      padding: 3px 10px;
       border-radius: 6px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
       cursor: pointer;
       white-space: nowrap;
       user-select: none;
+      height: 24px;
+      box-sizing: border-box;
+      line-height: 1;
     }
-    .badge-tag { background: #1a2538; color: #93c5fd; border: 1px solid #283955; }
+    .badge-tag { background: #1a2538; color: #93c5fd; border: 1px solid #283955; height: 24px; box-sizing: border-box; line-height: 1; }
     .rate-badge {
       font-size: 0.75rem;
       color: #38bdf8;

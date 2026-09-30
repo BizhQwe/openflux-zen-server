@@ -93,7 +93,7 @@ public sealed class OpenFluxCoreUpdateResult
 
 public sealed class PanelVersionInfo
 {
-    public string CurrentVersion { get; set; } = "v1.0.64";
+    public string CurrentVersion { get; set; } = "v1.0.65";
     public string? LatestVersion { get; set; }
     public bool IsUpdateAvailable { get; set; }
     public string? ReleaseUrl { get; set; }

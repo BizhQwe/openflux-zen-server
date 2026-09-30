@@ -53,7 +53,7 @@ function updateTunnelsInPlace(list) {
       const isRunning = tItem.status === 2;
       const hasError = isRunning && Boolean(tItem.errorMessage);
       const expectedWarnHtml = hasError
-        ? `<span class="badge badge-warning-error" onclick="openTunnelErrorModal('${tItem.id}')" title="${escapeHtml(tItem.errorMessage)}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>${t('badge_error')}</span></span>`
+        ? `<span class="badge badge-warning-error" onclick="openTunnelErrorModal('${tItem.id}')" title="${escapeHtml(tItem.errorMessage)}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>${t('badge_error')}</span></span>`
         : '';
       if (warnEl.innerHTML !== expectedWarnHtml) {
         warnEl.innerHTML = expectedWarnHtml;
@@ -117,7 +117,7 @@ function renderTunnels(list) {
     const isRunning = tItem.status === 2;
     const hasError = isRunning && Boolean(tItem.errorMessage);
     const warningBadge = hasError
-      ? `<span class="badge badge-warning-error" onclick="openTunnelErrorModal('${tItem.id}')" title="${escapeHtml(tItem.errorMessage)}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>${t('badge_error')}</span></span>`
+      ? `<span class="badge badge-warning-error" onclick="openTunnelErrorModal('${tItem.id}')" title="${escapeHtml(tItem.errorMessage)}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>${t('badge_error')}</span></span>`
       : '';
     const totalBytes = (tItem.uploadBytes || 0) + (tItem.downloadBytes || 0);
     let trafficLimitStr = currentLanguage === 'en' ? 'Unlimited' : 'Без лимита';
@@ -482,9 +482,104 @@ function openTunnelErrorModal(id) {
     `;
   }
 
+  const isRu = (typeof currentLanguage !== 'undefined' ? currentLanguage : 'ru') === 'ru';
+  const transport = (tItem && tItem.transport ? tItem.transport.toLowerCase() : '');
+  const rawErr = (tItem && tItem.errorMessage) ? tItem.errorMessage.trim() : '';
+
+  let errorText = '';
+  let recs = [];
+
+  const isCaptchaOrYandex = transport === 'yandex' || /капч|captcha|smartcaptcha|яндекс|yandex/i.test(rawErr);
+  const isMailRu = transport === 'mailru' || /mail\.ru|mailru/i.test(rawErr);
+  const isDirect = transport === 'direct' || /direct/i.test(rawErr);
+  const isKeyMismatch = /несовпадение|ключ|контекст|mismatch|context|encryption/i.test(rawErr);
+
+  if (isKeyMismatch) {
+    errorText = isRu
+      ? 'Несовпадение ключа или контекста шифрования: подключающийся клиент использует другой ключ или устаревший контекст.'
+      : 'Encryption key or context mismatch: the connecting client is using a different key or outdated context.';
+    recs = isRu
+      ? [
+          'Скопируйте актуальную ссылку подключения (Share link) или QR-код и заново импортируйте её на клиенте.',
+          'Убедитесь, что на клиенте и сервере используется идентичный ключ шифрования.'
+        ]
+      : [
+          'Copy the latest share link or QR code and re-import it on the client.',
+          'Ensure the client and server use the identical encryption key.'
+        ];
+  } else if (isCaptchaOrYandex) {
+    errorText = isRu
+      ? 'Обнаружена проблема связи: возможно, документ заблокирован капчей (SmartCaptcha) от Яндекса, либо документ просто недоступен (закрыт или удалён).'
+      : 'Connection issue detected: the document may be blocked by Yandex SmartCaptcha, or the document is simply inaccessible (closed or deleted).';
+    recs = isRu
+      ? [
+          'Создайте новый публичный документ (Word или Excel) на Яндекс Диске и укажите новую ссылку в настройках туннеля.',
+          'Или переключитесь на прямое подключение <strong>Direct</strong> либо транспорт <strong>Mail.ru</strong>.'
+        ]
+      : [
+          'Create a new public document (Word or Excel) on Yandex Disk and update the URL in tunnel settings.',
+          'Or switch to a <strong>Direct</strong> connection or <strong>Mail.ru</strong> transport.'
+        ];
+  } else if (isMailRu) {
+    errorText = isRu
+      ? 'Обнаружена проблема связи с транспортом Mail.ru: файл недоступен, ссылка устарела или сервис временно заблокировал запросы.'
+      : 'Connection issue detected with Mail.ru transport: file is inaccessible, the link has expired, or requests are blocked.';
+    recs = isRu
+      ? [
+          'Проверьте правильность и публичность ссылки на файл в Облаке Mail.ru в настройках туннеля.',
+          'Либо переключитесь на прямое подключение <strong>Direct</strong> либо транспорт <strong>Яндекс</strong>.'
+        ]
+      : [
+          'Verify the public file link in Mail.ru Cloud within tunnel settings.',
+          'Or switch to a <strong>Direct</strong> connection or <strong>Yandex</strong> transport.'
+        ];
+  } else if (isDirect) {
+    errorText = isRu
+      ? 'Обнаружена проблема прямого соединения (Direct): удалённый узел недоступен, порт закрыт или соединение разорвано.'
+      : 'Direct connection issue detected: remote host is unreachable, port is closed, or connection was interrupted.';
+    recs = isRu
+      ? [
+          'Проверьте адрес прослушивания (Direct Listen), номер порта и правила брандмауэра на сервере.',
+          'Убедитесь, что порт открыт для внешних входящих подключений (NAT/порт-форвардинг).'
+        ]
+      : [
+          'Check the Direct Listen address, port number, and server firewall rules.',
+          'Ensure the port is open for external incoming connections (NAT/port-forwarding).'
+        ];
+  } else {
+    // Universal error text for any other tunnel / transport
+    errorText = isRu
+      ? (rawErr ? `Обнаружена ошибка соединения: ${rawErr}` : 'Обнаружена проблема соединения. Проверьте параметры туннеля.')
+      : (rawErr ? `Connection issue detected: ${rawErr}` : 'Connection issue detected. Please check tunnel settings.');
+    recs = isRu
+      ? [
+          'Проверьте параметры туннеля, правильность URL / адреса и ключа шифрования.',
+          'Попробуйте перезапустить туннель или выбрать другой сетевой транспорт.'
+        ]
+      : [
+          'Check tunnel settings, verify the URL/address and encryption key.',
+          'Try restarting the tunnel or selecting a different network transport.'
+        ];
+  }
+
   const textEl = document.getElementById('tunnel-error-modal-text');
   if (textEl) {
-    textEl.textContent = t('modal_tunnel_error_desc');
+    textEl.innerHTML = escapeHtml(errorText).replace(/&lt;strong&gt;/g, '<strong>').replace(/&lt;\/strong&gt;/g, '</strong>');
+  }
+
+  const recsListEl = document.getElementById('tunnel-error-modal-recs-list');
+  if (recsListEl) {
+    recsListEl.innerHTML = recs.map(r => `<li style="margin-bottom: 4px;">${r}</li>`).join('');
+  }
+
+  const detailsEl = document.getElementById('tunnel-error-modal-details');
+  if (detailsEl) {
+    if (rawErr && rawErr !== errorText && !isCaptchaOrYandex) {
+      detailsEl.textContent = rawErr;
+      detailsEl.style.display = 'block';
+    } else {
+      detailsEl.style.display = 'none';
+    }
   }
 
   modal.classList.add('open');
