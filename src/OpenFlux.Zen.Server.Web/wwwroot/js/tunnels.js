@@ -8,8 +8,8 @@ async function loadTunnels(silent = false) {
 
     if (silent && tunnelsData.length > 0) {
       let canUpdateInPlace = true;
-      for (const t of tunnelsData) {
-        if (!document.getElementById('tunnel-card-' + t.id)) {
+      for (const item of tunnelsData) {
+        if (!document.getElementById('tunnel-card-' + item.id)) {
           canUpdateInPlace = false;
           break;
         }
@@ -28,57 +28,57 @@ async function loadTunnels(silent = false) {
 }
 
 function updateTunnelsInPlace(list) {
-  for (const t of list) {
-    const clientLimitStr = t.clientLimit > 0 ? `${t.connectedClients || 0} / ${t.clientLimit}` : `${t.connectedClients || 0} (∞)`;
-    const upRateStr = t.uploadRateBytesPerSec > 0 ? ` <span class="rate-badge">↑ ${fmtSpeed(t.uploadRateBytesPerSec)}</span>` : '';
-    const downRateStr = t.downloadRateBytesPerSec > 0 ? ` <span class="rate-badge">↓ ${fmtSpeed(t.downloadRateBytesPerSec)}</span>` : '';
+  for (const tItem of list) {
+    const clientLimitStr = tItem.clientLimit > 0 ? `${tItem.connectedClients || 0} / ${tItem.clientLimit}` : `${tItem.connectedClients || 0} (∞)`;
+    const upRateStr = tItem.uploadRateBytesPerSec > 0 ? ` <span class="rate-badge">↑ ${fmtSpeed(tItem.uploadRateBytesPerSec)}</span>` : '';
+    const downRateStr = tItem.downloadRateBytesPerSec > 0 ? ` <span class="rate-badge">↓ ${fmtSpeed(tItem.downloadRateBytesPerSec)}</span>` : '';
 
-    const clientsEl = document.getElementById('tunnel-clients-' + t.id);
+    const clientsEl = document.getElementById('tunnel-clients-' + tItem.id);
     if (clientsEl && clientsEl.textContent !== clientLimitStr) {
       clientsEl.textContent = clientLimitStr;
     }
 
-    const uploadEl = document.getElementById('tunnel-upload-' + t.id);
+    const uploadEl = document.getElementById('tunnel-upload-' + tItem.id);
     if (uploadEl) {
-      uploadEl.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>${fmtBytes(t.uploadBytes)}${upRateStr}`;
+      uploadEl.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>${fmtBytes(tItem.uploadBytes)}${upRateStr}`;
     }
 
-    const downloadEl = document.getElementById('tunnel-download-' + t.id);
+    const downloadEl = document.getElementById('tunnel-download-' + tItem.id);
     if (downloadEl) {
-      downloadEl.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>${fmtBytes(t.downloadBytes)}${downRateStr}`;
+      downloadEl.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>${fmtBytes(tItem.downloadBytes)}${downRateStr}`;
     }
 
-    const warnEl = document.getElementById('tunnel-warning-' + t.id);
+    const warnEl = document.getElementById('tunnel-warning-' + tItem.id);
     if (warnEl) {
-      const isRunning = t.status === 2;
-      const hasError = isRunning && Boolean(t.errorMessage);
+      const isRunning = tItem.status === 2;
+      const hasError = isRunning && Boolean(tItem.errorMessage);
       const expectedWarnHtml = hasError
-        ? `<span class="badge badge-warning-error" onclick="openTunnelErrorModal('${t.id}')" title="${escapeHtml(t.errorMessage)}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>${t('badge_error')}</span></span>`
+        ? `<span class="badge badge-warning-error" onclick="openTunnelErrorModal('${tItem.id}')" title="${escapeHtml(tItem.errorMessage)}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>${t('badge_error')}</span></span>`
         : '';
       if (warnEl.innerHTML !== expectedWarnHtml) {
         warnEl.innerHTML = expectedWarnHtml;
       }
     }
 
-    const statusEl = document.getElementById('tunnel-status-' + t.id);
+    const statusEl = document.getElementById('tunnel-status-' + tItem.id);
     if (statusEl) {
       let badgeHtml = `<span class="badge badge-status badge-stopped">${t('badge_stopped')}</span>`;
-      if (t.status === 2) {
+      if (tItem.status === 2) {
         badgeHtml = `<span class="badge badge-status badge-running"><span class="pulse"></span>${t('badge_running')}</span>`;
-      } else if (t.status === 1) {
+      } else if (tItem.status === 1) {
         badgeHtml = `<span class="badge badge-status badge-starting">${t('badge_starting')}</span>`;
-      } else if (t.status === 4) {
-        badgeHtml = `<span class="badge badge-status badge-failed" title="${escapeHtml(t.errorMessage || '')}">${t('badge_failed')}</span>`;
+      } else if (tItem.status === 4) {
+        badgeHtml = `<span class="badge badge-status badge-failed" title="${escapeHtml(tItem.errorMessage || '')}">${t('badge_failed')}</span>`;
       }
       if (statusEl.innerHTML !== badgeHtml) {
         statusEl.innerHTML = badgeHtml;
       }
     }
 
-    if (t.trafficLimitBytes > 0) {
-      const totalBytes = (t.uploadBytes || 0) + (t.downloadBytes || 0);
-      const trafficPct = Math.min(100, Math.round(totalBytes / t.trafficLimitBytes * 100));
-      const progEl = document.getElementById('tunnel-prog-' + t.id);
+    if (tItem.trafficLimitBytes > 0) {
+      const totalBytes = (tItem.uploadBytes || 0) + (tItem.downloadBytes || 0);
+      const trafficPct = Math.min(100, Math.round(totalBytes / tItem.trafficLimitBytes * 100));
+      const progEl = document.getElementById('tunnel-prog-' + tItem.id);
       if (progEl) progEl.style.width = trafficPct + '%';
     }
   }
@@ -136,8 +136,8 @@ function renderTunnels(list) {
         <div class="tunnel-top">
           <div class="tunnel-title-group">
             <div class="tunnel-name">${escapeHtml(tItem.name)}</div>
-            <span id="tunnel-warning-${tItem.id}">${warningBadge}</span>
             <span id="tunnel-status-${tItem.id}">${statusBadge}</span>
+            <span id="tunnel-warning-${tItem.id}">${warningBadge}</span>
             <div class="badges">
               <span class="badge badge-tag">${tItem.transport}</span>
               ${tItem.transports ? `<span class="badge badge-tag" title="${escapeHtml(tItem.transports)}">${escapeHtml(tItem.transports)}</span>` : ''}
@@ -484,10 +484,7 @@ function openTunnelErrorModal(id) {
 
   const textEl = document.getElementById('tunnel-error-modal-text');
   if (textEl) {
-    const isRu = (typeof currentLanguage !== 'undefined' ? currentLanguage : 'ru') === 'ru';
-    textEl.textContent = isRu
-      ? 'Обнаружена проблема связи: возможно, документ заблокирован капчей (SmartCaptcha) от Яндекса, либо документ просто недоступен (закрыт, удалён или требует авторизации).'
-      : 'Connection issue detected: the document may be blocked by Yandex SmartCaptcha, or the document is simply inaccessible (closed, deleted, or requires authorization).';
+    textEl.textContent = t('modal_tunnel_error_desc');
   }
 
   modal.classList.add('open');

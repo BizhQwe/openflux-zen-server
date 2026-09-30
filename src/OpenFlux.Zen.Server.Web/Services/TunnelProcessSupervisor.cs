@@ -719,7 +719,7 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
     private void DetectConnectionStatus(Tunnel tunnel, string line)
     {
         // Only inspect connection status while the tunnel is actively running
-        if (!IsRunning(tunnel.Id))
+        if (!_tunnelStates.TryGetValue(tunnel.Id, out var state) || state.IsIntentionalStop)
         {
             return;
         }
@@ -772,7 +772,7 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         else if (line.Contains("looks like a login page", StringComparison.OrdinalIgnoreCase) || 
                  line.Contains("doc not public", StringComparison.OrdinalIgnoreCase))
         {
-            var msg = "Документ недоступен, закрыт или требует авторизации.";
+            var msg = "Документ недоступен, закрыт или удалён.";
             if (tunnel.ErrorMessage != msg)
             {
                 tunnel.ErrorMessage = msg;

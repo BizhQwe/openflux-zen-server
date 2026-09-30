@@ -423,16 +423,8 @@
       text-transform: uppercase;
       letter-spacing: 0.5px;
       cursor: pointer;
-      transition: all 0.2s ease;
       white-space: nowrap;
       user-select: none;
-    }
-    .badge-warning-error:hover,
-    .badge-warning-captcha:hover {
-      background: rgba(239, 68, 68, 0.3);
-      border-color: rgba(239, 68, 68, 0.75);
-      color: #fff;
-      transform: translateY(-1px);
     }
     .badge-tag { background: #1a2538; color: #93c5fd; border: 1px solid #283955; }
     .rate-badge {
