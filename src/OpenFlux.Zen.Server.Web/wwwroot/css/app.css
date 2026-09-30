@@ -938,10 +938,17 @@
     #header-update-badge {
       display: none !important;
       align-items: center;
+      justify-content: center;
       gap: 8px;
-      font-size: 0.8rem;
-      padding: 5px 14px;
-      border-radius: 20px;
+      height: 36px !important;
+      min-height: 36px !important;
+      max-height: 36px !important;
+      padding: 0 14px !important;
+      font-size: 0.825rem !important;
+      border-radius: 8px !important;
+      box-sizing: border-box !important;
+      line-height: 34px !important;
+      vertical-align: middle !important;
       background: rgba(245, 158, 11, 0.08);
       border: 1px solid rgba(245, 158, 11, 0.4);
       color: #fbbf24;
@@ -1019,9 +1026,11 @@
         min-width: 0;
       }
       #header-update-badge {
-        padding: 6px 10px;
-        min-height: 34px;
-        height: 34px;
+        min-height: 34px !important;
+        height: 34px !important;
+        max-height: 34px !important;
+        padding: 0 10px !important;
+        border-radius: 8px !important;
       }
       #header-update-badge #header-status-text {
         display: none;
