@@ -99,6 +99,10 @@ async function initApp() {
   document.getElementById('app-header').style.display = 'block';
   document.getElementById('main-view').style.display = 'block';
 
+  if (typeof updateHeaderStatusBadge === 'function') {
+    updateHeaderStatusBadge();
+  }
+
   loadStats();
   loadTunnels();
   if (typeof loadPanelVersionInfo === 'function') {

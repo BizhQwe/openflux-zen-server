@@ -174,12 +174,12 @@
       border-color: #3b4d6e;
       text-decoration: none !important;
     }
-    .btn-sm,
-    .btn.btn-sm,
-    button.btn-sm,
+    .btn-sm:not(#header-update-badge),
+    .btn.btn-sm:not(#header-update-badge),
+    button.btn-sm:not(#header-update-badge),
     .toolbar .btn-sm,
     .toolbar > .btn.btn-sm,
-    .header-actions .btn.btn-sm {
+    .header-actions .btn.btn-sm:not(#header-update-badge) {
       height: 36px !important;
       min-height: 36px !important;
       max-height: 36px !important;
@@ -936,21 +936,24 @@
       font-weight: 600;
     }
     #header-update-badge {
-      display: none;
+      display: none !important;
       align-items: center;
       gap: 8px;
       font-size: 0.8rem;
       padding: 5px 14px;
       border-radius: 20px;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      color: var(--text-main);
+      background: rgba(245, 158, 11, 0.08);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      color: #fbbf24;
       transition: all 0.2s ease;
       cursor: pointer;
     }
+    #header-update-badge.visible {
+      display: inline-flex !important;
+    }
     #header-update-badge:hover {
-      background: rgba(255, 255, 255, 0.08);
-      border-color: rgba(255, 255, 255, 0.2);
+      background: rgba(245, 158, 11, 0.16);
+      border-color: rgba(245, 158, 11, 0.6);
     }
 
     /* ==========================================================================
