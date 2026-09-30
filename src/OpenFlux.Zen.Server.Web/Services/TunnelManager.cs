@@ -291,6 +291,7 @@ public sealed class TunnelManager : ITunnelManager
         await _supervisor.StopTunnelAsync(id);
         tunnel.Status = TunnelStatus.Stopped;
         tunnel.IsEnabled = false;
+        tunnel.ErrorMessage = null;
         tunnel.LastStoppedAt = DateTime.UtcNow;
         tunnel.ConnectedClients = 0;
         tunnel.UploadRateBytesPerSec = 0;
@@ -301,6 +302,7 @@ public sealed class TunnelManager : ITunnelManager
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             await db.Tunnels.Where(t => t.Id == id).ExecuteUpdateAsync(s => s
                 .SetProperty(t => t.IsEnabled, false)
+                .SetProperty(t => t.ErrorMessage, (string?)null)
                 .SetProperty(t => t.LastStoppedAt, tunnel.LastStoppedAt)
                 .SetProperty(t => t.ConnectedClients, 0));
         }
@@ -461,10 +463,7 @@ public sealed class TunnelManager : ITunnelManager
         else
         {
             tunnel.Status = TunnelStatus.Stopped;
-            if (!hasCaptchaError)
-            {
-                tunnel.ErrorMessage = error;
-            }
+            tunnel.ErrorMessage = null;
         }
     }
 

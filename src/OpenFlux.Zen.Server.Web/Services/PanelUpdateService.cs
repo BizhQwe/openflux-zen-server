@@ -14,7 +14,7 @@ public sealed class PanelUpdateService : IPanelUpdateService
     private const string GitHubApiReleases = "https://api.github.com/repos/BizhQwe/openflux-zen-server/releases?per_page=30";
     private const string GitHubApiReleaseByTag = "https://api.github.com/repos/BizhQwe/openflux-zen-server/releases/tags/";
     private const string GitHubAtomReleases = "https://github.com/BizhQwe/openflux-zen-server/releases.atom";
-    private const string FallbackDefaultVersion = "v1.0.62";
+    private const string FallbackDefaultVersion = "v1.0.63";
 
     private static List<ReleaseItemDto>? _cachedReleases;
     private static DateTime? _releasesCacheTime;

@@ -32,6 +32,7 @@ const I18N_DICTIONARY = {
     badge_starting: "Запуск...",
     badge_failed: "Ошибка",
     badge_conn_error: "Ошибка связи",
+    badge_error: "Ошибка",
     badge_captcha: "Капча",
     badge_warning: "Предупреждение",
 
@@ -145,6 +146,11 @@ const I18N_DICTIONARY = {
     btn_cancel: "Отмена",
     btn_close: "Закрыть",
     btn_save: "Сохранить",
+    btn_got_it: "Понятно",
+    modal_tunnel_error_title: "Ошибка соединения",
+    modal_tunnel_error_recs: "Рекомендации для решения:",
+    modal_tunnel_error_rec1: "Создайте новый публичный документ (Word или Excel) на Яндекс Диске и укажите новую ссылку в настройках туннеля.",
+    modal_tunnel_error_rec2: "Или переключитесь на прямое подключение Direct либо транспорт Mail.ru.",
 
     toast_copied: "Скопировано в буфер обмена",
     toast_saved: "Успешно сохранено",
@@ -258,6 +264,7 @@ const I18N_DICTIONARY = {
     badge_starting: "Starting...",
     badge_failed: "Failed",
     badge_conn_error: "Connection Error",
+    badge_error: "Error",
     badge_captcha: "Captcha",
     badge_warning: "Warning",
 
@@ -371,6 +378,11 @@ const I18N_DICTIONARY = {
     btn_cancel: "Cancel",
     btn_close: "Close",
     btn_save: "Save",
+    btn_got_it: "Got it",
+    modal_tunnel_error_title: "Connection Error",
+    modal_tunnel_error_recs: "Recommendations to resolve:",
+    modal_tunnel_error_rec1: "Create a new public document (Word or Excel) on Yandex Disk and specify the new URL in tunnel settings.",
+    modal_tunnel_error_rec2: "Or switch to a Direct connection or Mail.ru transport.",
  
     toast_copied: "Copied to clipboard",
     toast_saved: "Successfully saved",

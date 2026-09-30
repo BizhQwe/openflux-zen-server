@@ -50,10 +50,10 @@ function updateTunnelsInPlace(list) {
 
     const warnEl = document.getElementById('tunnel-warning-' + t.id);
     if (warnEl) {
-      const isCaptcha = t.errorMessage && /капч|captcha|smartcaptcha/i.test(t.errorMessage);
-      const warnText = isCaptcha ? (t('badge_captcha') || 'Капча') : (t('badge_warning') || 'Предупреждение');
-      const expectedWarnHtml = t.errorMessage
-        ? `<span class="badge badge-warning-captcha" title="${escapeHtml(t.errorMessage)}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>${warnText}</span></span>`
+      const isRunning = t.status === 2;
+      const hasError = isRunning && Boolean(t.errorMessage);
+      const expectedWarnHtml = hasError
+        ? `<span class="badge badge-warning-error" onclick="openTunnelErrorModal('${t.id}')" title="${escapeHtml(t.errorMessage)}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>${t('badge_error')}</span></span>`
         : '';
       if (warnEl.innerHTML !== expectedWarnHtml) {
         warnEl.innerHTML = expectedWarnHtml;
@@ -114,13 +114,11 @@ function renderTunnels(list) {
       statusBadge = `<span class="badge badge-status badge-failed" title="${escapeHtml(tItem.errorMessage || '')}">${t('badge_failed')}</span>`;
     }
 
-    const isCaptcha = tItem.errorMessage && /капч|captcha|smartcaptcha/i.test(tItem.errorMessage);
-    const warnText = isCaptcha ? (t('badge_captcha') || 'Капча') : (t('badge_warning') || 'Предупреждение');
-    const warningBadge = tItem.errorMessage
-      ? `<span class="badge badge-warning-captcha" title="${escapeHtml(tItem.errorMessage)}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>${warnText}</span></span>`
-      : '';
-
     const isRunning = tItem.status === 2;
+    const hasError = isRunning && Boolean(tItem.errorMessage);
+    const warningBadge = hasError
+      ? `<span class="badge badge-warning-error" onclick="openTunnelErrorModal('${tItem.id}')" title="${escapeHtml(tItem.errorMessage)}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>${t('badge_error')}</span></span>`
+      : '';
     const totalBytes = (tItem.uploadBytes || 0) + (tItem.downloadBytes || 0);
     let trafficLimitStr = currentLanguage === 'en' ? 'Unlimited' : 'Без лимита';
     let trafficPct = 0;
@@ -457,5 +455,54 @@ async function saveTunnel() {
     }
   } catch {
     toast('Ошибка соединения', 'danger');
+  }
+}
+
+let currentErrorTunnelId = null;
+
+function openTunnelErrorModal(id) {
+  currentErrorTunnelId = id;
+  const modal = document.getElementById('tunnel-error-modal');
+  if (!modal) return;
+
+  const tItem = (typeof tunnelsData !== 'undefined' && Array.isArray(tunnelsData))
+    ? tunnelsData.find(x => x.id === id)
+    : null;
+
+  const titleEl = document.getElementById('tunnel-error-modal-title');
+  if (titleEl) {
+    const tunnelName = tItem ? tItem.name : '';
+    titleEl.innerHTML = `
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+        <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+        <line x1="12" y1="9" x2="12" y2="13"/>
+        <line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+      <span>${escapeHtml(tunnelName ? `${tunnelName} — ` : '')}${t('modal_tunnel_error_title')}</span>
+    `;
+  }
+
+  const textEl = document.getElementById('tunnel-error-modal-text');
+  if (textEl) {
+    const isRu = (typeof currentLanguage !== 'undefined' ? currentLanguage : 'ru') === 'ru';
+    textEl.textContent = isRu
+      ? 'Обнаружена проблема связи: возможно, документ заблокирован капчей (SmartCaptcha) от Яндекса, либо документ просто недоступен (закрыт, удалён или требует авторизации).'
+      : 'Connection issue detected: the document may be blocked by Yandex SmartCaptcha, or the document is simply inaccessible (closed, deleted, or requires authorization).';
+  }
+
+  modal.classList.add('open');
+}
+
+function closeTunnelErrorModal() {
+  const modal = document.getElementById('tunnel-error-modal');
+  if (modal) modal.classList.remove('open');
+  currentErrorTunnelId = null;
+}
+
+function onEditFromErrorModal() {
+  const id = currentErrorTunnelId;
+  closeTunnelErrorModal();
+  if (id && typeof editTunnel === 'function') {
+    editTunnel(id);
   }
 }

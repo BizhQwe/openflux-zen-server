@@ -718,6 +718,12 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
 
     private void DetectConnectionStatus(Tunnel tunnel, string line)
     {
+        // Only inspect connection status while the tunnel is actively running
+        if (!IsRunning(tunnel.Id))
+        {
+            return;
+        }
+
         // 1. Capture OpenFlux client share link (openflux://...)
         if (line.Contains("openflux://", StringComparison.OrdinalIgnoreCase))
         {
