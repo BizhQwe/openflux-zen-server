@@ -50,6 +50,9 @@ async function api(path, opts = {}) {
   if (token) {
     opts.headers['Authorization'] = 'Bearer ' + token;
   }
+  if (!opts.headers['Accept']) {
+    opts.headers['Accept'] = 'application/json';
+  }
   opts.credentials = 'same-origin';
   if (opts.body && typeof opts.body === 'string' && !opts.headers['Content-Type']) {
     opts.headers['Content-Type'] = 'application/json';

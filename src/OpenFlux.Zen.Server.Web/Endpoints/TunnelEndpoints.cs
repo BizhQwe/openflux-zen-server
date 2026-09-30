@@ -69,13 +69,23 @@ public static class TunnelEndpoints
             return Results.Ok(new { success });
         });
 
-        group.MapGet("/{id:guid}/captcha", async (Guid id, ITunnelManager manager) =>
+        group.MapGet("/{id:guid}/captcha", async (Guid id, HttpContext context, ITunnelManager manager) =>
         {
             var tunnel = await manager.GetByIdAsync(id);
             if (tunnel == null) return Results.NotFound();
 
             var hasPending = !string.IsNullOrWhiteSpace(tunnel.PendingCaptchaUrl);
             var targetUrl = !string.IsNullOrWhiteSpace(tunnel.PendingCaptchaUrl) ? tunnel.PendingCaptchaUrl : tunnel.Url;
+
+            // If requested directly from browser (or with ?redirect=true), redirect directly to Yandex Disk!
+            var accept = context.Request.Headers.Accept.ToString();
+            var wantsHtml = accept.Contains("text/html", StringComparison.OrdinalIgnoreCase) ||
+                            context.Request.Query.ContainsKey("redirect");
+
+            if (wantsHtml && !string.IsNullOrWhiteSpace(targetUrl))
+            {
+                return Results.Redirect(targetUrl);
+            }
 
             return Results.Ok(new
             {
@@ -93,12 +103,14 @@ public static class TunnelEndpoints
             ctx.Response.Headers["Access-Control-Allow-Origin"] = "*";
             ctx.Response.Headers["Access-Control-Allow-Methods"] = "POST, OPTIONS";
             ctx.Response.Headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization";
+            ctx.Response.Headers["Access-Control-Allow-Private-Network"] = "true";
             return Results.Ok();
         });
 
         group.MapPost("/{id:guid}/cookies", async (Guid id, HttpContext context, ITunnelManager manager) =>
         {
             context.Response.Headers["Access-Control-Allow-Origin"] = "*";
+            context.Response.Headers["Access-Control-Allow-Private-Network"] = "true";
 
             string rawInput = "";
             if (context.Request.ContentType?.Contains("application/json", StringComparison.OrdinalIgnoreCase) == true)

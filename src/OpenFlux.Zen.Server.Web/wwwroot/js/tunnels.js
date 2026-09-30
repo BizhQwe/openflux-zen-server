@@ -60,6 +60,26 @@ function updateTunnelsInPlace(list) {
       }
     }
 
+    const captchaActionEl = document.getElementById('tunnel-captcha-action-' + tItem.id);
+    if (captchaActionEl) {
+      const required = isCaptchaRequired(tItem);
+      const expectedHtml = required ? renderCaptchaActionBtn(tItem.id) : '';
+      if (captchaActionEl.innerHTML !== expectedHtml) {
+        captchaActionEl.innerHTML = expectedHtml;
+      }
+    }
+
+    const startStopEl = document.getElementById('tunnel-startstop-' + tItem.id);
+    if (startStopEl) {
+      const isRunning = tItem.status === 2;
+      const expectedBtnHtml = isRunning
+        ? `<button class="btn btn-danger btn-sm" onclick="stopTunnel('${tItem.id}')"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>${t('btn_stop')}</button>`
+        : `<button class="btn btn-success btn-sm" onclick="startTunnel('${tItem.id}')"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>${t('btn_start')}</button>`;
+      if (startStopEl.innerHTML !== expectedBtnHtml) {
+        startStopEl.innerHTML = expectedBtnHtml;
+      }
+    }
+
     const statusEl = document.getElementById('tunnel-status-' + tItem.id);
     if (statusEl) {
       let badgeHtml = `<span class="badge badge-status badge-stopped">${t('badge_stopped')}</span>`;
@@ -82,6 +102,32 @@ function updateTunnelsInPlace(list) {
       if (progEl) progEl.style.width = trafficPct + '%';
     }
   }
+}
+
+function isCaptchaRequired(tItem) {
+  if (!tItem) return false;
+  if (tItem.pendingCaptchaUrl) return true;
+  const msg = (tItem.errorMessage || '').toLowerCase();
+  if (msg.includes('капч') || msg.includes('captcha') || msg.includes('smartcaptcha')) {
+    return true;
+  }
+  if ((tItem.transport === 'yandex' || tItem.transport === 'vyandex') && tItem.errorMessage) {
+    if (msg.includes('403') || msg.includes('проверк') || msg.includes('check') || msg.includes('robot') || msg.includes('block')) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function renderCaptchaActionBtn(tunnelId) {
+  const label = t('btn_solve_captcha') || 'Пройти капчу';
+  return `<button class="btn btn-warning btn-sm" onclick="openCaptchaSolverModal('${tunnelId}')" title="${escapeHtml(label)}" style="display: inline-flex; align-items: center; gap: 5px; font-weight: 600;">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+      <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+    </svg>
+    <span>${escapeHtml(label)}</span>
+  </button>`;
 }
 
 function renderTunnels(list) {
@@ -175,22 +221,20 @@ function renderTunnels(list) {
 
         <div class="tunnel-actions">
           <div class="action-group">
-            ${isRunning ? 
-              `<button class="btn btn-danger btn-sm" onclick="stopTunnel('${tItem.id}')"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>${t('btn_stop')}</button>` :
-              `<button class="btn btn-success btn-sm" onclick="startTunnel('${tItem.id}')"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>${t('btn_start')}</button>`}
+            <span id="tunnel-startstop-${tItem.id}">
+              ${isRunning ? 
+                `<button class="btn btn-danger btn-sm" onclick="stopTunnel('${tItem.id}')"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>${t('btn_stop')}</button>` :
+                `<button class="btn btn-success btn-sm" onclick="startTunnel('${tItem.id}')"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>${t('btn_start')}</button>`}
+            </span>
             <button class="btn btn-outline btn-sm" onclick="showTunnelConnect('${tItem.id}')" title="${t('btn_connect_qr') || 'Подключение'}">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
               </svg>
               <span>${t('btn_connect_qr') || 'Подключение'}</span>
             </button>
-            ${(hasError && (tItem.transport === 'yandex' || /captcha|smartcaptcha/i.test(tItem.errorMessage || ''))) ? 
-              `<button class="btn btn-outline btn-sm" style="color: #fde047; border-color: #ca8a04; background: rgba(234, 179, 8, 0.1);" onclick="openCaptchaSolverModal('${tItem.id}')" title="${t('btn_solve_captcha') || 'Решить капчу'}">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                </svg>
-                <span>${t('btn_solve_captcha') || 'Решить капчу'}</span>
-              </button>` : ''}
+            <span id="tunnel-captcha-action-${tItem.id}">
+              ${isCaptchaRequired(tItem) ? renderCaptchaActionBtn(tItem.id) : ''}
+            </span>
           </div>
 
           <div class="action-group">
@@ -638,28 +682,18 @@ async function openCaptchaSolverModal(tunnelId) {
   const tItem = (typeof tunnelsData !== 'undefined' && Array.isArray(tunnelsData))
     ? tunnelsData.find(x => x.id === tunnelId) : null;
 
-  let targetUrl = tItem ? (tItem.url || '') : '';
+  let targetUrl = tItem ? (tItem.pendingCaptchaUrl || tItem.url || '') : '';
 
-  // Try fetching real-time pending captcha info from server
-  try {
-    const info = await api(`api/tunnels/${tunnelId}/captcha`);
-    if (info && info.url) {
-      targetUrl = info.url;
-    }
-  } catch (e) {
-    console.warn('Could not fetch tunnel captcha info', e);
-  }
-
-  // Setup link button
+  // Setup link button immediately so it works even before async API call
   const linkBtn = document.getElementById('captcha-doc-link-btn');
   if (linkBtn) {
     linkBtn.href = targetUrl || '#';
     linkBtn.style.display = targetUrl ? 'inline-flex' : 'none';
   }
 
-  // Generate 1-click bookmarklet code
+  // Hybrid Bookmarklet: handles Gray IP / Mixed Content / Private Network Access smoothly
   const panelOrigin = window.location.origin;
-  const bookmarkletCode = `javascript:(function(){const u='${panelOrigin}/api/tunnels/${tunnelId}/cookies';const c=document.cookie;fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cookies:c})}).then(r=>r.json()).then(d=>{if(d.success){alert('✅ Куки успешно переданы в Zen Server! Туннель возобновил работу.');}else{alert('❌ Ошибка: '+(d.error||'Не удалось применить'));}}).catch(e=>alert('❌ Ошибка связи с панелью: '+e));})();`;
+  const bookmarkletCode = `javascript:(function(){var c=document.cookie;if(!c||c.trim().length===0){alert('⚠️ Куки не найдены на этой странице.\\n\\nУбедитесь, что вы находитесь на вкладке disk.yandex.ru и решили проверку «Я не робот».');return;}var u='${panelOrigin}/api/tunnels/${tunnelId}/cookies';function copyFallback(note){if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(c).then(function(){alert('✅ Куки скопированы в буфер обмена!\\n\\n'+(note?'('+note+')\\n\\n':'')+'Перейдите на вкладку Zen Server и нажмите «Вставить из буфера».');}).catch(function(){prompt('Скопируйте куки (Ctrl+C):',c);});}else{prompt('Скопируйте куки (Ctrl+C):',c);}}try{fetch(u,{method:'POST',mode:'cors',headers:{'Content-Type':'application/json'},body:JSON.stringify({cookies:c})}).then(function(r){return r.json();}).then(function(d){if(d&&d.success){alert('✅ Куки успешно переданы в Zen Server! Туннель возобновил работу.');}else{copyFallback(d&&d.error?d.error:'Не удалось отправить напрямую');}}).catch(function(err){copyFallback('Браузер блокирует прямой запрос на серый IP');});}catch(e){copyFallback('Серый IP');}})();`.replace(/\s+/g, ' ');
 
   const bookmarkletLink = document.getElementById('captcha-bookmarklet-link');
   if (bookmarkletLink) {
@@ -667,6 +701,20 @@ async function openCaptchaSolverModal(tunnelId) {
   }
 
   modal.classList.add('open');
+
+  // Fetch real-time pending captcha info from server
+  try {
+    const info = await api(`api/tunnels/${tunnelId}/captcha`);
+    if (info && info.url && info.url !== targetUrl) {
+      targetUrl = info.url;
+      if (linkBtn) {
+        linkBtn.href = targetUrl;
+        linkBtn.style.display = 'inline-flex';
+      }
+    }
+  } catch (e) {
+    console.warn('Could not fetch tunnel captcha info', e);
+  }
 }
 
 function closeCaptchaSolverModal() {
@@ -702,6 +750,33 @@ function copyCaptchaBookmarklet() {
     }).catch(() => {
       prompt('Скопируйте код закладки:', bookmarkletLink.href);
     });
+  }
+}
+
+async function pasteAndSubmitCaptchaCookies() {
+  const id = currentCaptchaTunnelId || document.getElementById('captcha-tunnel-id').value;
+  if (!id) return;
+
+  let text = '';
+  try {
+    if (navigator.clipboard && navigator.clipboard.readText) {
+      text = await navigator.clipboard.readText();
+    }
+  } catch (err) {
+    console.warn('Clipboard read permission denied', err);
+  }
+
+  const input = document.getElementById('captcha-manual-input');
+  if (text && text.trim().length > 0) {
+    if (input) input.value = text.trim();
+    toast('Куки вставлены из буфера обмена. Применяем...', 'info');
+    await submitManualCaptchaCookies();
+  } else {
+    switchCaptchaTab('manual');
+    if (input) {
+      input.focus();
+    }
+    toast('Вставьте скопированные куки в поле (Ctrl + V) и нажмите «Применить»', 'info');
   }
 }
 

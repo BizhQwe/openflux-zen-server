@@ -153,7 +153,7 @@ const I18N_DICTIONARY = {
     modal_tunnel_error_rec1: "Создайте новый публичный документ (Word или Excel) на Яндекс Диске и укажите новую ссылку в настройках туннеля.",
     modal_tunnel_error_rec2: "Или переключитесь на прямое подключение Direct либо транспорт Mail.ru.",
     modal_captcha_title: "Решение капчи (Yandex)",
-    btn_solve_captcha: "Решить капчу",
+    btn_solve_captcha: "Пройти капчу",
     toast_captcha_applied: "Куки успешно применены! Туннель возобновил работу.",
     toast_captcha_error: "Ошибка применения кук: ",
     toast_bookmarklet_copied: "Код закладки скопирован в буфер обмена",
