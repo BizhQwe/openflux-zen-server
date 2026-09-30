@@ -42,6 +42,7 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         public Tunnel Tunnel { get; set; } = null!;
         public OpenFluxIpcClient? IpcClient;
         public string? IpcSocketPath;
+        public int CaptchaErrorReported;
     }
 
     private readonly ILogger<TunnelProcessSupervisor> _logger;
@@ -51,6 +52,7 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
     private readonly ConcurrentDictionary<Guid, TunnelState> _tunnelStates = new();
     private readonly string _keysDirectory;
     private readonly Timer _flushTimer;
+    private const string CaptchaErrorMessage = "Яндекс заблокировал документ капчей (SmartCaptcha) или документ недоступен. Пройдите капчу в браузере или создайте новый документ на Яндекс Диске.";
 
     [GeneratedRegex(@"\[ZEN-STATS\]\s+up=(\d+)\s+down=(\d+)\s+pkts_up=(\d+)\s+pkts_down=(\d+)\s+connected=(\d+)\s+established=(\d+)(?:\s+clients=([^\s]*))?(?:\s+mode=(\S+))?", RegexOptions.Compiled)]
     private static partial Regex ZenStatsRegex();
@@ -273,11 +275,11 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
                     tunnel.PendingCaptchaReason = req.Reason;
                     tunnel.PendingCaptchaProxy = req.Proxy;
 
-                    var msg = "Требуется проверка в браузере (SmartCaptcha). Откройте решение капчи в панели.";
-                    if (tunnel.ErrorMessage != msg)
+                    var changed = !string.Equals(tunnel.ErrorMessage, CaptchaErrorMessage, StringComparison.Ordinal);
+                    tunnel.ErrorMessage = CaptchaErrorMessage;
+                    if (changed)
                     {
-                        tunnel.ErrorMessage = msg;
-                        _logService.AppendLog(tunnel.Id, "warn", $"[CAPTCHA] Требуется проверка человека: {req.Url}");
+                        _logService.AppendLog(tunnel.Id, "error", $"[CAPTCHA] Требуется проверка человека: {req.Url}");
                         NotifyStatusChange(tunnel.Id);
                     }
                 };
@@ -573,6 +575,9 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
             var extra = t.ExtraArgs.Trim();
             // Upgrade bare --debug to --debug=2 so OpenFlux outputs operational events and packets
             extra = System.Text.RegularExpressions.Regex.Replace(extra, @"(?<=^|\s)--debug(?=\s|$)", "--debug=2");
+            // A previous panel version could persist an orphan numeric debug token.
+            // Remove only standalone -2/2; keep values such as --debug=2 intact.
+            extra = System.Text.RegularExpressions.Regex.Replace(extra, @"(?<!\S)-?2(?=\s|$)", "").Trim();
             parts.Add(extra);
         }
 
@@ -840,8 +845,7 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
                  line.Contains("config not found", StringComparison.OrdinalIgnoreCase) ||
                  line.Contains("no client-config script", StringComparison.OrdinalIgnoreCase) ||
                  line.Contains("Верификация", StringComparison.OrdinalIgnoreCase) ||
-                 line.Contains("fetchDocInfo failed", StringComparison.OrdinalIgnoreCase) ||
-                 line.Contains("captcha", StringComparison.OrdinalIgnoreCase))
+                 line.Contains("fetchDocInfo failed", StringComparison.OrdinalIgnoreCase))
         {
             var captchaUrlMatch = System.Text.RegularExpressions.Regex.Match(line, @"https?://[^\s""'<>]+/showcaptcha[^\s""'<>]*", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
             if (captchaUrlMatch.Success)
@@ -854,11 +858,12 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
                 tunnel.PendingCaptchaUrl = tunnel.Url;
             }
 
-            var msg = "Яндекс заблокировал документ капчей (SmartCaptcha) или документ недоступен. Пройдите капчу в браузере или создайте новый документ на Яндекс Диске.";
-            if (tunnel.ErrorMessage != msg)
+            var changed = !string.Equals(tunnel.ErrorMessage, CaptchaErrorMessage, StringComparison.Ordinal);
+            tunnel.ErrorMessage = CaptchaErrorMessage;
+            if (changed)
             {
-                tunnel.ErrorMessage = msg;
-                _logService.AppendLog(tunnel.Id, "error", $"[CAPTCHA/ERROR] {msg}");
+                if (Interlocked.Exchange(ref state.CaptchaErrorReported, 1) == 0)
+                    _logService.AppendLog(tunnel.Id, "error", $"[CAPTCHA/ERROR] {CaptchaErrorMessage}");
                 NotifyStatusChange(tunnel.Id);
             }
         }
@@ -894,6 +899,7 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
                 tunnel.ErrorMessage = null;
                 tunnel.PendingCaptchaUrl = null;
                 tunnel.PendingCaptchaReason = null;
+                Volatile.Write(ref state.CaptchaErrorReported, 0);
                 NotifyStatusChange(tunnel.Id);
             }
         }
@@ -970,10 +976,8 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
             }
         }
 
-        tunnel.PendingCaptchaUrl = null;
-        tunnel.PendingCaptchaReason = null;
-        tunnel.ErrorMessage = null;
-        NotifyStatusChange(tunnel.Id);
+        // Applying cookies only updates the core's cookie jar. Keep any CAPTCHA
+        // state visible until the core confirms a successful document handshake.
 
         return (true, appliedViaIpc);
     }

@@ -243,9 +243,14 @@ public static class TunnelEndpoints
 
             if (!string.IsNullOrWhiteSpace(spravkaVal))
             {
-                await manager.ApplyCookiesAsync(id, $"spravka={spravkaVal}");
-                _captchaSessions.TryRemove(id, out _);
-                return Results.Content(GetSuccessHtml(), "text/html; charset=utf-8");
+                var applied = await manager.ApplyCookiesAsync(id, $"spravka={spravkaVal}");
+                if (applied.Success)
+                {
+                    _captchaSessions.TryRemove(id, out _);
+                    return Results.Content(GetSuccessHtml(), "text/html; charset=utf-8");
+                }
+
+                return Results.Content(GetErrorHtml("Решение получено, но куку доступа не удалось передать туннелю."), "text/html; charset=utf-8");
             }
 
             // Handle redirect if Yandex responded with 3xx to next step
@@ -261,9 +266,14 @@ public static class TunnelEndpoints
                     var redSpravka = ExtractSpravkaCookie(redResp, cookieContainer, redirectUri.ToString());
                     if (!string.IsNullOrWhiteSpace(redSpravka))
                     {
-                        await manager.ApplyCookiesAsync(id, $"spravka={redSpravka}");
-                        _captchaSessions.TryRemove(id, out _);
-                        return Results.Content(GetSuccessHtml(), "text/html; charset=utf-8");
+                        var applied = await manager.ApplyCookiesAsync(id, $"spravka={redSpravka}");
+                        if (applied.Success)
+                        {
+                            _captchaSessions.TryRemove(id, out _);
+                            return Results.Content(GetSuccessHtml(), "text/html; charset=utf-8");
+                        }
+
+                        return Results.Content(GetErrorHtml("Решение получено, но куку доступа не удалось передать туннелю."), "text/html; charset=utf-8");
                     }
 
                     var redHtml = await redResp.Content.ReadAsStringAsync();

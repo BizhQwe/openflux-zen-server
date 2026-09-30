@@ -407,26 +407,10 @@ public sealed class TunnelManager : ITunnelManager
             }
         }
 
-        tunnel.PendingCaptchaUrl = null;
-        tunnel.PendingCaptchaReason = null;
-        tunnel.ErrorMessage = null;
-
-        // Persist cleared error message to DB so it doesn't reappear on reload
-        try
-        {
-            using var scope = _scopeFactory.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var dbTunnel = await db.Tunnels.FindAsync(id);
-            if (dbTunnel != null)
-            {
-                dbTunnel.ErrorMessage = null;
-                await db.SaveChangesAsync();
-            }
-        }
-        catch { }
-
-        _logService.AppendLog(id, "system", $"[COOKIE] Успешно применено {cookies.Count} кук {(appliedViaIpc ? "(на лету через IPC)" : "(с перезапуском)")}");
-        return (true, cookies.Count, $"Успешно применено {cookies.Count} кук");
+        // Saving/sending a cookie is not proof that SmartCaptcha accepted it.
+        // Keep the CAPTCHA state until the core reports a successful handshake.
+        _logService.AppendLog(id, "system", $"[COOKIE] Сохранено и передано {cookies.Count} кук {(appliedViaIpc ? "(на лету через IPC)" : "(с перезапуском)")}");
+        return (true, cookies.Count, "Куки сохранены; ожидается подтверждение доступа ядром");
     }
 
     private Task OnStatsUpdateAsync(Guid tunnelId, long uploadDelta, long downloadDelta, int clients)

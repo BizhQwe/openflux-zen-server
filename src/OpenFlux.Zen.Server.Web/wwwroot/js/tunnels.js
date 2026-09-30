@@ -77,7 +77,8 @@ function updateTunnelsInPlace(list) {
 
     const warningEl = document.getElementById('tunnel-warning-' + tItem.id);
     if (warningEl) {
-      const hasError = Boolean(tItem.errorMessage);
+      // The failed status already renders the single error badge below.
+      const hasError = Boolean(tItem.errorMessage) && tItem.status !== 4;
       const expectedWarningHtml = hasError
         ? `<span class="badge badge-warning-error" title="${escapeHtml(tItem.errorMessage)}" style="cursor: default; pointer-events: none;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>${t('badge_error')}</span></span>`
         : '';
@@ -107,23 +108,6 @@ function updateTunnelsInPlace(list) {
 function isCaptchaRequired(tItem) {
   if (!tItem) return false;
   if (tItem.pendingCaptchaUrl || tItem.pendingCaptchaReason) return true;
-
-  const transport = (tItem.transport || '').toLowerCase();
-  const transports = (tItem.transports || '').toLowerCase();
-  const url = (tItem.url || '').toLowerCase();
-  const isYandex = transport === 'yandex' || transport === 'vyandex' || transports.includes('yandex') || url.includes('yandex');
-
-  // For Yandex transport tunnels, solve captcha must always be available
-  // so the user can easily solve captcha at any time (during error, when stopped, or proactively)
-  if (isYandex) {
-    return true;
-  }
-
-  // If tunnel has error or is failed
-  if (tItem.errorMessage || tItem.status === 4) {
-    return true;
-  }
-
   const msg = (tItem.errorMessage || '').toLowerCase();
   return msg.includes('капч') || msg.includes('captcha') || msg.includes('smartcaptcha');
 }
@@ -170,7 +154,7 @@ function renderTunnels(list) {
     }
 
     const isRunning = tItem.status === 2;
-    const hasError = Boolean(tItem.errorMessage);
+    const hasError = Boolean(tItem.errorMessage) && tItem.status !== 4;
     const warningBadge = hasError
       ? `<span class="badge badge-warning-error" title="${escapeHtml(tItem.errorMessage)}" style="cursor: default; pointer-events: none;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>${t('badge_error')}</span></span>`
       : '';
@@ -735,7 +719,7 @@ async function submitManualCaptchaCookies() {
 
     const data = await res.json().catch(() => ({}));
     if (res.ok && data && data.success) {
-      toast(t('toast_captcha_applied') || 'Куки успешно применены! Туннель возобновил работу.', 'success');
+      toast(data.message || t('toast_captcha_applied') || 'Куки переданы; ожидается подтверждение доступа ядром.', 'success');
       closeCaptchaSolverModal();
       if (typeof loadTunnels === 'function') {
         await loadTunnels();
