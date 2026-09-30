@@ -734,28 +734,6 @@
       gap: 14px;
       background: rgba(11, 15, 25, 0.35);
     }
-    .advanced-packet-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-    .advanced-packet-row label {
-      margin-bottom: 0;
-      font-size: 0.85rem;
-      font-weight: 500;
-      color: var(--text-muted);
-      flex: 1 1 auto;
-      min-width: 180px;
-    }
-    .advanced-packet-row input {
-      width: 130px;
-      flex-shrink: 0;
-      text-align: right;
-      padding-right: 12px;
-      font-variant-numeric: tabular-nums;
-    }
 
     /* Rollback Modal Spacing & Alignment */
     .rollback-modal-body {
