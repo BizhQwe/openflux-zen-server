@@ -109,6 +109,7 @@ public sealed class HostedRestoreService : IHostedService
 
             // Ensure schema resiliency for OpenFlux v0.2.0+ columns on upgraded databases
             try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Tunnels\" ADD COLUMN \"EnableShare\" INTEGER NOT NULL DEFAULT 1;", cancellationToken); } catch { }
+            try { await db.Database.ExecuteSqlRawAsync("UPDATE \"Tunnels\" SET \"EnableShare\" = 1 WHERE \"EnableShare\" IS NULL OR \"EnableShare\" = 0;", cancellationToken); } catch { }
             try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Tunnels\" ADD COLUMN \"ShareHost\" TEXT NULL;", cancellationToken); } catch { }
             try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Tunnels\" ADD COLUMN \"ShareLink\" TEXT NULL;", cancellationToken); } catch { }
             try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Tunnels\" ADD COLUMN \"DirectListen\" TEXT NULL;", cancellationToken); } catch { }

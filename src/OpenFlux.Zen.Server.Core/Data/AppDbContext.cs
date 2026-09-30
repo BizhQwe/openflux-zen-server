@@ -45,6 +45,8 @@ public sealed class AppDbContext : DbContext
             entity.Property(e => e.Mode).HasMaxLength(32).HasDefaultValue("l4");
             entity.Property(e => e.Codec).HasMaxLength(32).HasDefaultValue("batched");
             entity.Property(e => e.Status).HasConversion<int>();
+            entity.Property(e => e.EnableShare).HasDefaultValue(true);
+            entity.Property(e => e.MaxPacketSize).HasDefaultValue(65000);
             entity.Property(e => e.ShareHost).HasMaxLength(256);
             entity.Property(e => e.ShareLink).HasMaxLength(2048);
             entity.Property(e => e.DirectListen).HasMaxLength(128);
