@@ -222,7 +222,7 @@ const I18N_DICTIONARY = {
     confirm_rollback_core: "Установить ядро OpenFlux версии {version}? Все активные туннели будут перезапущены.",
     confirm_rollback_panel: "Установить панель OpenFlux Zen Server версии {version}? Служба сервера будет перезапущена с сохранением настроек.",
     header_status_up_to_date: "Обновлено",
-    header_status_update_available: "Требуется обновление"
+    header_status_update_available: "Доступно обновление"
   },
 
   en: {
@@ -446,7 +446,7 @@ const I18N_DICTIONARY = {
     confirm_rollback_core: "Install OpenFlux core version {version}? Active tunnels will be restarted.",
     confirm_rollback_panel: "Install OpenFlux Zen Server panel version {version}? The server service will restart.",
     header_status_up_to_date: "Updated",
-    header_status_update_available: "Update required"
+    header_status_update_available: "Update available"
   }
 };
 
