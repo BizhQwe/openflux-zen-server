@@ -636,8 +636,15 @@
       height: 36px;
       flex-shrink: 0;
       border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s, color 0.15s;
     }
-    .modal-close:hover { color: #fff; }
+    .modal-close:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.08);
+    }
     .modal-body { padding: 24px; overflow-y: auto; min-height: 0; overscroll-behavior: contain; }
     #tunnel-form > .form-group:last-child { margin-bottom: 0; }
     .modal-footer {

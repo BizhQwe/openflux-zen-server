@@ -538,11 +538,11 @@ function renderPanelVersionInfo(info) {
 
   const curBadge = document.getElementById('panel-current-version-badge');
   if (curBadge) {
-    curBadge.textContent = `Server: ${info.currentVersion || 'v1.0.50'}`;
+    curBadge.textContent = `Server: ${info.currentVersion || 'v1.0.51'}`;
   }
 
   const curVer = document.getElementById('panel-current-version');
-  if (curVer) curVer.textContent = info.currentVersion || 'v1.0.50';
+  if (curVer) curVer.textContent = info.currentVersion || 'v1.0.51';
 
   const latVer = document.getElementById('panel-latest-version');
   if (latVer) latVer.textContent = info.latestVersion || info.currentVersion || '—';
@@ -617,6 +617,7 @@ function updateHeaderStatusBadge() {
       text.style.color = '#fbbf24';
     }
     if (badge) {
+      badge.style.display = 'inline-flex';
       badge.style.borderColor = 'rgba(245, 158, 11, 0.4)';
       badge.style.background = 'rgba(245, 158, 11, 0.08)';
       badge.title = (typeof currentLanguage !== 'undefined' && currentLanguage === 'ru')
@@ -624,20 +625,8 @@ function updateHeaderStatusBadge() {
         : 'Update is available';
     }
   } else {
-    if (dot) {
-      dot.style.background = '#10b981';
-      dot.style.boxShadow = '0 0 6px rgba(16, 185, 129, 0.5)';
-    }
-    if (text) {
-      text.textContent = t('header_status_up_to_date');
-      text.style.color = 'var(--text-main)';
-    }
     if (badge) {
-      badge.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-      badge.style.background = 'rgba(255, 255, 255, 0.04)';
-      badge.title = (typeof currentLanguage !== 'undefined' && currentLanguage === 'ru')
-        ? 'Все компоненты обновлены'
-        : 'All components are up to date';
+      badge.style.display = 'none';
     }
   }
 }
@@ -749,7 +738,7 @@ async function openRollbackModal(type) {
 
   if (type === 'panel') {
     if (titleEl) titleEl.textContent = isRu ? 'Смена версии OpenFlux Zen Server' : 'Change OpenFlux Zen Server Version';
-    const curVer = (panelInfoCache && panelInfoCache.currentVersion) ? panelInfoCache.currentVersion : 'v1.0.50';
+    const curVer = (panelInfoCache && panelInfoCache.currentVersion) ? panelInfoCache.currentVersion : 'v1.0.51';
     if (descEl) {
       descEl.innerHTML = isRu 
         ? `Текущая версия: <strong>${escapeHtml(curVer)}</strong>. Выберите версию из официальных релизов GitHub (BizhQwe/openflux-zen-server) для установки:`
