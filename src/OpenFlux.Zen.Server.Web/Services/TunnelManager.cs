@@ -16,6 +16,7 @@ public interface ITunnelManager
     Task<bool> StopAsync(Guid id);
     Task<bool> ToggleEnableAsync(Guid id, bool isEnabled);
     Task<bool> ResetStatsAsync(Guid id);
+    Task<(bool Success, int AppliedCount, string Message)> ApplyCookiesAsync(Guid id, string rawCookiesInput);
 }
 
 public sealed class TunnelManager : ITunnelManager
@@ -367,6 +368,43 @@ public sealed class TunnelManager : ITunnelManager
             }
         }
         return true;
+    }
+
+    public async Task<(bool Success, int AppliedCount, string Message)> ApplyCookiesAsync(Guid id, string rawCookiesInput)
+    {
+        await SyncFromDbIfEmptyAsync();
+        if (!_liveTunnels.TryGetValue(id, out var tunnel))
+        {
+            return (false, 0, "Туннель не найден");
+        }
+
+        var cookies = CookieStoreHelper.ParseCookies(rawCookiesInput);
+        if (cookies.Count == 0)
+        {
+            return (false, 0, "Не удалось распознать куки. Убедитесь, что передана строка вида 'spravka=...;' или JSON");
+        }
+
+        var (success, appliedViaIpc) = await _supervisor.ApplyCookiesAsync(id, cookies);
+        if (!success)
+        {
+            return (false, 0, "Ошибка при сохранении кук");
+        }
+
+        // If not applied via live IPC and tunnel is running, restart so it re-reads cookies.json on startup
+        if (!appliedViaIpc && tunnel.IsEnabled && _supervisor.IsRunning(id))
+        {
+            _logger.LogInformation("Restarting tunnel {Id} to apply newly saved cookies", id);
+            await StopAsync(id);
+            await Task.Delay(500);
+            await StartAsync(id);
+        }
+
+        tunnel.PendingCaptchaUrl = null;
+        tunnel.PendingCaptchaReason = null;
+        tunnel.ErrorMessage = null;
+
+        _logService.AppendLog(id, "system", $"[COOKIE] Успешно применено {cookies.Count} кук {(appliedViaIpc ? "(на лету через IPC)" : "(с перезапуском)")}");
+        return (true, cookies.Count, $"Успешно применено {cookies.Count} кук");
     }
 
     private Task OnStatsUpdateAsync(Guid tunnelId, long uploadDelta, long downloadDelta, int clients)

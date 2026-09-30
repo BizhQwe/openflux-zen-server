@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using OpenFlux.Zen.Server.Models;
@@ -12,6 +13,7 @@ public interface ITunnelProcessSupervisor
     Task<bool> StopTunnelAsync(Guid tunnelId);
     bool IsRunning(Guid tunnelId);
     void StopAll();
+    Task<(bool Success, bool AppliedViaIpc)> ApplyCookiesAsync(Guid tunnelId, Dictionary<string, string> cookies);
 }
 
 public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
@@ -34,6 +36,9 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         public bool HasCumulativeStats;
         public Func<Guid, long, long, int, Task> Callback { get; set; } = null!;
         public volatile bool IsIntentionalStop;
+        public Tunnel Tunnel { get; set; } = null!;
+        public OpenFluxIpcClient? IpcClient;
+        public string? IpcSocketPath;
     }
 
     private readonly ILogger<TunnelProcessSupervisor> _logger;
@@ -133,6 +138,13 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
             EnsureL3NetworkConfiguration();
         }
 
+        var socketPath = GetIpcSocketPath(tunnel.Id);
+        try
+        {
+            if (File.Exists(socketPath)) File.Delete(socketPath);
+        }
+        catch { }
+
         var args = BuildCommandLineArguments(tunnel);
         _logger.LogInformation("Starting tunnel {TunnelId} ({Name}): {Binary} {Args}", tunnel.Id, tunnel.Name, binaryPath, args);
         _logService.AppendLog(tunnel.Id, "system", $"Starting tunnel: {binaryPath} {args}");
@@ -166,9 +178,11 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         var state = new TunnelState
         {
             TunnelId = tunnel.Id,
+            Tunnel = tunnel,
             Process = proc,
             Cts = cts,
-            Callback = onStatsUpdate
+            Callback = onStatsUpdate,
+            IpcSocketPath = socketPath
         };
         _tunnelStates[tunnel.Id] = state;
 
@@ -203,6 +217,19 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         proc.Exited += async (_, _) =>
         {
             FlushState(state);
+            if (state.IpcClient != null)
+            {
+                try { await state.IpcClient.DisposeAsync(); } catch { }
+            }
+            try
+            {
+                if (!string.IsNullOrEmpty(state.IpcSocketPath) && File.Exists(state.IpcSocketPath))
+                {
+                    File.Delete(state.IpcSocketPath);
+                }
+            }
+            catch { }
+
             _tunnelStates.TryRemove(new KeyValuePair<Guid, TunnelState>(tunnel.Id, state));
 
             int exitCode = -1;
@@ -229,6 +256,41 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
 
             proc.BeginOutputReadLine();
             proc.BeginErrorReadLine();
+
+            // Connect IPC client in background if supported by OS
+            if (Socket.OSSupportsUnixDomainSockets)
+            {
+                var ipcClient = new OpenFluxIpcClient(socketPath, _logger);
+                state.IpcClient = ipcClient;
+
+                ipcClient.OnCaptchaRequired += async req =>
+                {
+                    _logger.LogWarning("Tunnel {TunnelId} IPC: captcha required at {Url} (reason={Reason})", tunnel.Id, req.Url, req.Reason);
+                    tunnel.PendingCaptchaUrl = req.Url;
+                    tunnel.PendingCaptchaReason = req.Reason;
+                    tunnel.PendingCaptchaProxy = req.Proxy;
+
+                    var msg = "Требуется проверка в браузере (SmartCaptcha). Откройте решение капчи в панели.";
+                    if (tunnel.ErrorMessage != msg)
+                    {
+                        tunnel.ErrorMessage = msg;
+                        _logService.AppendLog(tunnel.Id, "warn", $"[CAPTCHA] Требуется проверка человека: {req.Url}");
+                        NotifyStatusChange(tunnel.Id);
+                    }
+                };
+
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await ipcClient.StartAsync(state.Cts.Token);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogDebug(ex, "IPC client startup failed for tunnel {TunnelId}", tunnel.Id);
+                    }
+                });
+            }
 
             // Wait a brief moment to catch immediate startup crashes
             await Task.Delay(350);
@@ -305,6 +367,19 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         }
         finally
         {
+            if (state.IpcClient != null)
+            {
+                try { _ = state.IpcClient.DisposeAsync(); } catch { }
+            }
+            try
+            {
+                if (!string.IsNullOrEmpty(state.IpcSocketPath) && File.Exists(state.IpcSocketPath))
+                {
+                    File.Delete(state.IpcSocketPath);
+                }
+            }
+            catch { }
+
             FlushState(state);
             _tunnelStates.TryRemove(new KeyValuePair<Guid, TunnelState>(tunnelId, state));
         }
@@ -480,6 +555,13 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         if (t.ExtraArgs == null || !t.ExtraArgs.Contains("--debug"))
         {
             parts.Add("--debug=2");
+        }
+
+        // Pass IPC socket if Unix domain sockets are supported by OS
+        if (Socket.OSSupportsUnixDomainSockets && (t.ExtraArgs == null || !t.ExtraArgs.Contains("--ipc-socket")))
+        {
+            var socketPath = GetIpcSocketPath(t.Id);
+            parts.Add($"--ipc-socket=\"{socketPath}\"");
         }
 
         // Extra custom arguments
@@ -753,7 +835,11 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
             line.Contains("Верификация", StringComparison.OrdinalIgnoreCase) ||
             line.Contains("fetchDocInfo failed", StringComparison.OrdinalIgnoreCase))
         {
-            var msg = "Яндекс заблокировал документ капчей (SmartCaptcha) или документ недоступен. Создайте новый публичный документ (Word/Excel) на Яндекс Диске и укажите новую ссылку в настройках туннеля, либо используйте Direct / Mail.ru.";
+            if (string.IsNullOrEmpty(tunnel.PendingCaptchaUrl))
+            {
+                tunnel.PendingCaptchaUrl = tunnel.Url;
+            }
+            var msg = "Яндекс заблокировал документ капчей (SmartCaptcha) или документ недоступен. Пройдите капчу в браузере или создайте новый документ на Яндекс Диске.";
             if (tunnel.ErrorMessage != msg)
             {
                 tunnel.ErrorMessage = msg;
@@ -796,9 +882,11 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
                  line.Contains("handshake OK", StringComparison.OrdinalIgnoreCase) ||
                  line.Contains("peer confirmed KDF context", StringComparison.OrdinalIgnoreCase))
         {
-            if (tunnel.ErrorMessage != null)
+            if (tunnel.ErrorMessage != null || tunnel.PendingCaptchaUrl != null)
             {
                 tunnel.ErrorMessage = null;
+                tunnel.PendingCaptchaUrl = null;
+                tunnel.PendingCaptchaReason = null;
                 NotifyStatusChange(tunnel.Id);
             }
         }
@@ -817,6 +905,51 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
                 catch { }
             });
         }
+    }
+
+    public static string GetIpcSocketPath(Guid tunnelId)
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            return $"/tmp/of_{tunnelId:N}.sock";
+        }
+        return Path.Combine(Path.GetTempPath(), $"of_{tunnelId:N}.sock");
+    }
+
+    public async Task<(bool Success, bool AppliedViaIpc)> ApplyCookiesAsync(Guid tunnelId, Dictionary<string, string> cookies)
+    {
+        if (cookies == null || cookies.Count == 0) return (false, false);
+
+        _tunnelStates.TryGetValue(tunnelId, out var state);
+        var tunnel = state?.Tunnel;
+
+        string transport = tunnel?.Transport ?? "yandex";
+        string docUrl = tunnel?.PendingCaptchaUrl ?? tunnel?.Url ?? "";
+
+        // 1. Persist to disk cookies-{transport}.json
+        await CookieStoreHelper.SaveCookiesToStoreFileAsync(transport, docUrl, cookies, AppContext.BaseDirectory);
+        _logService.AppendLog(tunnelId, "system", $"[COOKIE] Сохранено {cookies.Count} кук для {transport} ({docUrl})");
+
+        // 2. If IPC is active, send MsgCookiesOffer
+        bool appliedViaIpc = false;
+        if (state?.IpcClient != null && state.IpcClient.IsConnected)
+        {
+            appliedViaIpc = await state.IpcClient.SendCookiesOfferAsync(transport, cookies, remote: false);
+            if (appliedViaIpc)
+            {
+                _logService.AppendLog(tunnelId, "system", $"[COOKIE] Куки успешно переданы ядру OpenFlux через IPC без перезапуска");
+            }
+        }
+
+        if (tunnel != null)
+        {
+            tunnel.PendingCaptchaUrl = null;
+            tunnel.PendingCaptchaReason = null;
+            tunnel.ErrorMessage = null;
+            NotifyStatusChange(tunnelId);
+        }
+
+        return (true, appliedViaIpc);
     }
 
     private void EnsureL3NetworkConfiguration()

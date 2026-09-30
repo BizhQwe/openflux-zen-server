@@ -69,6 +69,78 @@ public static class TunnelEndpoints
             return Results.Ok(new { success });
         });
 
+        group.MapGet("/{id:guid}/captcha", async (Guid id, ITunnelManager manager) =>
+        {
+            var tunnel = await manager.GetByIdAsync(id);
+            if (tunnel == null) return Results.NotFound();
+
+            var hasPending = !string.IsNullOrWhiteSpace(tunnel.PendingCaptchaUrl);
+            var targetUrl = !string.IsNullOrWhiteSpace(tunnel.PendingCaptchaUrl) ? tunnel.PendingCaptchaUrl : tunnel.Url;
+
+            return Results.Ok(new
+            {
+                hasPendingCaptcha = hasPending,
+                url = targetUrl,
+                reason = tunnel.PendingCaptchaReason ?? "smartcaptcha",
+                proxy = tunnel.PendingCaptchaProxy,
+                documentUrl = tunnel.Url,
+                errorMessage = tunnel.ErrorMessage
+            });
+        });
+
+        group.MapMethods("/{id:guid}/cookies", new[] { "OPTIONS" }, (HttpContext ctx) =>
+        {
+            ctx.Response.Headers["Access-Control-Allow-Origin"] = "*";
+            ctx.Response.Headers["Access-Control-Allow-Methods"] = "POST, OPTIONS";
+            ctx.Response.Headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization";
+            return Results.Ok();
+        });
+
+        group.MapPost("/{id:guid}/cookies", async (Guid id, HttpContext context, ITunnelManager manager) =>
+        {
+            context.Response.Headers["Access-Control-Allow-Origin"] = "*";
+
+            string rawInput = "";
+            if (context.Request.ContentType?.Contains("application/json", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                using var reader = new StreamReader(context.Request.Body);
+                var jsonBody = await reader.ReadToEndAsync();
+                try
+                {
+                    using var doc = System.Text.Json.JsonDocument.Parse(jsonBody);
+                    if (doc.RootElement.TryGetProperty("cookies", out var c))
+                    {
+                        rawInput = c.GetString() ?? "";
+                    }
+                    else if (doc.RootElement.TryGetProperty("rawCookies", out var rc))
+                    {
+                        rawInput = rc.GetString() ?? "";
+                    }
+                    else
+                    {
+                        rawInput = jsonBody;
+                    }
+                }
+                catch
+                {
+                    rawInput = jsonBody;
+                }
+            }
+            else
+            {
+                using var reader = new StreamReader(context.Request.Body);
+                rawInput = await reader.ReadToEndAsync();
+            }
+
+            var result = await manager.ApplyCookiesAsync(id, rawInput);
+            if (!result.Success)
+            {
+                return Results.BadRequest(new { success = false, error = result.Message });
+            }
+
+            return Results.Ok(new { success = true, appliedCount = result.AppliedCount, message = result.Message });
+        });
+
         return app;
     }
 }

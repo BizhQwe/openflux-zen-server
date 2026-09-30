@@ -54,6 +54,15 @@ public sealed class Tunnel
     public DateTime? LastStartedAt { get; set; }
     public DateTime? LastStoppedAt { get; set; }
     public string? ErrorMessage { get; set; }
+
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public string? PendingCaptchaUrl { get; set; }
+
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public string? PendingCaptchaReason { get; set; }
+
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public string? PendingCaptchaProxy { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

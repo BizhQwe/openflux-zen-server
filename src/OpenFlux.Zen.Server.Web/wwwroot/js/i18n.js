@@ -152,6 +152,11 @@ const I18N_DICTIONARY = {
     modal_tunnel_error_recs: "Рекомендации для решения:",
     modal_tunnel_error_rec1: "Создайте новый публичный документ (Word или Excel) на Яндекс Диске и укажите новую ссылку в настройках туннеля.",
     modal_tunnel_error_rec2: "Или переключитесь на прямое подключение Direct либо транспорт Mail.ru.",
+    modal_captcha_title: "Решение капчи (Yandex)",
+    btn_solve_captcha: "Решить капчу",
+    toast_captcha_applied: "Куки успешно применены! Туннель возобновил работу.",
+    toast_captcha_error: "Ошибка применения кук: ",
+    toast_bookmarklet_copied: "Код закладки скопирован в буфер обмена",
 
     toast_copied: "Скопировано в буфер обмена",
     toast_saved: "Успешно сохранено",
@@ -385,6 +390,11 @@ const I18N_DICTIONARY = {
     modal_tunnel_error_recs: "Recommendations to resolve:",
     modal_tunnel_error_rec1: "Create a new public document (Word or Excel) on Yandex Disk and specify the new URL in tunnel settings.",
     modal_tunnel_error_rec2: "Or switch to a Direct connection or Mail.ru transport.",
+    modal_captcha_title: "Captcha Solver (Yandex)",
+    btn_solve_captcha: "Solve Captcha",
+    toast_captcha_applied: "Cookies applied successfully! Tunnel resumed.",
+    toast_captcha_error: "Failed to apply cookies: ",
+    toast_bookmarklet_copied: "Bookmarklet code copied to clipboard",
  
     toast_copied: "Copied to clipboard",
     toast_saved: "Successfully saved",

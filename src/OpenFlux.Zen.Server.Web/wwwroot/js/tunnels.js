@@ -184,6 +184,13 @@ function renderTunnels(list) {
               </svg>
               <span>${t('btn_connect_qr') || 'Подключение'}</span>
             </button>
+            ${(hasError && (tItem.transport === 'yandex' || /captcha|smartcaptcha/i.test(tItem.errorMessage || ''))) ? 
+              `<button class="btn btn-outline btn-sm" style="color: #fde047; border-color: #ca8a04; background: rgba(234, 179, 8, 0.1);" onclick="openCaptchaSolverModal('${tItem.id}')" title="${t('btn_solve_captcha') || 'Решить капчу'}">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+                <span>${t('btn_solve_captcha') || 'Решить капчу'}</span>
+              </button>` : ''}
           </div>
 
           <div class="action-group">
@@ -582,6 +589,11 @@ function openTunnelErrorModal(id) {
     }
   }
 
+  const solveBtn = document.getElementById('btn-open-solver-from-error');
+  if (solveBtn) {
+    solveBtn.style.display = isCaptchaOrYandex ? 'inline-flex' : 'none';
+  }
+
   modal.classList.add('open');
 }
 
@@ -596,5 +608,139 @@ function onEditFromErrorModal() {
   closeTunnelErrorModal();
   if (id && typeof editTunnel === 'function') {
     editTunnel(id);
+  }
+}
+
+function onSolveCaptchaFromErrorModal() {
+  const id = currentErrorTunnelId;
+  closeTunnelErrorModal();
+  if (id) {
+    openCaptchaSolverModal(id);
+  }
+}
+
+// ---- Captcha Solver Modal & Handlers ----
+let currentCaptchaTunnelId = null;
+
+async function openCaptchaSolverModal(tunnelId) {
+  currentCaptchaTunnelId = tunnelId;
+  const modal = document.getElementById('captcha-solver-modal');
+  if (!modal) return;
+
+  const idInput = document.getElementById('captcha-tunnel-id');
+  if (idInput) idInput.value = tunnelId;
+
+  const manualInput = document.getElementById('captcha-manual-input');
+  if (manualInput) manualInput.value = '';
+
+  switchCaptchaTab('bookmarklet');
+
+  const tItem = (typeof tunnelsData !== 'undefined' && Array.isArray(tunnelsData))
+    ? tunnelsData.find(x => x.id === tunnelId) : null;
+
+  let targetUrl = tItem ? (tItem.url || '') : '';
+
+  // Try fetching real-time pending captcha info from server
+  try {
+    const info = await api(`api/tunnels/${tunnelId}/captcha`);
+    if (info && info.url) {
+      targetUrl = info.url;
+    }
+  } catch (e) {
+    console.warn('Could not fetch tunnel captcha info', e);
+  }
+
+  // Setup link button
+  const linkBtn = document.getElementById('captcha-doc-link-btn');
+  if (linkBtn) {
+    linkBtn.href = targetUrl || '#';
+    linkBtn.style.display = targetUrl ? 'inline-flex' : 'none';
+  }
+
+  // Generate 1-click bookmarklet code
+  const panelOrigin = window.location.origin;
+  const bookmarkletCode = `javascript:(function(){const u='${panelOrigin}/api/tunnels/${tunnelId}/cookies';const c=document.cookie;fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cookies:c})}).then(r=>r.json()).then(d=>{if(d.success){alert('✅ Куки успешно переданы в Zen Server! Туннель возобновил работу.');}else{alert('❌ Ошибка: '+(d.error||'Не удалось применить'));}}).catch(e=>alert('❌ Ошибка связи с панелью: '+e));})();`;
+
+  const bookmarkletLink = document.getElementById('captcha-bookmarklet-link');
+  if (bookmarkletLink) {
+    bookmarkletLink.href = bookmarkletCode;
+  }
+
+  modal.classList.add('open');
+}
+
+function closeCaptchaSolverModal() {
+  const modal = document.getElementById('captcha-solver-modal');
+  if (modal) modal.classList.remove('open');
+  currentCaptchaTunnelId = null;
+}
+
+function switchCaptchaTab(tab) {
+  const tabBm = document.getElementById('captcha-tab-bookmarklet');
+  const tabMan = document.getElementById('captcha-tab-manual');
+  const btnBm = document.getElementById('tab-btn-bookmarklet');
+  const btnMan = document.getElementById('tab-btn-manual');
+
+  if (tab === 'manual') {
+    if (tabBm) tabBm.style.display = 'none';
+    if (tabMan) tabMan.style.display = 'block';
+    if (btnBm) btnBm.classList.remove('active-solver-tab');
+    if (btnMan) btnMan.classList.add('active-solver-tab');
+  } else {
+    if (tabBm) tabBm.style.display = 'block';
+    if (tabMan) tabMan.style.display = 'none';
+    if (btnBm) btnBm.classList.add('active-solver-tab');
+    if (btnMan) btnMan.classList.remove('active-solver-tab');
+  }
+}
+
+function copyCaptchaBookmarklet() {
+  const bookmarkletLink = document.getElementById('captcha-bookmarklet-link');
+  if (bookmarkletLink && bookmarkletLink.href) {
+    navigator.clipboard.writeText(bookmarkletLink.href).then(() => {
+      toast(t('toast_bookmarklet_copied') || 'Код закладки скопирован', 'success');
+    }).catch(() => {
+      prompt('Скопируйте код закладки:', bookmarkletLink.href);
+    });
+  }
+}
+
+async function submitManualCaptchaCookies() {
+  const id = currentCaptchaTunnelId || document.getElementById('captcha-tunnel-id').value;
+  if (!id) return;
+
+  const input = document.getElementById('captcha-manual-input');
+  const rawVal = input ? input.value.trim() : '';
+  if (!rawVal) {
+    toast('Пожалуйста, вставьте строку кук или токен', 'warning');
+    return;
+  }
+
+  const btn = document.getElementById('btn-submit-captcha-cookies');
+  const spinner = document.getElementById('btn-captcha-spinner');
+  if (btn) btn.disabled = true;
+  if (spinner) spinner.style.display = 'inline-block';
+
+  try {
+    const res = await api(`api/tunnels/${id}/cookies`, {
+      method: 'POST',
+      body: JSON.stringify({ cookies: rawVal })
+    });
+
+    if (res && res.success) {
+      toast(t('toast_captcha_applied') || 'Куки успешно применены! Туннель возобновил работу.', 'success');
+      closeCaptchaSolverModal();
+      if (typeof loadTunnels === 'function') {
+        await loadTunnels();
+      }
+    } else {
+      toast((t('toast_captcha_error') || 'Ошибка: ') + (res && res.error ? res.error : 'Не удалось применить куки'), 'error');
+    }
+  } catch (err) {
+    console.error('Failed to submit captcha cookies', err);
+    toast((t('toast_captcha_error') || 'Ошибка: ') + (err.message || err), 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+    if (spinner) spinner.style.display = 'none';
   }
 }
