@@ -3,6 +3,8 @@ using System.Diagnostics;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
+using OpenFlux.Zen.Server.Common;
+using OpenFlux.Zen.Server.Data;
 using OpenFlux.Zen.Server.Models;
 
 namespace OpenFlux.Zen.Server.Services;
@@ -14,6 +16,7 @@ public interface ITunnelProcessSupervisor
     bool IsRunning(Guid tunnelId);
     void StopAll();
     Task<(bool Success, bool AppliedViaIpc)> ApplyCookiesAsync(Guid tunnelId, Dictionary<string, string> cookies);
+    Task<(bool Success, bool AppliedViaIpc)> ApplyCookiesAsync(Tunnel tunnel, Dictionary<string, string> cookies);
 }
 
 public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
@@ -520,7 +523,7 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
 
         if (usesCookies)
         {
-            var dataDir = Path.Combine(AppContext.BaseDirectory, "data");
+            var dataDir = AppPaths.GetDataDirectory();
             Directory.CreateDirectory(dataDir);
             var cookiePath = Path.Combine(dataDir, $"cookies-{transport}.json");
 
@@ -922,32 +925,51 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
 
         _tunnelStates.TryGetValue(tunnelId, out var state);
         var tunnel = state?.Tunnel;
+        if (tunnel == null)
+        {
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                tunnel = await db.Tunnels.FindAsync(tunnelId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to load tunnel {Id} from DB for cookie application", tunnelId);
+            }
+        }
 
-        string transport = tunnel?.Transport ?? "yandex";
-        string docUrl = tunnel?.PendingCaptchaUrl ?? tunnel?.Url ?? "";
+        if (tunnel == null) return (false, false);
+        return await ApplyCookiesAsync(tunnel, cookies);
+    }
 
-        // 1. Persist to disk cookies-{transport}.json
-        await CookieStoreHelper.SaveCookiesToStoreFileAsync(transport, docUrl, cookies, AppContext.BaseDirectory);
-        _logService.AppendLog(tunnelId, "system", $"[COOKIE] Сохранено {cookies.Count} кук для {transport} ({docUrl})");
+    public async Task<(bool Success, bool AppliedViaIpc)> ApplyCookiesAsync(Tunnel tunnel, Dictionary<string, string> cookies)
+    {
+        if (cookies == null || cookies.Count == 0 || tunnel == null) return (false, false);
+
+        string transport = string.IsNullOrWhiteSpace(tunnel.Transport) ? "yandex" : tunnel.Transport.Trim().ToLowerInvariant();
+        string docUrl = tunnel.PendingCaptchaUrl ?? "";
+        string altUrl = tunnel.Url ?? "";
+
+        // 1. Persist to disk cookies-{transport}.json across all keys and directories
+        await CookieStoreHelper.SaveCookiesToStoreFileAsync(transport, docUrl, cookies, AppContext.BaseDirectory, altUrl);
+        _logService.AppendLog(tunnel.Id, "system", $"[COOKIE] Сохранено {cookies.Count} кук для {transport} ({altUrl})");
 
         // 2. If IPC is active, send MsgCookiesOffer
         bool appliedViaIpc = false;
-        if (state?.IpcClient != null && state.IpcClient.IsConnected)
+        if (_tunnelStates.TryGetValue(tunnel.Id, out var state) && state.IpcClient != null && state.IpcClient.IsConnected)
         {
             appliedViaIpc = await state.IpcClient.SendCookiesOfferAsync(transport, cookies, remote: false);
             if (appliedViaIpc)
             {
-                _logService.AppendLog(tunnelId, "system", $"[COOKIE] Куки успешно переданы ядру OpenFlux через IPC без перезапуска");
+                _logService.AppendLog(tunnel.Id, "system", $"[COOKIE] Куки успешно переданы ядру OpenFlux через IPC без перезапуска");
             }
         }
 
-        if (tunnel != null)
-        {
-            tunnel.PendingCaptchaUrl = null;
-            tunnel.PendingCaptchaReason = null;
-            tunnel.ErrorMessage = null;
-            NotifyStatusChange(tunnelId);
-        }
+        tunnel.PendingCaptchaUrl = null;
+        tunnel.PendingCaptchaReason = null;
+        tunnel.ErrorMessage = null;
+        NotifyStatusChange(tunnel.Id);
 
         return (true, appliedViaIpc);
     }

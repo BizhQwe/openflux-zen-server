@@ -384,24 +384,46 @@ public sealed class TunnelManager : ITunnelManager
             return (false, 0, "Не удалось распознать куки. Убедитесь, что передана строка вида 'spravka=...;' или JSON");
         }
 
-        var (success, appliedViaIpc) = await _supervisor.ApplyCookiesAsync(id, cookies);
+        var (success, appliedViaIpc) = await _supervisor.ApplyCookiesAsync(tunnel, cookies);
         if (!success)
         {
             return (false, 0, "Ошибка при сохранении кук");
         }
 
-        // If not applied via live IPC and tunnel is running, restart so it re-reads cookies.json on startup
-        if (!appliedViaIpc && tunnel.IsEnabled && _supervisor.IsRunning(id))
+        // If not applied via live IPC, restart or start the tunnel so it reads cookies on startup
+        if (!appliedViaIpc)
         {
-            _logger.LogInformation("Restarting tunnel {Id} to apply newly saved cookies", id);
-            await StopAsync(id);
-            await Task.Delay(500);
-            await StartAsync(id);
+            if (_supervisor.IsRunning(id))
+            {
+                _logger.LogInformation("Restarting tunnel {Id} to apply newly saved cookies", id);
+                await StopAsync(id);
+                await Task.Delay(500);
+                await StartAsync(id);
+            }
+            else if (tunnel.IsEnabled)
+            {
+                _logger.LogInformation("Starting tunnel {Id} after applying newly saved cookies", id);
+                await StartAsync(id);
+            }
         }
 
         tunnel.PendingCaptchaUrl = null;
         tunnel.PendingCaptchaReason = null;
         tunnel.ErrorMessage = null;
+
+        // Persist cleared error message to DB so it doesn't reappear on reload
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var dbTunnel = await db.Tunnels.FindAsync(id);
+            if (dbTunnel != null)
+            {
+                dbTunnel.ErrorMessage = null;
+                await db.SaveChangesAsync();
+            }
+        }
+        catch { }
 
         _logService.AppendLog(id, "system", $"[COOKIE] Успешно применено {cookies.Count} кук {(appliedViaIpc ? "(на лету через IPC)" : "(с перезапуском)")}");
         return (true, cookies.Count, $"Успешно применено {cookies.Count} кук");

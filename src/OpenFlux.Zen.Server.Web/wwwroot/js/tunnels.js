@@ -677,7 +677,7 @@ async function openCaptchaSolverModal(tunnelId) {
   const manualInput = document.getElementById('captcha-manual-input');
   if (manualInput) manualInput.value = '';
 
-  switchCaptchaTab('bookmarklet');
+  switchCaptchaTab('manual');
 
   const tItem = (typeof tunnelsData !== 'undefined' && Array.isArray(tunnelsData))
     ? tunnelsData.find(x => x.id === tunnelId) : null;
@@ -689,15 +689,6 @@ async function openCaptchaSolverModal(tunnelId) {
   if (linkBtn) {
     linkBtn.href = targetUrl || '#';
     linkBtn.style.display = targetUrl ? 'inline-flex' : 'none';
-  }
-
-  // Hybrid Bookmarklet: handles Gray IP / Mixed Content / Private Network Access smoothly
-  const panelOrigin = window.location.origin;
-  const bookmarkletCode = `javascript:(function(){var c=document.cookie;if(!c||c.trim().length===0){alert('⚠️ Куки не найдены на этой странице.\\n\\nУбедитесь, что вы находитесь на вкладке disk.yandex.ru и решили проверку «Я не робот».');return;}var u='${panelOrigin}/api/tunnels/${tunnelId}/cookies';function copyFallback(note){if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(c).then(function(){alert('✅ Куки скопированы в буфер обмена!\\n\\n'+(note?'('+note+')\\n\\n':'')+'Перейдите на вкладку Zen Server и нажмите «Вставить из буфера».');}).catch(function(){prompt('Скопируйте куки (Ctrl+C):',c);});}else{prompt('Скопируйте куки (Ctrl+C):',c);}}try{fetch(u,{method:'POST',mode:'cors',headers:{'Content-Type':'application/json'},body:JSON.stringify({cookies:c})}).then(function(r){return r.json();}).then(function(d){if(d&&d.success){alert('✅ Куки успешно переданы в Zen Server! Туннель возобновил работу.');}else{copyFallback(d&&d.error?d.error:'Не удалось отправить напрямую');}}).catch(function(err){copyFallback('Браузер блокирует прямой запрос на серый IP');});}catch(e){copyFallback('Серый IP');}})();`.replace(/\s+/g, ' ');
-
-  const bookmarkletLink = document.getElementById('captcha-bookmarklet-link');
-  if (bookmarkletLink) {
-    bookmarkletLink.href = bookmarkletCode;
   }
 
   modal.classList.add('open');
@@ -724,60 +715,57 @@ function closeCaptchaSolverModal() {
 }
 
 function switchCaptchaTab(tab) {
-  const tabBm = document.getElementById('captcha-tab-bookmarklet');
   const tabMan = document.getElementById('captcha-tab-manual');
-  const btnBm = document.getElementById('tab-btn-bookmarklet');
+  const tabNewDoc = document.getElementById('captcha-tab-newdoc');
   const btnMan = document.getElementById('tab-btn-manual');
+  const btnNewDoc = document.getElementById('tab-btn-newdoc');
 
-  if (tab === 'manual') {
-    if (tabBm) tabBm.style.display = 'none';
-    if (tabMan) tabMan.style.display = 'block';
-    if (btnBm) btnBm.classList.remove('active-solver-tab');
-    if (btnMan) btnMan.classList.add('active-solver-tab');
-  } else {
-    if (tabBm) tabBm.style.display = 'block';
+  if (tab === 'newdoc') {
     if (tabMan) tabMan.style.display = 'none';
-    if (btnBm) btnBm.classList.add('active-solver-tab');
+    if (tabNewDoc) tabNewDoc.style.display = 'block';
     if (btnMan) btnMan.classList.remove('active-solver-tab');
+    if (btnNewDoc) btnNewDoc.classList.add('active-solver-tab');
+  } else {
+    if (tabMan) tabMan.style.display = 'block';
+    if (tabNewDoc) tabNewDoc.style.display = 'none';
+    if (btnMan) btnMan.classList.add('active-solver-tab');
+    if (btnNewDoc) btnNewDoc.classList.remove('active-solver-tab');
+    const input = document.getElementById('captcha-manual-input');
+    if (input) input.focus();
   }
 }
 
-function copyCaptchaBookmarklet() {
-  const bookmarkletLink = document.getElementById('captcha-bookmarklet-link');
-  if (bookmarkletLink && bookmarkletLink.href) {
-    navigator.clipboard.writeText(bookmarkletLink.href).then(() => {
-      toast(t('toast_bookmarklet_copied') || 'Код закладки скопирован', 'success');
-    }).catch(() => {
-      prompt('Скопируйте код закладки:', bookmarkletLink.href);
-    });
+function openEditTunnelFromCaptchaModal() {
+  const id = currentCaptchaTunnelId || document.getElementById('captcha-tunnel-id')?.value;
+  closeCaptchaSolverModal();
+  if (id && typeof editTunnel === 'function') {
+    editTunnel(id);
   }
 }
 
-async function pasteAndSubmitCaptchaCookies() {
-  const id = currentCaptchaTunnelId || document.getElementById('captcha-tunnel-id').value;
-  if (!id) return;
+async function pasteFromClipboardToManualInput() {
+  const input = document.getElementById('captcha-manual-input');
+  if (!input) return;
 
-  let text = '';
   try {
     if (navigator.clipboard && navigator.clipboard.readText) {
-      text = await navigator.clipboard.readText();
+      const text = await navigator.clipboard.readText();
+      if (text && text.trim().length > 0) {
+        input.value = text.trim();
+        toast('Куки вставлены из буфера обмена', 'success');
+        return;
+      }
     }
   } catch (err) {
     console.warn('Clipboard read permission denied', err);
   }
 
-  const input = document.getElementById('captcha-manual-input');
-  if (text && text.trim().length > 0) {
-    if (input) input.value = text.trim();
-    toast('Куки вставлены из буфера обмена. Применяем...', 'info');
-    await submitManualCaptchaCookies();
-  } else {
-    switchCaptchaTab('manual');
-    if (input) {
-      input.focus();
-    }
-    toast('Вставьте скопированные куки в поле (Ctrl + V) и нажмите «Применить»', 'info');
-  }
+  input.focus();
+  toast('Нажмите Ctrl + V в поле ввода', 'info');
+}
+
+async function pasteAndSubmitCaptchaCookies() {
+  await pasteFromClipboardToManualInput();
 }
 
 async function submitManualCaptchaCookies() {

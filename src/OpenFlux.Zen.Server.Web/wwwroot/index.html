@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/app.css?v=1.0.68" />
+  <link rel="stylesheet" href="css/app.css?v=1.0.69" />
 </head>
 <body>
 
@@ -266,7 +266,7 @@
             <h4 data-i18n="settings_panel_title">OpenFlux Zen Server</h4>
             <div style="display: flex; gap: 8px; align-items: center;">
               <span id="panel-status-badge" class="badge-status-update" style="display: none;"></span>
-              <span id="panel-current-version-badge" style="background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #93c5fd; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600;">Server: v1.0.68</span>
+              <span id="panel-current-version-badge" style="background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #93c5fd; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600;">Server: v1.0.69</span>
             </div>
           </div>
           <p style="color: var(--text-dim); margin-bottom: 16px; font-size: 0.9rem;" data-i18n="settings_panel_desc">
@@ -750,15 +750,15 @@
         <!-- Step 1: Open link -->
         <div style="background: rgba(234, 179, 8, 0.08); border-left: 3px solid #eab308; border-radius: 6px; padding: 12px 14px; margin-bottom: 16px;">
           <div style="font-weight: 600; color: #fde047; font-size: 0.9rem; margin-bottom: 4px;">
-            1. Пройдите капчу в браузере:
+            1. Пройдите проверку на Яндекс Диске:
           </div>
           <p style="font-size: 0.82rem; color: var(--text-dim); line-height: 1.5; margin: 0 0 10px 0;">
-            Откройте документ в соседней вкладке и подтвердите «Я не робот». Яндекс выдаст вашей сессии куки доступа.
+            Откройте ссылку в браузере и решите проверку «Я не робот» (SmartCaptcha).
           </p>
           <div>
             <a id="captcha-doc-link-btn" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-warning btn-sm" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none;">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-              <span>Открыть документ Яндекс Диска ↗</span>
+              <span>Открыть страницу с капчей ↗</span>
             </a>
           </div>
         </div>
@@ -766,59 +766,69 @@
         <!-- Step 2: Choose method -->
         <div>
           <div style="font-weight: 600; color: var(--text-main); font-size: 0.9rem; margin-bottom: 8px;">
-            2. Передайте куки в Zen Server:
-          </div>
-
-          <!-- Quick Paste Action (Gray IP Friendly) -->
-          <div style="background: rgba(59, 130, 246, 0.08); border: 1px dashed rgba(59, 130, 246, 0.35); border-radius: 6px; padding: 10px 12px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
-            <div>
-              <div style="font-size: 0.84rem; font-weight: 600; color: #93c5fd;">⚡ Быстрая вставка из буфера</div>
-              <div style="font-size: 0.77rem; color: var(--text-muted); margin-top: 1px;">Работает гарантированно при сером IP и локальном HTTP</div>
-            </div>
-            <button type="button" class="btn btn-primary btn-sm" onclick="pasteAndSubmitCaptchaCookies()" style="display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
-              <span>Вставить из буфера и применить</span>
-            </button>
+            2. Выберите способ решения:
           </div>
 
           <!-- Method Switcher -->
           <div style="display: flex; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid var(--card-border); padding-bottom: 8px;">
-            <button type="button" id="tab-btn-bookmarklet" class="btn btn-sm btn-outline active-solver-tab" onclick="switchCaptchaTab('bookmarklet')">
-              🧩 Закладка для копирования
+            <button type="button" id="tab-btn-manual" class="btn btn-sm btn-outline active-solver-tab" onclick="switchCaptchaTab('manual')">
+              📋 Вставить куки (spravka)
             </button>
-            <button type="button" id="tab-btn-manual" class="btn btn-sm btn-outline" onclick="switchCaptchaTab('manual')">
-              📋 Вставить вручную (текст)
+            <button type="button" id="tab-btn-newdoc" class="btn btn-sm btn-outline" onclick="switchCaptchaTab('newdoc')">
+              ✨ Новый документ (Без капчи)
             </button>
           </div>
 
-          <!-- Bookmarklet Panel -->
-          <div id="captcha-tab-bookmarklet">
-            <p style="font-size: 0.82rem; color: var(--text-dim); line-height: 1.5; margin-bottom: 10px;">
-              Перетащите кнопку ниже на панель закладок. На странице Яндекс Диска после решения капчи нажмите эту закладку — она скопирует куки в буфер (или отправит напрямую).
-            </p>
-            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
-              <a id="captcha-bookmarklet-link" href="#" class="btn btn-outline btn-sm" style="cursor: grab; user-select: none; font-size: 0.82rem; border-color: #3b82f6; color: #93c5fd;" title="Перетащите эту кнопку на панель закладок">
-                🧩 Скопировать куки Яндекса
-              </a>
-              <button type="button" class="btn btn-outline btn-sm" onclick="copyCaptchaBookmarklet()" style="font-size: 0.8rem;">
-                Скопировать код закладки
-              </button>
+          <!-- Manual Input Panel (Active by default) -->
+          <div id="captcha-tab-manual">
+            <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--card-border); border-radius: 6px; padding: 12px; margin-bottom: 12px; font-size: 0.8rem; line-height: 1.5;">
+              <div style="font-weight: 600; color: #93c5fd; margin-bottom: 6px;">💡 Как получить ключ доступа (spravka):</div>
+              <div style="color: var(--text-dim); margin-bottom: 8px;">
+                Браузер защищает куку капчи (<strong>spravka</strong>) флагом <em>HttpOnly</em>, поэтому скопируйте её одним из способов:
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                <div><strong>Способ 1 (F12 за 10 сек):</strong> на вкладке Яндекс Диска нажмите <kbd style="background: rgba(255,255,255,0.1); padding: 1px 4px; border-radius: 3px;">F12</kbd> → вкладка <strong>«Приложение»</strong> (Application) → слева <strong>«Файлы cookie»</strong> → <code>disk.yandex.ru</code> → дважды кликните и скопируйте <strong>Значение</strong> напротив <code>spravka</code>.</div>
+                <div><strong>Способ 2 (Расширение):</strong> используйте расширение <strong>Cookie-Editor</strong> на Яндекс Диске → «Export» → скопируйте JSON.</div>
+              </div>
             </div>
-            <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0;">
-              * Включить панель закладок: <kbd style="background: rgba(255,255,255,0.1); padding: 1px 4px; border-radius: 3px;">Ctrl + Shift + B</kbd> (или <kbd style="background: rgba(255,255,255,0.1); padding: 1px 4px; border-radius: 3px;">Cmd + Shift + B</kbd> на Mac).
-            </p>
-          </div>
 
-          <!-- Manual Input Panel -->
-          <div id="captcha-tab-manual" style="display: none;">
-            <label for="captcha-manual-input" style="font-size: 0.8rem; color: var(--text-dim); display: block; margin-bottom: 6px;">
-              Строка кук (spravka=...;), JSON или токен:
-            </label>
-            <textarea id="captcha-manual-input" class="form-control" rows="3" style="font-family: var(--font-mono); font-size: 0.8rem; resize: vertical;" placeholder="Вставьте строку spravka=d09f...; yandexuid=..."></textarea>
-            <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
-              <button type="button" id="btn-submit-captcha-cookies" class="btn btn-primary btn-sm" onclick="submitManualCaptchaCookies()">
+            <div style="margin-bottom: 10px;">
+              <label for="captcha-manual-input" style="font-size: 0.8rem; color: var(--text-main); font-weight: 600; display: block; margin-bottom: 6px;">
+                Значение spravka, строка кук или JSON:
+              </label>
+              <textarea id="captcha-manual-input" class="form-control" rows="3" style="font-family: var(--font-mono); font-size: 0.8rem; resize: vertical;" placeholder="Вставьте значение spravka (например, d09f...) или JSON из Cookie-Editor"></textarea>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
+              <button type="button" class="btn btn-outline btn-sm" onclick="pasteFromClipboardToManualInput()" style="display: inline-flex; align-items: center; gap: 6px;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+                <span>Вставить из буфера</span>
+              </button>
+              <button type="button" id="btn-submit-captcha-cookies" class="btn btn-primary btn-sm" onclick="submitManualCaptchaCookies()" style="display: inline-flex; align-items: center; gap: 6px;">
                 <span id="btn-captcha-spinner" style="display: none;" class="spinner-inline"></span>
                 <span>Применить куки</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- New Document Panel -->
+          <div id="captcha-tab-newdoc" style="display: none;">
+            <div style="background: rgba(34, 197, 94, 0.08); border-left: 3px solid #22c55e; border-radius: 6px; padding: 12px 14px; margin-bottom: 14px;">
+              <div style="font-weight: 600; color: #4ade80; font-size: 0.88rem; margin-bottom: 4px;">
+                Рекомендуемое решение без капчи
+              </div>
+              <p style="font-size: 0.82rem; color: var(--text-dim); line-height: 1.5; margin: 0;">
+                Яндекс включает капчу на публичных файлах только после множества обращений. Новый документ работает сразу без проверок!
+              </p>
+            </div>
+            <ol style="font-size: 0.82rem; color: var(--text-dim); line-height: 1.6; margin: 0 0 14px 18px; padding: 0;">
+              <li>Откройте ваш <a href="https://disk.yandex.ru/client/disk" target="_blank" rel="noopener noreferrer" style="color: #93c5fd; text-decoration: underline;">Яндекс Диск ↗</a>.</li>
+              <li>Создайте <strong>новый пустой документ Word или таблицу Excel</strong> (.docx / .xlsx).</li>
+              <li>Нажмите <strong>«Поделиться»</strong> и скопируйте публичную ссылку.</li>
+              <li>Нажмите кнопку ниже и укажите новую ссылку в настройках туннеля.</li>
+            </ol>
+            <div style="display: flex; justify-content: flex-end;">
+              <button type="button" class="btn btn-primary btn-sm" onclick="openEditTunnelFromCaptchaModal()">
+                Изменить ссылку туннеля ⚙️
               </button>
             </div>
           </div>
@@ -833,12 +843,12 @@
   <!-- Toast notifications -->
   <div id="toast-container" role="status" aria-live="polite"></div>
 
-  <script src="js/qrcode.min.js?v=1.0.68"></script>
-  <script src="js/i18n.js?v=1.0.68"></script>
-  <script src="js/api.js?v=1.0.68"></script>
-  <script src="js/tunnels.js?v=1.0.68"></script>
-  <script src="js/logs.js?v=1.0.68"></script>
-  <script src="js/settings.js?v=1.0.68"></script>
-  <script src="js/app.js?v=1.0.68"></script>
+  <script src="js/qrcode.min.js?v=1.0.69"></script>
+  <script src="js/i18n.js?v=1.0.69"></script>
+  <script src="js/api.js?v=1.0.69"></script>
+  <script src="js/tunnels.js?v=1.0.69"></script>
+  <script src="js/logs.js?v=1.0.69"></script>
+  <script src="js/settings.js?v=1.0.69"></script>
+  <script src="js/app.js?v=1.0.69"></script>
 </body>
 </html>

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using OpenFlux.Zen.Server.Common;
 
 namespace OpenFlux.Zen.Server.Services;
 
@@ -71,8 +72,8 @@ public static class CookieStoreHelper
             catch { }
         }
 
-        // 3. Netscape cookies.txt format (tab-delimited lines)
-        if (trimmed.Contains('\t') && (trimmed.Contains(".yandex.ru") || trimmed.Contains("yandex.")))
+        // 3. Tab-delimited (Netscape cookies.txt OR Chrome/Edge/Firefox DevTools table row copy)
+        if (trimmed.Contains('\t'))
         {
             var lines = trimmed.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
             foreach (var line in lines)
@@ -83,21 +84,32 @@ public static class CookieStoreHelper
                     continue;
                 }
                 var cols = l.Split('\t');
-                if (cols.Length >= 7)
+                if (cols.Length >= 2)
                 {
-                    var cookieName = cols[5].Trim();
-                    var cookieVal = cols[6].Trim();
-                    if (!string.IsNullOrEmpty(cookieName) && !IgnoredCookieAttributes.Contains(cookieName))
+                    // Check if Netscape format (7 cols, first col is domain starting with . or http)
+                    if (cols.Length >= 7 && (cols[0].StartsWith('.') || cols[0].Contains('.')) && (cols[1].Equals("TRUE", StringComparison.OrdinalIgnoreCase) || cols[1].Equals("FALSE", StringComparison.OrdinalIgnoreCase)))
                     {
-                        result[cookieName] = cookieVal;
+                        var n = cols[5].Trim();
+                        var v = cols[6].Trim();
+                        if (!string.IsNullOrEmpty(n) && !IgnoredCookieAttributes.Contains(n)) result[n] = v;
+                    }
+                    else
+                    {
+                        // Chrome / Edge / Firefox DevTools Cookies Table copy: col 0 is Name, col 1 is Value
+                        var n = cols[0].Trim();
+                        var v = cols[1].Trim();
+                        if (!string.IsNullOrEmpty(n) && !IgnoredCookieAttributes.Contains(n))
+                        {
+                            result[n] = v;
+                        }
                     }
                 }
             }
             if (result.Count > 0) return result;
         }
 
-        // 4. Standard HTTP Cookie Header: "name1=val1; name2=val2" or separated by newlines
-        if (trimmed.Contains('=') || trimmed.Contains(';'))
+        // 4. Standard HTTP Cookie Header: "name1=val1; name2=val2" or separated by newlines or colons
+        if (trimmed.Contains('=') || trimmed.Contains(';') || (trimmed.Contains(':') && (trimmed.Contains("spravka") || trimmed.Contains("yandex"))))
         {
             var parts = trimmed.Split(new[] { ';', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
             foreach (var part in parts)
@@ -106,6 +118,8 @@ public static class CookieStoreHelper
                 if (string.IsNullOrEmpty(p)) continue;
 
                 int eqIdx = p.IndexOf('=');
+                if (eqIdx < 0) eqIdx = p.IndexOf(':');
+
                 if (eqIdx > 0)
                 {
                     var key = p.Substring(0, eqIdx).Trim();
@@ -143,75 +157,92 @@ public static class CookieStoreHelper
         string transport,
         string docUrl,
         Dictionary<string, string> cookies,
-        string baseDirectory)
+        string baseDirectory,
+        string? alternateDocUrl = null)
     {
         if (string.IsNullOrWhiteSpace(transport) || cookies == null || cookies.Count == 0)
         {
             return false;
         }
 
-        var dataDir = Path.Combine(baseDirectory, "data");
-        Directory.CreateDirectory(dataDir);
-        var filePath = Path.Combine(dataDir, $"cookies-{transport.Trim().ToLowerInvariant()}.json");
+        var transportClean = transport.Trim().ToLowerInvariant();
+        var fileName = $"cookies-{transportClean}.json";
 
-        Dictionary<string, Dictionary<string, string>> storeData = new(StringComparer.OrdinalIgnoreCase);
+        var targetDirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            AppPaths.GetDataDirectory(),
+            Path.Combine(baseDirectory, "data"),
+            baseDirectory
+        };
 
-        if (File.Exists(filePath))
+        bool anySuccess = false;
+
+        foreach (var dataDir in targetDirs)
         {
             try
             {
-                var existingJson = await File.ReadAllTextAsync(filePath);
-                var loaded = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, string>>>(existingJson);
-                if (loaded != null)
+                Directory.CreateDirectory(dataDir);
+                var filePath = Path.Combine(dataDir, fileName);
+
+                Dictionary<string, Dictionary<string, string>> storeData = new(StringComparer.OrdinalIgnoreCase);
+
+                if (File.Exists(filePath))
                 {
-                    storeData = new Dictionary<string, Dictionary<string, string>>(loaded, StringComparer.OrdinalIgnoreCase);
+                    try
+                    {
+                        var existingJson = await File.ReadAllTextAsync(filePath);
+                        var loaded = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, string>>>(existingJson);
+                        if (loaded != null)
+                        {
+                            storeData = new Dictionary<string, Dictionary<string, string>>(loaded, StringComparer.OrdinalIgnoreCase);
+                        }
+                    }
+                    catch { }
                 }
+
+                var targetKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "default" };
+                if (!string.IsNullOrWhiteSpace(docUrl))
+                {
+                    var u = docUrl.Trim();
+                    targetKeys.Add(u);
+                    if (u.Contains('?')) targetKeys.Add(u.Substring(0, u.IndexOf('?')).Trim());
+                }
+                if (!string.IsNullOrWhiteSpace(alternateDocUrl))
+                {
+                    var a = alternateDocUrl.Trim();
+                    targetKeys.Add(a);
+                    if (a.Contains('?')) targetKeys.Add(a.Substring(0, a.IndexOf('?')).Trim());
+                }
+
+                // Also merge into all currently existing keys in storeData
+                foreach (var existingKey in storeData.Keys.ToList())
+                {
+                    targetKeys.Add(existingKey);
+                }
+
+                foreach (var k in targetKeys)
+                {
+                    if (string.IsNullOrWhiteSpace(k)) continue;
+                    if (!storeData.TryGetValue(k, out var jar) || jar == null)
+                    {
+                        jar = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                        storeData[k] = jar;
+                    }
+                    foreach (var kvp in cookies)
+                    {
+                        jar[kvp.Key] = kvp.Value;
+                    }
+                }
+
+                var tmpPath = filePath + ".tmp";
+                var json = JsonSerializer.Serialize(storeData, new JsonSerializerOptions { WriteIndented = true });
+                await File.WriteAllTextAsync(tmpPath, json);
+                File.Move(tmpPath, filePath, overwrite: true);
+                anySuccess = true;
             }
             catch { }
         }
 
-        var key = string.IsNullOrWhiteSpace(docUrl) ? "default" : docUrl.Trim();
-        if (!storeData.TryGetValue(key, out var existingJar) || existingJar == null)
-        {
-            existingJar = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            storeData[key] = existingJar;
-        }
-
-        foreach (var kvp in cookies)
-        {
-            existingJar[kvp.Key] = kvp.Value;
-        }
-
-        // Also if docUrl has query params, save under base URL as well for resilient lookup
-        if (key.Contains('?'))
-        {
-            var baseUrl = key.Substring(0, key.IndexOf('?')).Trim();
-            if (!string.IsNullOrEmpty(baseUrl))
-            {
-                if (!storeData.TryGetValue(baseUrl, out var baseJar) || baseJar == null)
-                {
-                    baseJar = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                    storeData[baseUrl] = baseJar;
-                }
-                foreach (var kvp in cookies)
-                {
-                    baseJar[kvp.Key] = kvp.Value;
-                }
-            }
-        }
-
-        var tmpPath = filePath + ".tmp";
-        try
-        {
-            var json = JsonSerializer.Serialize(storeData, new JsonSerializerOptions { WriteIndented = true });
-            await File.WriteAllTextAsync(tmpPath, json);
-            File.Move(tmpPath, filePath, overwrite: true);
-            return true;
-        }
-        catch
-        {
-            try { if (File.Exists(tmpPath)) File.Delete(tmpPath); } catch { }
-            return false;
-        }
+        return anySuccess;
     }
 }
