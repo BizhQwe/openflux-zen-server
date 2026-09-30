@@ -1,3 +1,7 @@
+using System.Collections.Concurrent;
+using System.Net;
+using System.Text.RegularExpressions;
+using OpenFlux.Zen.Server.Middleware;
 using OpenFlux.Zen.Server.Models;
 using OpenFlux.Zen.Server.Services;
 
@@ -5,6 +9,8 @@ namespace OpenFlux.Zen.Server.Web.Endpoints;
 
 public static class TunnelEndpoints
 {
+    private static readonly ConcurrentDictionary<Guid, CookieContainer> _captchaSessions = new();
+
     public static IEndpointRouteBuilder MapTunnelEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/tunnels");
@@ -98,6 +104,258 @@ public static class TunnelEndpoints
             });
         });
 
+        group.MapGet("/{id:guid}/captcha/view", async (Guid id, HttpContext context, ITunnelManager manager) =>
+        {
+            var tunnel = await manager.GetByIdAsync(id);
+            if (tunnel == null) return Results.NotFound();
+
+            var targetUrl = !string.IsNullOrWhiteSpace(tunnel.PendingCaptchaUrl)
+                ? tunnel.PendingCaptchaUrl
+                : tunnel.Url;
+
+            if (string.IsNullOrWhiteSpace(targetUrl))
+            {
+                return Results.Content(@"<!DOCTYPE html>
+<html><head><meta charset='utf-8'><style>body{background:#0f172a;color:#f87171;font-family:sans-serif;text-align:center;padding:40px;}</style></head>
+<body><h3>URL документа не настроен в туннеле.</h3></body></html>", "text/html; charset=utf-8");
+            }
+
+            var cookieContainer = new CookieContainer();
+            _captchaSessions[id] = cookieContainer;
+
+            var handler = new HttpClientHandler
+            {
+                AllowAutoRedirect = true,
+                MaxAutomaticRedirections = 10,
+                UseCookies = true,
+                CookieContainer = cookieContainer
+            };
+
+            using var client = new HttpClient(handler);
+            client.Timeout = TimeSpan.FromSeconds(20);
+
+            var ua = context.Request.Headers.UserAgent.ToString();
+            if (string.IsNullOrWhiteSpace(ua))
+            {
+                ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+            }
+            client.DefaultRequestHeaders.Add("User-Agent", ua);
+            client.DefaultRequestHeaders.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+            client.DefaultRequestHeaders.Add("Accept-Language", "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7");
+
+            HttpResponseMessage resp;
+            try
+            {
+                resp = await client.GetAsync(targetUrl);
+            }
+            catch (Exception ex)
+            {
+                return Results.Content($"<!DOCTYPE html><html><head><meta charset='utf-8'><style>body{{background:#0f172a;color:#f87171;font-family:sans-serif;padding:30px;}}</style></head><body><h3>Не удалось связаться с сервисом:</h3><p>{WebUtility.HtmlEncode(ex.Message)}</p></body></html>", "text/html; charset=utf-8");
+            }
+
+            var finalUri = resp.RequestMessage?.RequestUri ?? new Uri(targetUrl);
+            var originHost = finalUri.Host;
+            var html = await resp.Content.ReadAsStringAsync();
+
+            // Check if captcha is not needed or already solved
+            if (!html.Contains("checkbox-captcha") && !html.Contains("smart-captcha") && !html.Contains("showcaptcha"))
+            {
+                var cookies = cookieContainer.GetCookies(finalUri);
+                var spravka = cookies["spravka"]?.Value;
+                if (!string.IsNullOrEmpty(spravka))
+                {
+                    await manager.ApplyCookiesAsync(id, $"spravka={spravka}");
+                }
+
+                return Results.Content(@"<!DOCTYPE html>
+<html>
+<head><meta charset='utf-8'><style>body{background:#0f172a;color:#10b981;font-family:sans-serif;text-align:center;padding:50px;}</style></head>
+<body>
+  <h2>✅ Проверка не требуется</h2>
+  <p style='color:#94a3b8;'>Документ доступен без капчи. Туннель активен.</p>
+  <script>
+    setTimeout(function() {
+      if (window.parent) window.parent.postMessage({ type: 'openflux-captcha-solved' }, '*');
+    }, 1500);
+  </script>
+</body>
+</html>", "text/html; charset=utf-8");
+            }
+
+            var token = SecretPathMiddleware.ExtractToken(context);
+            return RenderCaptchaHtml(html, originHost, id, context, token);
+        });
+
+        group.MapPost("/{id:guid}/captcha/submit", async (Guid id, HttpContext context, ITunnelManager manager) =>
+        {
+            var tunnel = await manager.GetByIdAsync(id);
+            if (tunnel == null) return Results.NotFound();
+
+            var targetAction = context.Request.Query["target"].ToString();
+            var origin = context.Request.Query["origin"].ToString();
+            if (string.IsNullOrWhiteSpace(targetAction))
+            {
+                return Results.BadRequest(new { error = "Missing target" });
+            }
+
+            var form = await context.Request.ReadFormAsync();
+            var formDict = new Dictionary<string, string>();
+            foreach (var key in form.Keys)
+            {
+                formDict[key] = form[key].ToString();
+            }
+
+            if (!_captchaSessions.TryGetValue(id, out var cookieContainer))
+            {
+                cookieContainer = new CookieContainer();
+            }
+
+            var handler = new HttpClientHandler
+            {
+                AllowAutoRedirect = false,
+                UseCookies = true,
+                CookieContainer = cookieContainer
+            };
+
+            using var client = new HttpClient(handler);
+            client.Timeout = TimeSpan.FromSeconds(25);
+
+            var ua = context.Request.Headers.UserAgent.ToString();
+            if (string.IsNullOrWhiteSpace(ua))
+            {
+                ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+            }
+            client.DefaultRequestHeaders.Add("User-Agent", ua);
+            client.DefaultRequestHeaders.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+            client.DefaultRequestHeaders.Add("Accept-Language", "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7");
+            if (!string.IsNullOrEmpty(origin))
+            {
+                client.DefaultRequestHeaders.Add("Origin", origin);
+                client.DefaultRequestHeaders.Add("Referer", targetAction);
+            }
+
+            var content = new FormUrlEncodedContent(formDict);
+            HttpResponseMessage resp;
+            try
+            {
+                resp = await client.PostAsync(targetAction, content);
+            }
+            catch (Exception ex)
+            {
+                return Results.Content($"<!DOCTYPE html><html><head><meta charset='utf-8'><style>body{{background:#0f172a;color:#f87171;font-family:sans-serif;padding:30px;}}</style></head><body><h3>Ошибка отправки решения:</h3><p>{WebUtility.HtmlEncode(ex.Message)}</p></body></html>", "text/html; charset=utf-8");
+            }
+
+            var token = SecretPathMiddleware.ExtractToken(context);
+            var spravkaVal = ExtractSpravkaCookie(resp, cookieContainer, targetAction);
+
+            if (!string.IsNullOrWhiteSpace(spravkaVal))
+            {
+                await manager.ApplyCookiesAsync(id, $"spravka={spravkaVal}");
+                _captchaSessions.TryRemove(id, out _);
+                return Results.Content(GetSuccessHtml(), "text/html; charset=utf-8");
+            }
+
+            // Handle redirect if Yandex responded with 3xx to next step
+            if ((int)resp.StatusCode >= 300 && (int)resp.StatusCode < 400 && resp.Headers.Location != null)
+            {
+                var targetUri = new Uri(targetAction);
+                var loc = resp.Headers.Location;
+                var redirectUri = loc.IsAbsoluteUri ? loc : new Uri(new Uri($"{targetUri.Scheme}://{targetUri.Host}"), loc);
+
+                try
+                {
+                    var redResp = await client.GetAsync(redirectUri);
+                    var redSpravka = ExtractSpravkaCookie(redResp, cookieContainer, redirectUri.ToString());
+                    if (!string.IsNullOrWhiteSpace(redSpravka))
+                    {
+                        await manager.ApplyCookiesAsync(id, $"spravka={redSpravka}");
+                        _captchaSessions.TryRemove(id, out _);
+                        return Results.Content(GetSuccessHtml(), "text/html; charset=utf-8");
+                    }
+
+                    var redHtml = await redResp.Content.ReadAsStringAsync();
+                    return RenderCaptchaHtml(redHtml, redirectUri.Host, id, context, token);
+                }
+                catch
+                {
+                    // fallback to view redirect
+                }
+            }
+
+            // If 200 OK, Yandex likely returned the second step (picture challenge / puzzle)
+            if (resp.IsSuccessStatusCode)
+            {
+                var stepHtml = await resp.Content.ReadAsStringAsync();
+                var host = new Uri(targetAction).Host;
+                return RenderCaptchaHtml(stepHtml, host, id, context, token);
+            }
+
+            // Fallback: redirect back to view so user can try again
+            var viewUrl = $"{context.Request.PathBase}/api/tunnels/{id}/captcha/view";
+            if (!string.IsNullOrEmpty(token))
+            {
+                viewUrl += $"?token={Uri.EscapeDataString(token)}";
+            }
+            return Results.Redirect(viewUrl);
+        });
+
+        group.MapPost("/{id:guid}/quick-update-url", async (Guid id, HttpContext context, ITunnelManager manager) =>
+        {
+            var tunnel = await manager.GetByIdAsync(id);
+            if (tunnel == null) return Results.NotFound();
+
+            using var reader = new StreamReader(context.Request.Body);
+            var body = await reader.ReadToEndAsync();
+            string newUrl = "";
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(body);
+                if (doc.RootElement.TryGetProperty("url", out var u))
+                {
+                    newUrl = u.GetString() ?? "";
+                }
+            }
+            catch
+            {
+                newUrl = body.Trim();
+            }
+
+            if (string.IsNullOrWhiteSpace(newUrl))
+            {
+                return Results.BadRequest(new { error = "Укажите ссылку на документ" });
+            }
+
+            tunnel.Url = newUrl.Trim();
+            tunnel.PendingCaptchaUrl = null;
+            tunnel.PendingCaptchaReason = null;
+            tunnel.ErrorMessage = null;
+            await manager.UpdateAsync(tunnel);
+
+            await manager.StopAsync(id);
+            await Task.Delay(300);
+            await manager.StartAsync(id);
+
+            return Results.Ok(new { success = true, url = tunnel.Url });
+        });
+
+        group.MapPost("/{id:guid}/switch-to-direct", async (Guid id, ITunnelManager manager) =>
+        {
+            var tunnel = await manager.GetByIdAsync(id);
+            if (tunnel == null) return Results.NotFound();
+
+            tunnel.Transport = "direct";
+            tunnel.PendingCaptchaUrl = null;
+            tunnel.PendingCaptchaReason = null;
+            tunnel.ErrorMessage = null;
+            await manager.UpdateAsync(tunnel);
+
+            await manager.StopAsync(id);
+            await Task.Delay(300);
+            await manager.StartAsync(id);
+
+            return Results.Ok(new { success = true, transport = "direct" });
+        });
+
         group.MapMethods("/{id:guid}/cookies", new[] { "OPTIONS" }, (HttpContext ctx) =>
         {
             ctx.Response.Headers["Access-Control-Allow-Origin"] = "*";
@@ -155,4 +413,114 @@ public static class TunnelEndpoints
 
         return app;
     }
+
+    private static string ExtractSpravkaCookie(HttpResponseMessage resp, CookieContainer cookieContainer, string targetUriStr)
+    {
+        if (resp.Headers.TryGetValues("Set-Cookie", out var cookieHeaders))
+        {
+            foreach (var header in cookieHeaders)
+            {
+                var match = Regex.Match(header, @"(?i)spravka=([^;]+)");
+                if (match.Success)
+                {
+                    return match.Groups[1].Value;
+                }
+            }
+        }
+
+        try
+        {
+            var uri = new Uri(targetUriStr);
+            var containerCookies = cookieContainer.GetCookies(uri);
+            if (containerCookies["spravka"] != null)
+            {
+                return containerCookies["spravka"]!.Value;
+            }
+        }
+        catch { }
+
+        foreach (Cookie c in cookieContainer.GetAllCookies())
+        {
+            if (string.Equals(c.Name, "spravka", StringComparison.OrdinalIgnoreCase))
+            {
+                return c.Value;
+            }
+        }
+
+        return string.Empty;
+    }
+
+    private static IResult RenderCaptchaHtml(string html, string originHost, Guid id, HttpContext context, string? token)
+    {
+        // Find form action
+        var formMatch = Regex.Match(html, @"(?i)<form[^>]*action=[""']([^""']+)[""']");
+        var origAction = formMatch.Success ? formMatch.Groups[1].Value : "/checkcaptcha";
+        if (!origAction.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+            !origAction.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!origAction.StartsWith("/")) origAction = "/" + origAction;
+            origAction = $"https://{originHost}{origAction}";
+        }
+
+        var requestBase = $"{context.Request.Scheme}://{context.Request.Host}{context.Request.PathBase}";
+        var tokenParam = !string.IsNullOrEmpty(token) ? $"&token={Uri.EscapeDataString(token)}" : "";
+        var submitUrl = $"{requestBase}/api/tunnels/{id}/captcha/submit?target=" + Uri.EscapeDataString(origAction) + "&origin=" + Uri.EscapeDataString($"https://{originHost}") + tokenParam;
+
+        // Inject base href so all static assets, fonts, css, scripts load directly from origin
+        html = Regex.Replace(html, @"(?i)<head>", $"<head><base href=\"https://{originHost}/\">", RegexOptions.IgnoreCase);
+
+        // Replace form action with our absolute submitUrl
+        html = Regex.Replace(html, @"(?i)(<form[^>]*action=)[""'][^""']*[""']", $"$1\"{submitUrl}\"", RegexOptions.IgnoreCase);
+
+        // Inject message listener before </body>
+        var injectedScript = @"
+<script>
+  (function() {
+    window.addEventListener('message', function(e) {
+      if (e.data && e.data.type === 'openflux-captcha-solved') {
+        if (window.parent) window.parent.postMessage(e.data, '*');
+      }
+    });
+  })();
+</script>
+";
+        html = html.Replace("</body>", injectedScript + "</body>");
+
+        context.Response.Headers.Remove("X-Frame-Options");
+        context.Response.Headers.Remove("Content-Security-Policy");
+
+        return Results.Content(html, "text/html; charset=utf-8");
+    }
+
+    private static string GetSuccessHtml() => @"<!DOCTYPE html>
+<html>
+<head>
+  <meta charset='utf-8'>
+  <style>
+    body { background: #0f172a; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; text-align: center; }
+    .card { background: #1e293b; padding: 32px; border-radius: 16px; border: 1px solid #334155; max-width: 420px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+    .icon { font-size: 48px; margin-bottom: 16px; }
+    h2 { margin: 0 0 12px 0; color: #10b981; font-size: 1.4rem; }
+    p { color: #94a3b8; font-size: 14px; margin: 0 0 20px 0; line-height: 1.5; }
+    .btn { background: #2563eb; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class='card'>
+    <div class='icon'>✅</div>
+    <h2>Капча успешно пройдена!</h2>
+    <p>Ключ доступа (spravka) получен и сохранен. Туннель запускается автоматически.</p>
+    <button class='btn' onclick='closeModal()'>Закрыть окно</button>
+  </div>
+  <script>
+    function closeModal() {
+      if (window.parent) {
+        window.parent.postMessage({ type: 'openflux-captcha-solved' }, '*');
+      }
+      try { window.close(); } catch(e){}
+    }
+    setTimeout(closeModal, 1800);
+  </script>
+</body>
+</html>";
 }

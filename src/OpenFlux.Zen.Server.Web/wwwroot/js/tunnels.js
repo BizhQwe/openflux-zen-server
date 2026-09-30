@@ -95,6 +95,26 @@ function updateTunnelsInPlace(list) {
       }
     }
 
+    const warningEl = document.getElementById('tunnel-warning-' + tItem.id);
+    if (warningEl) {
+      const hasError = Boolean(tItem.errorMessage);
+      const expectedWarningHtml = hasError
+        ? `<span class="badge badge-warning-error" onclick="openTunnelErrorModal('${tItem.id}')" title="${escapeHtml(tItem.errorMessage)}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>${t('badge_error')}</span></span>`
+        : '';
+      if (warningEl.innerHTML !== expectedWarningHtml) {
+        warningEl.innerHTML = expectedWarningHtml;
+      }
+    }
+
+    const captchaActionEl = document.getElementById('tunnel-captcha-action-' + tItem.id);
+    if (captchaActionEl) {
+      const needCaptcha = isCaptchaRequired(tItem);
+      const expectedCaptchaHtml = needCaptcha ? renderCaptchaActionBtn(tItem.id) : '';
+      if (captchaActionEl.innerHTML !== expectedCaptchaHtml) {
+        captchaActionEl.innerHTML = expectedCaptchaHtml;
+      }
+    }
+
     if (tItem.trafficLimitBytes > 0) {
       const totalBytes = (tItem.uploadBytes || 0) + (tItem.downloadBytes || 0);
       const trafficPct = Math.min(100, Math.round(totalBytes / tItem.trafficLimitBytes * 100));
@@ -161,7 +181,7 @@ function renderTunnels(list) {
     }
 
     const isRunning = tItem.status === 2;
-    const hasError = isRunning && Boolean(tItem.errorMessage);
+    const hasError = Boolean(tItem.errorMessage);
     const warningBadge = hasError
       ? `<span class="badge badge-warning-error" onclick="openTunnelErrorModal('${tItem.id}')" title="${escapeHtml(tItem.errorMessage)}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>${t('badge_error')}</span></span>`
       : '';
@@ -665,8 +685,24 @@ function onSolveCaptchaFromErrorModal() {
 
 // ---- Captcha Solver Modal & Handlers ----
 let currentCaptchaTunnelId = null;
+let captchaSolvedListenerInstalled = false;
+
+function setupCaptchaMessageListener() {
+  if (captchaSolvedListenerInstalled) return;
+  captchaSolvedListenerInstalled = true;
+  window.addEventListener('message', async (e) => {
+    if (e.data && e.data.type === 'openflux-captcha-solved') {
+      toast('Капча успешно пройдена! Туннель возобновил работу.', 'success');
+      closeCaptchaSolverModal();
+      if (typeof loadTunnels === 'function') {
+        await loadTunnels();
+      }
+    }
+  });
+}
 
 async function openCaptchaSolverModal(tunnelId) {
+  setupCaptchaMessageListener();
   currentCaptchaTunnelId = tunnelId;
   const modal = document.getElementById('captcha-solver-modal');
   if (!modal) return;
@@ -677,61 +713,143 @@ async function openCaptchaSolverModal(tunnelId) {
   const manualInput = document.getElementById('captcha-manual-input');
   if (manualInput) manualInput.value = '';
 
-  switchCaptchaTab('manual');
-
   const tItem = (typeof tunnelsData !== 'undefined' && Array.isArray(tunnelsData))
     ? tunnelsData.find(x => x.id === tunnelId) : null;
 
-  let targetUrl = tItem ? (tItem.pendingCaptchaUrl || tItem.url || '') : '';
+  // Default to the online interactive solver
+  switchCaptchaTab('online');
 
-  // Setup link button immediately so it works even before async API call
-  const linkBtn = document.getElementById('captcha-doc-link-btn');
-  if (linkBtn) {
-    linkBtn.href = targetUrl || '#';
-    linkBtn.style.display = targetUrl ? 'inline-flex' : 'none';
+  // Prepare iframe URL with token
+  const token = localStorage.getItem('zen_token') || '';
+  const tokenQuery = token ? '?token=' + encodeURIComponent(token) : '';
+  const viewUrl = `api/tunnels/${tunnelId}/captcha/view${tokenQuery}`;
+
+  const iframe = document.getElementById('captcha-solver-iframe');
+  const spinner = document.getElementById('captcha-iframe-spinner');
+  const fsBtn = document.getElementById('captcha-fullscreen-btn');
+
+  if (fsBtn) {
+    fsBtn.href = viewUrl;
+  }
+
+  if (iframe) {
+    if (spinner) spinner.style.display = 'flex';
+    iframe.onload = () => {
+      if (spinner) spinner.style.display = 'none';
+    };
+    iframe.src = viewUrl;
+  }
+
+  // Pre-fill quick URL input if on newdoc tab
+  const newDocInput = document.getElementById('captcha-new-doc-url');
+  if (newDocInput && tItem && tItem.url) {
+    newDocInput.value = '';
+    newDocInput.placeholder = tItem.url;
   }
 
   modal.classList.add('open');
+}
 
-  // Fetch real-time pending captcha info from server
-  try {
-    const info = await api(`api/tunnels/${tunnelId}/captcha`);
-    if (info && info.url && info.url !== targetUrl) {
-      targetUrl = info.url;
-      if (linkBtn) {
-        linkBtn.href = targetUrl;
-        linkBtn.style.display = 'inline-flex';
-      }
-    }
-  } catch (e) {
-    console.warn('Could not fetch tunnel captcha info', e);
+function reloadCaptchaIframe() {
+  if (!currentCaptchaTunnelId) return;
+  const iframe = document.getElementById('captcha-solver-iframe');
+  const spinner = document.getElementById('captcha-iframe-spinner');
+  if (iframe) {
+    if (spinner) spinner.style.display = 'flex';
+    const token = localStorage.getItem('zen_token') || '';
+    const tokenQuery = token ? '?token=' + encodeURIComponent(token) : '';
+    const sep = tokenQuery ? '&' : '?';
+    iframe.src = `api/tunnels/${currentCaptchaTunnelId}/captcha/view${tokenQuery}${sep}_t=${Date.now()}`;
   }
 }
 
 function closeCaptchaSolverModal() {
   const modal = document.getElementById('captcha-solver-modal');
   if (modal) modal.classList.remove('open');
+  const iframe = document.getElementById('captcha-solver-iframe');
+  if (iframe) iframe.src = 'about:blank';
   currentCaptchaTunnelId = null;
 }
 
 function switchCaptchaTab(tab) {
-  const tabMan = document.getElementById('captcha-tab-manual');
+  const tabOnline = document.getElementById('captcha-tab-online');
   const tabNewDoc = document.getElementById('captcha-tab-newdoc');
-  const btnMan = document.getElementById('tab-btn-manual');
-  const btnNewDoc = document.getElementById('tab-btn-newdoc');
+  const tabDirect = document.getElementById('captcha-tab-direct');
+  const tabManual = document.getElementById('captcha-tab-manual');
 
-  if (tab === 'newdoc') {
-    if (tabMan) tabMan.style.display = 'none';
-    if (tabNewDoc) tabNewDoc.style.display = 'block';
-    if (btnMan) btnMan.classList.remove('active-solver-tab');
-    if (btnNewDoc) btnNewDoc.classList.add('active-solver-tab');
-  } else {
-    if (tabMan) tabMan.style.display = 'block';
-    if (tabNewDoc) tabNewDoc.style.display = 'none';
-    if (btnMan) btnMan.classList.add('active-solver-tab');
-    if (btnNewDoc) btnNewDoc.classList.remove('active-solver-tab');
+  const btnOnline = document.getElementById('tab-btn-online');
+  const btnNewDoc = document.getElementById('tab-btn-newdoc');
+  const btnDirect = document.getElementById('tab-btn-direct');
+  const btnManual = document.getElementById('tab-btn-manual');
+
+  if (tabOnline) tabOnline.style.display = (tab === 'online') ? 'block' : 'none';
+  if (tabNewDoc) tabNewDoc.style.display = (tab === 'newdoc') ? 'block' : 'none';
+  if (tabDirect) tabDirect.style.display = (tab === 'direct') ? 'block' : 'none';
+  if (tabManual) tabManual.style.display = (tab === 'manual') ? 'block' : 'none';
+
+  if (btnOnline) btnOnline.classList.toggle('active-solver-tab', tab === 'online');
+  if (btnNewDoc) btnNewDoc.classList.toggle('active-solver-tab', tab === 'newdoc');
+  if (btnDirect) btnDirect.classList.toggle('active-solver-tab', tab === 'direct');
+  if (btnManual) btnManual.classList.toggle('active-solver-tab', tab === 'manual');
+
+  if (tab === 'manual') {
     const input = document.getElementById('captcha-manual-input');
     if (input) input.focus();
+  } else if (tab === 'newdoc') {
+    const input = document.getElementById('captcha-new-doc-url');
+    if (input) input.focus();
+  }
+}
+
+async function submitQuickDocumentUrl() {
+  const id = currentCaptchaTunnelId || document.getElementById('captcha-tunnel-id')?.value;
+  if (!id) return;
+
+  const input = document.getElementById('captcha-new-doc-url');
+  const newUrl = input ? input.value.trim() : '';
+  if (!newUrl) {
+    toast('Вставьте ссылку на новый документ', 'warning');
+    return;
+  }
+
+  try {
+    const res = await api(`api/tunnels/${id}/quick-update-url`, {
+      method: 'POST',
+      body: JSON.stringify({ url: newUrl })
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      toast('Ссылка туннеля обновлена! Туннель перезапущен без капчи.', 'success');
+      closeCaptchaSolverModal();
+      if (typeof loadTunnels === 'function') await loadTunnels();
+    } else {
+      toast(data.error || 'Не удалось обновить ссылку', 'danger');
+    }
+  } catch (e) {
+    toast('Ошибка соединения: ' + (e.message || e), 'danger');
+  }
+}
+
+async function submitSwitchToDirect() {
+  const id = currentCaptchaTunnelId || document.getElementById('captcha-tunnel-id')?.value;
+  if (!id) return;
+
+  if (!confirm('Переключить транспорт туннеля на Direct (прямое соединение без капч)?')) {
+    return;
+  }
+
+  try {
+    const res = await api(`api/tunnels/${id}/switch-to-direct`, { method: 'POST' });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      toast('Транспорт переключен на Direct! Капчи отключены.', 'success');
+      closeCaptchaSolverModal();
+      if (typeof loadTunnels === 'function') await loadTunnels();
+    } else {
+      toast(data.error || 'Не удалось переключить транспорт', 'danger');
+    }
+  } catch (e) {
+    toast('Ошибка соединения: ' + (e.message || e), 'danger');
   }
 }
 
