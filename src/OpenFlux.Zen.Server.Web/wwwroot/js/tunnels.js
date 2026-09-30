@@ -291,7 +291,7 @@ function openQrModal(link, name) {
   if (!modal) return;
   const titleEl = document.getElementById('qr-modal-title');
   if (titleEl) {
-    titleEl.textContent = (name ? `${name} - ` : '') + (t('modal_qr_title') || 'Подключение клиента OpenFlux');
+    titleEl.textContent = name || t('modal_qr_title') || 'Подключение клиента OpenFlux';
   }
   const inputEl = document.getElementById('qr-modal-link-input');
   if (inputEl) inputEl.value = link;
