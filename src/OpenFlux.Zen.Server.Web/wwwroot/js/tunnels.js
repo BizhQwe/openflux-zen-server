@@ -145,29 +145,9 @@ function renderTunnels(list) {
               ${tItem.transports ? `<span class="badge badge-tag" title="${escapeHtml(tItem.transports)}">${escapeHtml(tItem.transports)}</span>` : ''}
               <span class="badge badge-tag">${tItem.mode || 'l4'}</span>
               <span class="badge badge-tag">${tItem.codec}</span>
-              ${tItem.shareLink ? `<span class="badge badge-tag" style="background: rgba(34, 197, 94, 0.15); color: #4ade80; border-color: rgba(34, 197, 94, 0.3);">${t('badge_share_ready') || 'Ссылка готова'}</span>` : ''}
             </div>
           </div>
         </div>
-
-        ${tItem.shareLink ? `
-        <div class="tunnel-share-banner">
-          <div class="tunnel-share-info">
-            <span class="tunnel-share-tag">openflux://</span>
-            <span class="tunnel-share-text" title="${escapeHtml(tItem.shareLink)}">${escapeHtml(tItem.shareLink)}</span>
-          </div>
-          <div class="tunnel-share-actions">
-            <button type="button" class="btn btn-outline btn-xs" onclick="copyShareLink('${escapeHtml(tItem.shareLink)}')" title="${t('btn_copy_openflux')}">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-              <span>${t('btn_copy') || 'Скопировать'}</span>
-            </button>
-            <button type="button" class="btn btn-primary btn-xs" onclick="openQrModal('${escapeHtml(tItem.shareLink)}', '${escapeHtml(tItem.name)}')" title="${t('btn_show_qr')}">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-              <span>${t('btn_show_qr') || 'QR-код'}</span>
-            </button>
-          </div>
-        </div>
-        ` : ''}
 
         <div id="tunnel-err-${tItem.id}" class="tunnel-error-banner" style="margin: 8px 0 12px 0; padding: 7px 10px; background: rgba(239, 68, 68, 0.12); border-left: 3px solid #ef4444; border-radius: 4px; font-size: 0.82rem; color: #fca5a5; display: ${tItem.errorMessage ? 'flex' : 'none'}; align-items: center; gap: 8px;">
           ${tItem.errorMessage ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span>${escapeHtml(tItem.errorMessage)}</span>` : ''}
@@ -204,6 +184,12 @@ function renderTunnels(list) {
             ${isRunning ? 
               `<button class="btn btn-danger btn-sm" onclick="stopTunnel('${tItem.id}')"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>${t('btn_stop')}</button>` :
               `<button class="btn btn-success btn-sm" onclick="startTunnel('${tItem.id}')"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>${t('btn_start')}</button>`}
+            <button class="btn btn-outline btn-sm" onclick="showTunnelConnect('${tItem.id}')" title="${t('btn_connect_qr') || 'Подключение'}">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+              </svg>
+              <span>${t('btn_connect_qr') || 'Подключение'}</span>
+            </button>
             <button class="btn btn-outline btn-sm" onclick="viewTunnelLogs('${tItem.id}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>${t('btn_logs')}</button>
             <button class="btn btn-outline btn-sm" onclick="resetStats('${tItem.id}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>${t('btn_reset')}</button>
           </div>
@@ -345,6 +331,18 @@ function copyQrModalLink() {
   if (input && input.value) {
     copyShareLink(input.value);
   }
+}
+
+function showTunnelConnect(id) {
+  const tItem = tunnelsData.find(x => x.id === id);
+  if (!tItem) return;
+  if (!tItem.shareLink) {
+    toast(currentLanguage === 'en'
+      ? 'Connection link will be available after starting the tunnel.'
+      : 'Ссылка подключения формируется при запуске туннеля.', 'info');
+    return;
+  }
+  openQrModal(tItem.shareLink, tItem.name);
 }
 
 function openTunnelModal(tunnel = null) {

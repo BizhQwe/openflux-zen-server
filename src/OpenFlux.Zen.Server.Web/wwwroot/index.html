@@ -266,7 +266,7 @@
             <h4 data-i18n="settings_panel_title">OpenFlux Zen Server</h4>
             <div style="display: flex; gap: 8px; align-items: center;">
               <span id="panel-status-badge" class="badge-status-update" style="display: none;"></span>
-              <span id="panel-current-version-badge" style="background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #93c5fd; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600;">Server: v1.0.48</span>
+              <span id="panel-current-version-badge" style="background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #93c5fd; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600;">Server: v1.0.49</span>
             </div>
           </div>
           <p style="color: var(--text-dim); margin-bottom: 16px; font-size: 0.9rem;" data-i18n="settings_panel_desc">
@@ -612,7 +612,7 @@
   </div>
 
   <!-- QR Code / Client Link Modal -->
-  <div id="qr-modal" class="modal-overlay">
+  <div id="qr-modal" class="modal-overlay" onclick="if(event.target === this) closeQrModal()">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="qr-modal-title" style="max-width: 440px;">
       <div class="modal-header">
         <h4 class="modal-title" id="qr-modal-title" data-i18n="modal_qr_title">Подключение клиента OpenFlux</h4>
@@ -628,7 +628,7 @@
         <div class="form-group" style="text-align: left; margin-bottom: 8px;">
           <label style="font-size: 0.8rem; color: var(--text-muted);" data-i18n="modal_qr_link_label">Клиентская ссылка openflux://</label>
           <div style="display: flex; gap: 6px;">
-            <input type="text" id="qr-modal-link-input" class="form-control" readonly style="font-family: monospace; font-size: 0.8rem;" />
+            <input type="text" id="qr-modal-link-input" class="form-control" readonly style="flex: 1; min-width: 0; font-family: monospace; font-size: 0.8rem;" />
             <button class="btn btn-primary btn-sm" onclick="copyQrModalLink()" style="white-space: nowrap;" data-i18n="btn_copy">Скопировать</button>
           </div>
         </div>
@@ -673,12 +673,12 @@
   <!-- Toast notifications -->
   <div id="toast-container" role="status" aria-live="polite"></div>
 
-  <script src="js/qrcode.min.js?v=1.0.48"></script>
-  <script src="js/i18n.js?v=1.0.48"></script>
-  <script src="js/api.js?v=1.0.48"></script>
-  <script src="js/tunnels.js?v=1.0.48"></script>
-  <script src="js/logs.js?v=1.0.48"></script>
-  <script src="js/settings.js?v=1.0.48"></script>
-  <script src="js/app.js?v=1.0.48"></script>
+  <script src="js/qrcode.min.js?v=1.0.49"></script>
+  <script src="js/i18n.js?v=1.0.49"></script>
+  <script src="js/api.js?v=1.0.49"></script>
+  <script src="js/tunnels.js?v=1.0.49"></script>
+  <script src="js/logs.js?v=1.0.49"></script>
+  <script src="js/settings.js?v=1.0.49"></script>
+  <script src="js/app.js?v=1.0.49"></script>
 </body>
 </html>
