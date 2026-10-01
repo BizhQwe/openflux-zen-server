@@ -13,7 +13,7 @@ public sealed class OpenFluxCoreUpdateService : IOpenFluxCoreUpdateService
     private const string GitHubApiReleases = "https://api.github.com/repos/p1neappleXpress/OpenFlux/releases?per_page=30";
     private const string GitHubApiReleaseByTag = "https://api.github.com/repos/p1neappleXpress/OpenFlux/releases/tags/";
     private const string GitHubAtomReleases = "https://github.com/p1neappleXpress/OpenFlux/releases.atom";
-    private const string FallbackDefaultVersion = "v0.2.0";
+    private const string FallbackDefaultVersion = "v0.3.0";
 
     private static List<ReleaseItemDto>? _cachedReleases;
     private static DateTime? _releasesCacheTime;

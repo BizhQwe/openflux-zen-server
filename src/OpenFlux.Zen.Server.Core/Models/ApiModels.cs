@@ -70,7 +70,7 @@ public sealed class AutostartRequest
 
 public sealed class OpenFluxCoreVersionInfo
 {
-    public string CurrentVersion { get; set; } = "v0.2.0";
+    public string CurrentVersion { get; set; } = "v0.3.0";
     public string? LatestVersion { get; set; }
     public bool IsUpdateAvailable { get; set; }
     public string? ReleaseUrl { get; set; }
@@ -93,7 +93,7 @@ public sealed class OpenFluxCoreUpdateResult
 
 public sealed class PanelVersionInfo
 {
-    public string CurrentVersion { get; set; } = "v1.0.77";
+    public string CurrentVersion { get; set; } = "v1.0.78";
     public string? LatestVersion { get; set; }
     public bool IsUpdateAvailable { get; set; }
     public string? ReleaseUrl { get; set; }
