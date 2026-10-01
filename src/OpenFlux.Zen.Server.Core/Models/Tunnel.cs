@@ -32,6 +32,15 @@ public sealed class Tunnel
     public string? SessionContext { get; set; } // --session-context
     public bool Negotiate { get; set; } = false; // --negotiate
     public string? Transports { get; set; } // --transports=direct:100,yandex:50
+    // Per-type values used by OpenFlux 0.3.0 sessions. The core keeps one
+    // transport name list and receives the document/room URL for each type.
+    public string? YandexUrl { get; set; }
+    public string? VyandexUrl { get; set; }
+    public string? BoardsUrl { get; set; }
+    public string? MailruUrl { get; set; }
+    public string? CupsonlineUrl { get; set; }
+    public string? OnemeToken { get; set; }
+    public string? OnemeUid { get; set; }
     public int MaxPacketSize { get; set; } = 65000; // --max-packet-size (1280..65000)
     public string? YandexCookiesFile { get; set; } // --yandex-cookies-file
 
@@ -66,6 +75,12 @@ public sealed class Tunnel
 
     [System.ComponentModel.DataAnnotations.Schema.NotMapped]
     public bool PendingCaptchaRemote { get; set; }
+
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public string? PendingCaptchaTransport { get; set; }
+
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public string? PendingCaptchaChallengeUrl { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

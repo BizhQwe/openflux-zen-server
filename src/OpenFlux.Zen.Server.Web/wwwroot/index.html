@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/app.css?v=1.0.78" />
+  <link rel="stylesheet" href="css/app.css?v=1.0.79" />
 </head>
 <body>
 
@@ -266,7 +266,7 @@
             <h4 data-i18n="settings_panel_title">OpenFlux Zen Server</h4>
             <div style="display: flex; gap: 8px; align-items: center;">
               <span id="panel-status-badge" class="badge-status-update" style="display: none;"></span>
-              <span id="panel-current-version-badge" style="background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #93c5fd; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600;">Server: v1.0.78</span>
+              <span id="panel-current-version-badge" style="background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #93c5fd; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600;">Server: v1.0.79</span>
             </div>
           </div>
           <p style="color: var(--text-dim); margin-bottom: 16px; font-size: 0.9rem;" data-i18n="settings_panel_desc">
@@ -531,10 +531,16 @@
 
           <!-- Multi Transport Fields -->
           <div id="group-multi" class="form-group" style="display: none;">
-            <label for="tunnel-transports" data-i18n="modal_tunnel_transports">Список транспортов с приоритетом (--transports)</label>
-            <input type="text" id="tunnel-transports" class="form-control" placeholder="direct:100,yandex:50" />
+            <label data-i18n="modal_tunnel_transports">Транспорты сессии и приоритеты</label>
+            <div id="multi-transport-rows" style="display:flex; flex-direction:column; gap:8px;"></div>
+            <button type="button" class="btn btn-outline btn-sm" onclick="addMultiTransportRow()" style="margin-top:10px;">＋ Добавить транспорт</button>
+            <input type="hidden" id="tunnel-transports" />
+            <div style="margin-top:10px; max-width:320px;">
+              <label for="tunnel-multi-oneme-uid">UID MAX для транспорта oneme</label>
+              <input type="text" id="tunnel-multi-oneme-uid" class="form-control" placeholder="ID пользователя MAX" />
+            </div>
             <small class="form-hint" style="color: var(--text-muted); font-size: 0.78rem; margin-top: 4px; display: block;" data-i18n="modal_tunnel_transports_hint">
-              Пример: direct:100,yandex:50 или boards:90,yandex:50
+              Все выбранные транспорты запускаются одновременно и переключаются по приоритету. Для каждого укажите свою ссылку; Mail.ru поддерживается в одной сессии с Yandex, Direct и cups.online.
             </small>
           </div>
 
@@ -697,7 +703,7 @@
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
             <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
           </svg>
-          <span data-i18n="modal_captcha_title">Решение проверки (SmartCaptcha)</span>
+          <span id="captcha-solver-title-text" data-i18n="modal_captcha_title">Решение проверки (SmartCaptcha)</span>
         </h4>
         <button class="modal-close" aria-label="Закрыть" onclick="closeCaptchaSolverModal()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
@@ -762,12 +768,12 @@
   <!-- Toast notifications -->
   <div id="toast-container" role="status" aria-live="polite"></div>
 
-  <script src="js/qrcode.min.js?v=1.0.78"></script>
-  <script src="js/i18n.js?v=1.0.78"></script>
-  <script src="js/api.js?v=1.0.78"></script>
-  <script src="js/tunnels.js?v=1.0.78"></script>
-  <script src="js/logs.js?v=1.0.78"></script>
-  <script src="js/settings.js?v=1.0.78"></script>
-  <script src="js/app.js?v=1.0.78"></script>
+  <script src="js/qrcode.min.js?v=1.0.79"></script>
+  <script src="js/i18n.js?v=1.0.79"></script>
+  <script src="js/api.js?v=1.0.79"></script>
+  <script src="js/tunnels.js?v=1.0.79"></script>
+  <script src="js/logs.js?v=1.0.79"></script>
+  <script src="js/settings.js?v=1.0.79"></script>
+  <script src="js/app.js?v=1.0.79"></script>
 </body>
 </html>

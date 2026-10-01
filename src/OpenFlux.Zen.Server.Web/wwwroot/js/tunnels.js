@@ -389,6 +389,7 @@ function openTunnelModal(tunnel = null) {
   document.getElementById('tunnel-direct-listen').value = tunnel ? (tunnel.directListen || '') : '0.0.0.0:8445';
   document.getElementById('tunnel-share-host').value = tunnel ? (tunnel.shareHost || '') : '';
   document.getElementById('tunnel-transports').value = tunnel ? (tunnel.transports || '') : '';
+  document.getElementById('tunnel-multi-oneme-uid').value = tunnel ? (tunnel.onemeUid || tunnel.maxUid || '') : '';
   document.getElementById('tunnel-codec').value = tunnel ? (tunnel.codec || 'batched') : 'batched';
   document.getElementById('tunnel-encryption').value = tunnel ? (tunnel.encryptionKey || '') : generateRandomKey();
   document.getElementById('tunnel-enable-share').checked = tunnel ? (tunnel.enableShare !== false) : true;
@@ -399,6 +400,7 @@ function openTunnelModal(tunnel = null) {
   document.getElementById('tunnel-traffic-limit').value = tunnel && tunnel.trafficLimitBytes > 0 ? Math.round(tunnel.trafficLimitBytes / (1024 * 1024)) : 0;
   document.getElementById('tunnel-extra-args').value = tunnel ? (tunnel.extraArgs || '--debug') : '--debug';
 
+  renderMultiTransportRows(tunnel);
   onTransportChange();
   document.getElementById('tunnel-modal').classList.add('open');
 }
@@ -417,6 +419,9 @@ function onTransportChange() {
   document.getElementById('group-oneme').style.display = transport === 'oneme' ? 'grid' : 'none';
   document.getElementById('group-direct').style.display = transport === 'direct' ? 'grid' : 'none';
   document.getElementById('group-multi').style.display = transport === 'multi' ? 'block' : 'none';
+  if (transport === 'multi' && !document.querySelector('.multi-transport-row')) {
+    renderMultiTransportRows(null);
+  }
 
   const urlGroup = document.getElementById('group-url');
   urlGroup.style.display = (transport === 'oneme' || transport === 'direct') ? 'none' : 'block';
@@ -444,10 +449,101 @@ function onTransportChange() {
   }
 }
 
+const MULTI_TRANSPORT_TYPES = [
+  ['direct', 'Direct'],
+  ['yandex', 'Yandex.Docs'],
+  ['vyandex', 'Yandex Volga'],
+  ['boards', 'Yandex Boards'],
+  ['mailru', 'Mail.ru Docs'],
+  ['cupsonline', 'Cups.online'],
+  ['oneme', 'MAX / OneMe']
+];
+
+function createMultiTransportRow(config = {}) {
+  const row = document.createElement('div');
+  row.className = 'multi-transport-row';
+  row.style.cssText = 'display:grid;grid-template-columns:minmax(130px,1fr) 86px minmax(180px,2fr) auto;gap:8px;align-items:center;';
+  const type = String(config.type || 'yandex').toLowerCase();
+  row.innerHTML = `
+    <select class="form-control multi-transport-type" aria-label="Тип транспорта">${MULTI_TRANSPORT_TYPES.map(([v,l]) => `<option value="${v}">${l}</option>`).join('')}</select>
+    <input class="form-control multi-transport-priority" type="number" min="0" max="1000" step="1" value="${Number.isFinite(Number(config.priority)) ? Number(config.priority) : 50}" aria-label="Приоритет" title="Приоритет" />
+    <input class="form-control multi-transport-value" type="text" aria-label="Ссылка или адрес" />
+    <button type="button" class="btn btn-outline btn-sm multi-transport-remove" title="Удалить транспорт">×</button>`;
+  row.querySelector('.multi-transport-type').value = MULTI_TRANSPORT_TYPES.some(([v]) => v === type) ? type : 'yandex';
+  row.querySelector('.multi-transport-value').value = config.value || '';
+  row.querySelector('.multi-transport-type').addEventListener('change', () => updateMultiTransportRow(row));
+  row.querySelector('.multi-transport-remove').addEventListener('click', () => {
+    const rows = document.querySelectorAll('.multi-transport-row');
+    if (rows.length > 1) row.remove();
+    else toast('Оставьте хотя бы один транспорт', 'warning');
+  });
+  updateMultiTransportRow(row);
+  return row;
+}
+
+function updateMultiTransportRow(row) {
+  const type = row.querySelector('.multi-transport-type').value;
+  const value = row.querySelector('.multi-transport-value');
+  const labels = {
+    direct: ['Адрес Direct, например 203.0.113.7:8445', 'host:port'],
+    yandex: ['Ссылка на документ Yandex', 'https://disk.yandex.ru/i/...'],
+    vyandex: ['Ссылка на документ Yandex Volga', 'https://disk.yandex.ru/i/...'],
+    boards: ['Ссылка на Yandex Board', 'https://boards.yandex.ru/p/...'],
+    mailru: ['Публичная ссылка Mail.ru', 'https://cloud.mail.ru/public/...'],
+    cupsonline: ['Комнаты cups.online (необязательно)', 'Оставьте пустым для автосоздания'],
+    oneme: ['Токен MAX (UID укажите в отдельном поле ниже)', 'Токен MAX']
+  };
+  value.placeholder = (labels[type] || labels.yandex)[1];
+  value.title = (labels[type] || labels.yandex)[0];
+}
+
+function addMultiTransportRow(config = {}) {
+  const container = document.getElementById('multi-transport-rows');
+  if (!container) return;
+  container.appendChild(createMultiTransportRow(config));
+}
+
+function renderMultiTransportRows(tunnel) {
+  const container = document.getElementById('multi-transport-rows');
+  if (!container) return;
+  container.innerHTML = '';
+  const raw = String(tunnel?.transports || '').trim();
+  const specs = raw ? raw.split(',').map(part => {
+    const [kind, priorityText] = part.trim().split(':');
+    const priority = parseInt(priorityText, 10);
+    return { type: kind || 'yandex', priority: Number.isNaN(priority) ? 50 : priority };
+  }) : [{ type: 'direct', priority: 100 }, { type: 'yandex', priority: 50 }];
+  const values = {
+    yandex: tunnel?.yandexUrl || tunnel?.url || '',
+    vyandex: tunnel?.vyandexUrl || '', boards: tunnel?.boardsUrl || '',
+    mailru: tunnel?.mailruUrl || '', cupsonline: tunnel?.cupsonlineUrl || '',
+    direct: tunnel?.directDial || '', oneme: tunnel?.onemeToken || tunnel?.maxToken || ''
+  };
+  specs.forEach(spec => addMultiTransportRow({ ...spec, value: values[spec.type] || '' }));
+  syncMultiTransportField();
+}
+
+function readMultiTransportRows() {
+  return Array.from(document.querySelectorAll('.multi-transport-row')).map(row => ({
+    type: row.querySelector('.multi-transport-type').value,
+    priority: Math.max(0, Number.isNaN(parseInt(row.querySelector('.multi-transport-priority').value, 10)) ? 50 : parseInt(row.querySelector('.multi-transport-priority').value, 10)),
+    value: row.querySelector('.multi-transport-value').value.trim()
+  }));
+}
+
+function syncMultiTransportField() {
+  const rows = readMultiTransportRows();
+  const field = document.getElementById('tunnel-transports');
+  if (field) field.value = rows.map(row => `${row.type}:${row.priority}`).join(',');
+  return rows;
+}
+
 async function saveTunnel() {
   const id = document.getElementById('tunnel-id').value;
   const existing = id ? tunnelsData.find(x => x.id === id) : null;
   const trafficMB = parseInt(document.getElementById('tunnel-traffic-limit').value) || 0;
+  const multiRows = document.getElementById('tunnel-transport').value === 'multi' ? syncMultiTransportField() : [];
+  const multiValue = (type) => multiRows.find(row => row.type === type)?.value || null;
   const payload = {
     name: document.getElementById('tunnel-name').value.trim(),
     role: 'exit',
@@ -460,8 +556,16 @@ async function saveTunnel() {
     maxToken: document.getElementById('tunnel-maxtoken').value.trim() || null,
     maxUid: document.getElementById('tunnel-maxuid').value.trim() || null,
     directListen: document.getElementById('tunnel-direct-listen').value.trim() || null,
+    directDial: multiValue('direct') || (existing ? (existing.directDial || null) : null),
     shareHost: document.getElementById('tunnel-share-host').value.trim() || null,
     transports: document.getElementById('tunnel-transports').value.trim() || null,
+    yandexUrl: multiValue('yandex'),
+    vyandexUrl: multiValue('vyandex'),
+    boardsUrl: multiValue('boards'),
+    mailruUrl: multiValue('mailru'),
+    cupsonlineUrl: multiValue('cupsonline'),
+    onemeToken: multiValue('oneme'),
+    onemeUid: (document.getElementById('tunnel-multi-oneme-uid').value.trim() || document.getElementById('tunnel-maxuid').value.trim()) || null,
     codec: document.getElementById('tunnel-codec').value,
     encryptionKey: document.getElementById('tunnel-encryption').value.trim() || null,
     enableShare: document.getElementById('tunnel-enable-share').checked,
@@ -503,6 +607,7 @@ function onSolveCaptchaFromErrorModal() { return false; }
 
 // ---- Captcha Solver Modal & Handlers ----
 let currentCaptchaTunnelId = null;
+let currentCaptchaTransport = '';
 let captchaSolvedListenerInstalled = false;
 
 function setupCaptchaMessageListener() {
@@ -528,9 +633,25 @@ async function openCaptchaSolverModal(tunnelId) {
   const idInput = document.getElementById('captcha-tunnel-id');
   if (idInput) idInput.value = tunnelId;
 
-  // Prepare iframe URL with token
+  // Keep the transport name from the IPC request. In a Session the core asks
+  // for cookies by carrier (mailru/yandex/...), never by the synthetic name
+  // "multi". The server uses it to keep the browser jar and offer aligned.
   const token = localStorage.getItem('zen_token') || '';
-  const tokenQuery = token ? '?token=' + encodeURIComponent(token) : '';
+  let captchaTransport = '';
+  try {
+    const status = await api(`api/tunnels/${tunnelId}/captcha`);
+    if (status.ok) {
+      const data = await status.json();
+      captchaTransport = data.transport || '';
+      currentCaptchaTransport = captchaTransport;
+      const title = document.getElementById('captcha-solver-title-text');
+      if (title && captchaTransport) title.textContent = `Решение капчи (${captchaTransport})`;
+    }
+  } catch { }
+  const params = new URLSearchParams();
+  if (token) params.set('token', token);
+  if (captchaTransport) params.set('transport', captchaTransport);
+  const tokenQuery = params.toString() ? '?' + params.toString() : '';
   const viewUrl = `api/tunnels/${tunnelId}/captcha/view${tokenQuery}`;
 
   const iframe = document.getElementById('captcha-solver-iframe');
@@ -558,10 +679,11 @@ function reloadCaptchaIframe() {
   const spinner = document.getElementById('captcha-iframe-spinner');
   if (iframe) {
     if (spinner) spinner.style.display = 'flex';
+    const params = new URLSearchParams({ _t: String(Date.now()) });
     const token = localStorage.getItem('zen_token') || '';
-    const tokenQuery = token ? '?token=' + encodeURIComponent(token) : '';
-    const sep = tokenQuery ? '&' : '?';
-    iframe.src = `api/tunnels/${currentCaptchaTunnelId}/captcha/view${tokenQuery}${sep}_t=${Date.now()}`;
+    if (token) params.set('token', token);
+    if (currentCaptchaTransport) params.set('transport', currentCaptchaTransport);
+    iframe.src = `api/tunnels/${currentCaptchaTunnelId}/captcha/view?${params.toString()}`;
   }
 }
 
@@ -571,6 +693,7 @@ function closeCaptchaSolverModal() {
   const iframe = document.getElementById('captcha-solver-iframe');
   if (iframe) iframe.src = 'about:blank';
   currentCaptchaTunnelId = null;
+  currentCaptchaTransport = '';
 }
 
 function switchCaptchaTab(tab) {

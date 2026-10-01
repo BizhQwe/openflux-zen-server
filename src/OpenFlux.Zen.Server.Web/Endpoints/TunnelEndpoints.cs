@@ -9,7 +9,7 @@ namespace OpenFlux.Zen.Server.Web.Endpoints;
 
 public static class TunnelEndpoints
 {
-    private static readonly ConcurrentDictionary<Guid, CookieContainer> _captchaSessions = new();
+    private static readonly ConcurrentDictionary<string, CookieContainer> _captchaSessions = new();
 
     public static IEndpointRouteBuilder MapTunnelEndpoints(this IEndpointRouteBuilder app)
     {
@@ -81,7 +81,13 @@ public static class TunnelEndpoints
             if (tunnel == null) return Results.NotFound();
 
             var hasPending = !string.IsNullOrWhiteSpace(tunnel.PendingCaptchaUrl);
-            var targetUrl = !string.IsNullOrWhiteSpace(tunnel.PendingCaptchaUrl) ? tunnel.PendingCaptchaUrl : tunnel.Url;
+            // Always start from the document URL. OpenFlux Android does the
+            // same: /showcaptcha URLs are one-use redirect targets and return
+            // Yandex 400 when opened without the core's redirect cookie jar.
+            var targetUrl = !string.IsNullOrWhiteSpace(tunnel.PendingCaptchaUrl) &&
+                            !tunnel.PendingCaptchaUrl.Contains("/showcaptcha", StringComparison.OrdinalIgnoreCase)
+                ? tunnel.PendingCaptchaUrl
+                : tunnel.Url;
 
             // If requested directly from browser (or with ?redirect=true), redirect directly to Yandex Disk!
             var accept = context.Request.Headers.Accept.ToString();
@@ -100,6 +106,8 @@ public static class TunnelEndpoints
                 reason = tunnel.PendingCaptchaReason ?? "smartcaptcha",
                 proxy = tunnel.PendingCaptchaProxy,
                 remote = tunnel.PendingCaptchaRemote,
+                transport = tunnel.PendingCaptchaTransport ?? tunnel.Transport,
+                challengeUrl = tunnel.PendingCaptchaChallengeUrl,
                 documentUrl = tunnel.Url,
                 errorMessage = tunnel.ErrorMessage
             });
@@ -110,7 +118,8 @@ public static class TunnelEndpoints
             var tunnel = await manager.GetByIdAsync(id);
             if (tunnel == null) return Results.NotFound();
 
-            var targetUrl = !string.IsNullOrWhiteSpace(tunnel.PendingCaptchaUrl)
+            var targetUrl = !string.IsNullOrWhiteSpace(tunnel.PendingCaptchaUrl) &&
+                            !tunnel.PendingCaptchaUrl.Contains("/showcaptcha", StringComparison.OrdinalIgnoreCase)
                 ? tunnel.PendingCaptchaUrl
                 : tunnel.Url;
 
@@ -122,7 +131,8 @@ public static class TunnelEndpoints
             }
 
             var cookieContainer = new CookieContainer();
-            _captchaSessions[id] = cookieContainer;
+            var requestedTransport = context.Request.Query["transport"].ToString();
+            _captchaSessions[CaptchaSessionKey(id, tunnel, requestedTransport)] = cookieContainer;
 
             var handler = new HttpClientHandler
             {
@@ -145,6 +155,10 @@ public static class TunnelEndpoints
             client.DefaultRequestHeaders.Add("User-Agent", ua);
             client.DefaultRequestHeaders.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
             client.DefaultRequestHeaders.Add("Accept-Language", "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7");
+            if (Uri.TryCreate(tunnel.Url, UriKind.Absolute, out var documentUri))
+            {
+                client.DefaultRequestHeaders.Referrer = documentUri;
+            }
 
             HttpResponseMessage resp;
             try
@@ -165,13 +179,13 @@ public static class TunnelEndpoints
             // contains the access cookie and must be handed to OpenFlux immediately.
             // Without this check the panel renders the normal document inside the
             // solver iframe and leaves the tunnel in the captcha state forever.
-            var spravka = ExtractSpravkaCookie(resp, cookieContainer, finalUri.ToString());
-            if (!ContainsCaptchaChallenge(html) && !string.IsNullOrWhiteSpace(spravka))
+            var initialJar = CollectCookieJar(cookieContainer, tunnel.Url, finalUri.ToString());
+            if (!ContainsCaptchaChallenge(html) && initialJar.Count > 0)
             {
-                var applied = await manager.ApplyCookiesAsync(id, $"spravka={spravka}");
+                var applied = await manager.ApplyCookiesAsync(id, System.Text.Json.JsonSerializer.Serialize(initialJar), requestedTransport);
                 if (applied.Success)
                 {
-                    _captchaSessions.TryRemove(id, out _);
+                    _captchaSessions.TryRemove(CaptchaSessionKey(id, tunnel, requestedTransport), out _);
                     return Results.Content(GetSuccessHtml(), "text/html; charset=utf-8");
                 }
 
@@ -179,7 +193,7 @@ public static class TunnelEndpoints
             }
 
             var token = SecretPathMiddleware.ExtractToken(context);
-            return RenderCaptchaHtml(html, originHost, id, context, token);
+            return RenderCaptchaHtml(html, originHost, id, context, token, requestedTransport);
         });
 
         group.MapPost("/{id:guid}/captcha/submit", async (Guid id, HttpContext context, ITunnelManager manager) =>
@@ -189,6 +203,7 @@ public static class TunnelEndpoints
 
             var targetAction = context.Request.Query["target"].ToString();
             var origin = context.Request.Query["origin"].ToString();
+            var requestedTransport = context.Request.Query["transport"].ToString();
             if (string.IsNullOrWhiteSpace(targetAction))
             {
                 return Results.BadRequest(new { error = "Missing target" });
@@ -201,7 +216,7 @@ public static class TunnelEndpoints
                 formDict[key] = form[key].ToString();
             }
 
-            if (!_captchaSessions.TryGetValue(id, out var cookieContainer))
+            if (!_captchaSessions.TryGetValue(CaptchaSessionKey(id, tunnel, requestedTransport), out var cookieContainer))
             {
                 cookieContainer = new CookieContainer();
             }
@@ -248,10 +263,12 @@ public static class TunnelEndpoints
 
             if (!string.IsNullOrWhiteSpace(spravkaVal))
             {
-                var applied = await manager.ApplyCookiesAsync(id, $"spravka={spravkaVal}");
+                var jar = CollectCookieJar(cookieContainer, tunnel.Url, targetAction);
+                jar["spravka"] = spravkaVal;
+                var applied = await manager.ApplyCookiesAsync(id, System.Text.Json.JsonSerializer.Serialize(jar), requestedTransport);
                 if (applied.Success)
                 {
-                    _captchaSessions.TryRemove(id, out _);
+                    _captchaSessions.TryRemove(CaptchaSessionKey(id, tunnel, requestedTransport), out _);
                     return Results.Content(GetSuccessHtml(), "text/html; charset=utf-8");
                 }
 
@@ -271,10 +288,12 @@ public static class TunnelEndpoints
                     var redSpravka = ExtractSpravkaCookie(redResp, cookieContainer, redirectUri.ToString());
                     if (!string.IsNullOrWhiteSpace(redSpravka))
                     {
-                        var applied = await manager.ApplyCookiesAsync(id, $"spravka={redSpravka}");
+                        var jar = CollectCookieJar(cookieContainer, tunnel.Url, redirectUri.ToString());
+                        jar["spravka"] = redSpravka;
+                        var applied = await manager.ApplyCookiesAsync(id, System.Text.Json.JsonSerializer.Serialize(jar), requestedTransport);
                         if (applied.Success)
                         {
-                            _captchaSessions.TryRemove(id, out _);
+                            _captchaSessions.TryRemove(CaptchaSessionKey(id, tunnel, requestedTransport), out _);
                             return Results.Content(GetSuccessHtml(), "text/html; charset=utf-8");
                         }
 
@@ -282,7 +301,17 @@ public static class TunnelEndpoints
                     }
 
                     var redHtml = await redResp.Content.ReadAsStringAsync();
-                    return RenderCaptchaHtml(redHtml, redirectUri.Host, id, context, token);
+                    var redJar = CollectCookieJar(cookieContainer, tunnel.Url, redirectUri.ToString());
+                    if (!ContainsCaptchaChallenge(redHtml) && redJar.Count > 0)
+                    {
+                        var applied = await manager.ApplyCookiesAsync(id, System.Text.Json.JsonSerializer.Serialize(redJar), requestedTransport);
+                        if (applied.Success)
+                        {
+                            _captchaSessions.TryRemove(CaptchaSessionKey(id, tunnel, requestedTransport), out _);
+                            return Results.Content(GetSuccessHtml(), "text/html; charset=utf-8");
+                        }
+                    }
+                    return RenderCaptchaHtml(redHtml, redirectUri.Host, id, context, token, requestedTransport);
                 }
                 catch
                 {
@@ -294,8 +323,18 @@ public static class TunnelEndpoints
             if (resp.IsSuccessStatusCode)
             {
                 var stepHtml = await resp.Content.ReadAsStringAsync();
+                var stepJar = CollectCookieJar(cookieContainer, tunnel.Url, targetAction);
+                if (!ContainsCaptchaChallenge(stepHtml) && stepJar.Count > 0)
+                {
+                    var applied = await manager.ApplyCookiesAsync(id, System.Text.Json.JsonSerializer.Serialize(stepJar), requestedTransport);
+                    if (applied.Success)
+                    {
+                        _captchaSessions.TryRemove(CaptchaSessionKey(id, tunnel, requestedTransport), out _);
+                        return Results.Content(GetSuccessHtml(), "text/html; charset=utf-8");
+                    }
+                }
                 var host = new Uri(targetAction).Host;
-                return RenderCaptchaHtml(stepHtml, host, id, context, token);
+                return RenderCaptchaHtml(stepHtml, host, id, context, token, requestedTransport);
             }
 
             // Fallback: redirect back to view so user can try again
@@ -338,6 +377,8 @@ public static class TunnelEndpoints
             tunnel.PendingCaptchaReason = null;
             tunnel.PendingCaptchaProxy = null;
             tunnel.PendingCaptchaRemote = false;
+            tunnel.PendingCaptchaTransport = null;
+            tunnel.PendingCaptchaChallengeUrl = null;
             tunnel.ErrorMessage = null;
             await manager.UpdateAsync(tunnel);
 
@@ -358,6 +399,8 @@ public static class TunnelEndpoints
             tunnel.PendingCaptchaReason = null;
             tunnel.PendingCaptchaProxy = null;
             tunnel.PendingCaptchaRemote = false;
+            tunnel.PendingCaptchaTransport = null;
+            tunnel.PendingCaptchaChallengeUrl = null;
             tunnel.ErrorMessage = null;
             await manager.UpdateAsync(tunnel);
 
@@ -462,6 +505,42 @@ public static class TunnelEndpoints
         return string.Empty;
     }
 
+    private static Dictionary<string, string> CollectCookieJar(CookieContainer container, params string?[] urls)
+    {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (Cookie cookie in container.GetAllCookies())
+        {
+            if (!cookie.Expired && !string.IsNullOrWhiteSpace(cookie.Name))
+            {
+                result[cookie.Name] = cookie.Value;
+            }
+        }
+
+        // GetAllCookies is available on current .NET, while these explicit
+        // URLs also cover jars supplied by alternate CookieContainer builds.
+        foreach (var raw in urls)
+        {
+            if (!Uri.TryCreate(raw, UriKind.Absolute, out var uri)) continue;
+            foreach (Cookie cookie in container.GetCookies(uri))
+            {
+                if (!cookie.Expired && !string.IsNullOrWhiteSpace(cookie.Name))
+                {
+                    result[cookie.Name] = cookie.Value;
+                }
+            }
+        }
+
+        return result;
+    }
+
+    private static string CaptchaSessionKey(Guid id, Tunnel tunnel, string? requestedTransport = null)
+    {
+        var transport = string.IsNullOrWhiteSpace(requestedTransport)
+            ? (tunnel.PendingCaptchaTransport ?? tunnel.Transport)
+            : requestedTransport;
+        return $"{id:N}:{transport.Trim().ToLowerInvariant()}";
+    }
+
     private static bool ContainsCaptchaChallenge(string html)
     {
         if (string.IsNullOrWhiteSpace(html)) return false;
@@ -496,7 +575,7 @@ body {{ background:#0f172a; color:#f87171; font-family:-apple-system,BlinkMacSys
 p {{ color:#cbd5e1; line-height:1.5; }}
 </style></head><body><div class='card'><h3>Не удалось применить проверку</h3><p>{WebUtility.HtmlEncode(message)}</p></div></body></html>";
 
-    private static IResult RenderCaptchaHtml(string html, string originHost, Guid id, HttpContext context, string? token)
+    private static IResult RenderCaptchaHtml(string html, string originHost, Guid id, HttpContext context, string? token, string? transport)
     {
         // Find form action
         var formMatch = Regex.Match(html, @"(?i)<form[^>]*action=[""']([^""']+)[""']");
@@ -510,7 +589,8 @@ p {{ color:#cbd5e1; line-height:1.5; }}
 
         var requestBase = $"{context.Request.Scheme}://{context.Request.Host}{context.Request.PathBase}";
         var tokenParam = !string.IsNullOrEmpty(token) ? $"&token={Uri.EscapeDataString(token)}" : "";
-        var submitUrl = $"{requestBase}/api/tunnels/{id}/captcha/submit?target=" + Uri.EscapeDataString(origAction) + "&origin=" + Uri.EscapeDataString($"https://{originHost}") + tokenParam;
+        var transportParam = !string.IsNullOrWhiteSpace(transport) ? $"&transport={Uri.EscapeDataString(transport)}" : "";
+        var submitUrl = $"{requestBase}/api/tunnels/{id}/captcha/submit?target=" + Uri.EscapeDataString(origAction) + "&origin=" + Uri.EscapeDataString($"https://{originHost}") + transportParam + tokenParam;
 
         // Inject base href so all static assets, fonts, css, scripts load directly from origin
         html = Regex.Replace(html, @"(?i)<head>", $"<head><base href=\"https://{originHost}/\">", RegexOptions.IgnoreCase);

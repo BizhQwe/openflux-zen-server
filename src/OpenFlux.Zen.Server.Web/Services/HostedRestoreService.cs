@@ -119,6 +119,13 @@ public sealed class HostedRestoreService : IHostedService
             try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Tunnels\" ADD COLUMN \"Transports\" TEXT NULL;", cancellationToken); } catch { }
             try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Tunnels\" ADD COLUMN \"MaxPacketSize\" INTEGER NOT NULL DEFAULT 65000;", cancellationToken); } catch { }
             try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Tunnels\" ADD COLUMN \"YandexCookiesFile\" TEXT NULL;", cancellationToken); } catch { }
+            try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Tunnels\" ADD COLUMN \"YandexUrl\" TEXT NULL;", cancellationToken); } catch { }
+            try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Tunnels\" ADD COLUMN \"VyandexUrl\" TEXT NULL;", cancellationToken); } catch { }
+            try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Tunnels\" ADD COLUMN \"BoardsUrl\" TEXT NULL;", cancellationToken); } catch { }
+            try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Tunnels\" ADD COLUMN \"MailruUrl\" TEXT NULL;", cancellationToken); } catch { }
+            try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Tunnels\" ADD COLUMN \"CupsonlineUrl\" TEXT NULL;", cancellationToken); } catch { }
+            try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Tunnels\" ADD COLUMN \"OnemeToken\" TEXT NULL;", cancellationToken); } catch { }
+            try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Tunnels\" ADD COLUMN \"OnemeUid\" TEXT NULL;", cancellationToken); } catch { }
 
             // Ensure settings and admin account exist
             var currentSettings = await db.Settings.FirstOrDefaultAsync(s => s.Id == 1, cancellationToken);

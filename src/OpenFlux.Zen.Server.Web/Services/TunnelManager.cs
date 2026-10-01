@@ -16,7 +16,7 @@ public interface ITunnelManager
     Task<bool> StopAsync(Guid id);
     Task<bool> ToggleEnableAsync(Guid id, bool isEnabled);
     Task<bool> ResetStatsAsync(Guid id);
-    Task<(bool Success, int AppliedCount, string Message)> ApplyCookiesAsync(Guid id, string rawCookiesInput);
+    Task<(bool Success, int AppliedCount, string Message)> ApplyCookiesAsync(Guid id, string rawCookiesInput, string? transportOverride = null);
 }
 
 public sealed class TunnelManager : ITunnelManager
@@ -139,6 +139,13 @@ public sealed class TunnelManager : ITunnelManager
             existing.SessionContext = updated.SessionContext;
             existing.Negotiate = updated.Negotiate;
             existing.Transports = updated.Transports;
+            existing.YandexUrl = updated.YandexUrl;
+            existing.VyandexUrl = updated.VyandexUrl;
+            existing.BoardsUrl = updated.BoardsUrl;
+            existing.MailruUrl = updated.MailruUrl;
+            existing.CupsonlineUrl = updated.CupsonlineUrl;
+            existing.OnemeToken = updated.OnemeToken;
+            existing.OnemeUid = updated.OnemeUid;
             existing.MaxPacketSize = updated.MaxPacketSize > 0 ? updated.MaxPacketSize : 65000;
             existing.YandexCookiesFile = updated.YandexCookiesFile;
             existing.ClientLimit = updated.ClientLimit;
@@ -370,7 +377,7 @@ public sealed class TunnelManager : ITunnelManager
         return true;
     }
 
-    public async Task<(bool Success, int AppliedCount, string Message)> ApplyCookiesAsync(Guid id, string rawCookiesInput)
+    public async Task<(bool Success, int AppliedCount, string Message)> ApplyCookiesAsync(Guid id, string rawCookiesInput, string? transportOverride = null)
     {
         await SyncFromDbIfEmptyAsync();
         if (!_liveTunnels.TryGetValue(id, out var tunnel))
@@ -384,7 +391,11 @@ public sealed class TunnelManager : ITunnelManager
             return (false, 0, "Не удалось распознать куки. Убедитесь, что передана строка вида 'spravka=...;' или JSON");
         }
 
-        var (success, appliedViaIpc) = await _supervisor.ApplyCookiesAsync(tunnel, cookies, tunnel.PendingCaptchaRemote);
+        var (success, appliedViaIpc) = await _supervisor.ApplyCookiesAsync(
+            tunnel,
+            cookies,
+            tunnel.PendingCaptchaRemote,
+            transportOverride ?? tunnel.PendingCaptchaTransport);
         if (!success)
         {
             return (false, 0, "Ошибка при сохранении кук");

@@ -16,7 +16,7 @@ public interface ITunnelProcessSupervisor
     bool IsRunning(Guid tunnelId);
     void StopAll();
     Task<(bool Success, bool AppliedViaIpc)> ApplyCookiesAsync(Guid tunnelId, Dictionary<string, string> cookies);
-    Task<(bool Success, bool AppliedViaIpc)> ApplyCookiesAsync(Tunnel tunnel, Dictionary<string, string> cookies, bool remote = false);
+    Task<(bool Success, bool AppliedViaIpc)> ApplyCookiesAsync(Tunnel tunnel, Dictionary<string, string> cookies, bool remote = false, string? transportOverride = null);
 }
 
 public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
@@ -271,15 +271,13 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
                 ipcClient.OnCaptchaRequired += async req =>
                 {
                     _logger.LogWarning("Tunnel {TunnelId} IPC: captcha required at {Url} (reason={Reason})", tunnel.Id, req.Url, req.Reason);
-                    // The process log can contain the exact /showcaptcha URL, while
-                    // the IPC request usually carries only the document URL. Keep
-                    // the challenge URL when it has already been captured so the
-                    // panel opens the actual verification page.
-                    if (string.IsNullOrWhiteSpace(tunnel.PendingCaptchaUrl) ||
-                        !tunnel.PendingCaptchaUrl.Contains("/showcaptcha", StringComparison.OrdinalIgnoreCase))
-                    {
-                        tunnel.PendingCaptchaUrl = req.Url;
-                    }
+                    // OpenFlux Android deliberately opens the original document
+                    // URL. The challenge redirect is short-lived and tied to the
+                    // core's redirect cookies; opening /showcaptcha directly is
+                    // what produced Yandex's 400 page in the panel.
+                    tunnel.PendingCaptchaUrl = string.IsNullOrWhiteSpace(req.Url) ? tunnel.Url : req.Url;
+                    tunnel.PendingCaptchaTransport = req.Transport;
+                    tunnel.PendingCaptchaChallengeUrl = null;
                     tunnel.PendingCaptchaReason = req.Reason;
                     tunnel.PendingCaptchaProxy = req.Proxy;
                     tunnel.PendingCaptchaRemote = req.Remote;
@@ -426,11 +424,19 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
 
         // Transport: yandex | vyandex | boards | oneme | cupsonline | mailru | direct | multi
         var transport = string.IsNullOrWhiteSpace(t.Transport) ? "yandex" : t.Transport.Trim();
+        var isMulti = transport.Equals("multi", StringComparison.OrdinalIgnoreCase) || !string.IsNullOrWhiteSpace(t.Transports);
 
-        if (transport == "multi" || !string.IsNullOrWhiteSpace(t.Transports))
+        if (isMulti)
         {
             var multi = string.IsNullOrWhiteSpace(t.Transports) ? "direct:100,yandex:50" : t.Transports.Trim();
             parts.Add($"--transports=\"{multi}\"");
+            AddOptionalArgument(parts, "--yandex-url", t.YandexUrl ?? t.Url);
+            AddOptionalArgument(parts, "--vyandex-url", t.VyandexUrl);
+            AddOptionalArgument(parts, "--boards-url", t.BoardsUrl);
+            AddOptionalArgument(parts, "--mailru-url", t.MailruUrl);
+            AddOptionalArgument(parts, "--cupsonline-url", t.CupsonlineUrl);
+            AddOptionalArgument(parts, "--oneme-token", t.OnemeToken ?? t.MaxToken);
+            AddOptionalArgument(parts, "--oneme-uid", t.OnemeUid ?? t.MaxUid);
         }
         else
         {
@@ -451,7 +457,7 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         parts.Add($"--codec={codec}");
 
         // Url (for yandex, vyandex, boards, cupsonline, mailru)
-        if (!string.IsNullOrWhiteSpace(t.Url))
+        if (!isMulti && !string.IsNullOrWhiteSpace(t.Url))
         {
             parts.Add($"--url=\"{t.Url.Trim()}\"");
         }
@@ -526,7 +532,7 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         }
 
         // Cookie store for transports that require HTTP cookies
-        var usesCookies = transport switch
+        var usesCookies = isMulti || transport switch
         {
             "yandex" or "vyandex" or "boards" or "mailru" or "cupsonline" => true,
             _ => false
@@ -536,20 +542,21 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         {
             var dataDir = AppPaths.GetDataDirectory();
             Directory.CreateDirectory(dataDir);
-            var cookiePath = Path.Combine(dataDir, $"cookies-{transport}.json");
+            var cookieStoreName = isMulti ? "session" : transport;
+            var cookiePath = Path.Combine(dataDir, $"cookies-{cookieStoreName}.json");
 
             if (!File.Exists(cookiePath))
             {
                 var seedCandidates = new[]
                 {
-                    Path.Combine(AppContext.BaseDirectory, $"cookies-{transport}.json"),
-                    Path.Combine(AppContext.BaseDirectory, "runtimes", $"cookies-{transport}.json"),
-                    Path.Combine(Directory.GetCurrentDirectory(), $"cookies-{transport}.json"),
-                    Path.Combine(Directory.GetCurrentDirectory(), "runtimes", $"cookies-{transport}.json"),
-                    Path.Combine("/opt/openflux-zen-server/data", $"cookies-{transport}.json"),
-                    Path.Combine("/opt/openflux-zen-server/runtimes", $"cookies-{transport}.json"),
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "OpenFluxZenServer", "data", $"cookies-{transport}.json"),
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "OpenFluxZenServer", "runtimes", $"cookies-{transport}.json")
+                    Path.Combine(AppContext.BaseDirectory, $"cookies-{cookieStoreName}.json"),
+                    Path.Combine(AppContext.BaseDirectory, "runtimes", $"cookies-{cookieStoreName}.json"),
+                    Path.Combine(Directory.GetCurrentDirectory(), $"cookies-{cookieStoreName}.json"),
+                    Path.Combine(Directory.GetCurrentDirectory(), "runtimes", $"cookies-{cookieStoreName}.json"),
+                    Path.Combine("/opt/openflux-zen-server/data", $"cookies-{cookieStoreName}.json"),
+                    Path.Combine("/opt/openflux-zen-server/runtimes", $"cookies-{cookieStoreName}.json"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "OpenFluxZenServer", "data", $"cookies-{cookieStoreName}.json"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "OpenFluxZenServer", "runtimes", $"cookies-{cookieStoreName}.json")
                 };
                 foreach (var seed in seedCandidates)
                 {
@@ -591,6 +598,15 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         }
 
         return string.Join(" ", parts);
+    }
+
+    private static void AddOptionalArgument(List<string> parts, string name, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            var escaped = value.Trim().Replace("\"", "\\\"");
+            parts.Add($"{name}=\"{escaped}\"");
+        }
     }
 
     private void ParseStats(TunnelState state, string line)
@@ -859,12 +875,16 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
             var captchaUrlMatch = System.Text.RegularExpressions.Regex.Match(line, @"https?://[^\s""'<>]+/showcaptcha[^\s""'<>]*", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
             if (captchaUrlMatch.Success)
             {
-                tunnel.PendingCaptchaUrl = captchaUrlMatch.Value;
-                _logger.LogInformation("Captured exact SmartCaptcha challenge URL for tunnel {Id}: {Url}", tunnel.Id, tunnel.PendingCaptchaUrl);
+                tunnel.PendingCaptchaChallengeUrl = captchaUrlMatch.Value;
+                _logger.LogInformation("Captured SmartCaptcha challenge URL for tunnel {Id}: {Url}", tunnel.Id, tunnel.PendingCaptchaChallengeUrl);
             }
-            else if (string.IsNullOrEmpty(tunnel.PendingCaptchaUrl))
+            if (string.IsNullOrEmpty(tunnel.PendingCaptchaUrl))
             {
                 tunnel.PendingCaptchaUrl = tunnel.Url;
+            }
+            if (string.IsNullOrWhiteSpace(tunnel.PendingCaptchaTransport))
+            {
+                tunnel.PendingCaptchaTransport = InferTransportFromLog(line, tunnel);
             }
 
             var changed = !string.Equals(tunnel.ErrorMessage, CaptchaErrorMessage, StringComparison.Ordinal);
@@ -903,13 +923,15 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
                  line.Contains("handshake OK", StringComparison.OrdinalIgnoreCase) ||
                  line.Contains("peer confirmed KDF context", StringComparison.OrdinalIgnoreCase))
         {
-            if (tunnel.ErrorMessage != null || tunnel.PendingCaptchaUrl != null)
+            if (tunnel.ErrorMessage != null || tunnel.PendingCaptchaUrl != null || tunnel.PendingCaptchaChallengeUrl != null)
             {
                 tunnel.ErrorMessage = null;
                 tunnel.PendingCaptchaUrl = null;
                 tunnel.PendingCaptchaReason = null;
                 tunnel.PendingCaptchaProxy = null;
                 tunnel.PendingCaptchaRemote = false;
+                tunnel.PendingCaptchaTransport = null;
+                tunnel.PendingCaptchaChallengeUrl = null;
                 Volatile.Write(ref state.CaptchaErrorReported, 0);
                 NotifyStatusChange(tunnel.Id);
             }
@@ -961,19 +983,39 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         }
 
         if (tunnel == null) return (false, false);
-        return await ApplyCookiesAsync(tunnel, cookies, tunnel.PendingCaptchaRemote);
+        return await ApplyCookiesAsync(tunnel, cookies, tunnel.PendingCaptchaRemote, tunnel.PendingCaptchaTransport);
     }
 
-    public async Task<(bool Success, bool AppliedViaIpc)> ApplyCookiesAsync(Tunnel tunnel, Dictionary<string, string> cookies, bool remote = false)
+    private static string InferTransportFromLog(string line, Tunnel tunnel)
+    {
+        var value = line.ToLowerInvariant();
+        if (value.Contains("mailru")) return "mailru";
+        if (value.Contains("cupsonline") || value.Contains("cups.online")) return "cupsonline";
+        if (value.Contains("boards")) return "boards";
+        if (value.Contains("vyandex") || value.Contains("volga")) return "vyandex";
+        if (value.Contains("oneme") || value.Contains("max")) return "oneme";
+        if (!string.Equals(tunnel.Transport, "multi", StringComparison.OrdinalIgnoreCase)) return tunnel.Transport;
+        var first = (tunnel.Transports ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault();
+        return first?.Split(':', 2)[0] ?? "yandex";
+    }
+
+    public async Task<(bool Success, bool AppliedViaIpc)> ApplyCookiesAsync(Tunnel tunnel, Dictionary<string, string> cookies, bool remote = false, string? transportOverride = null)
     {
         if (cookies == null || cookies.Count == 0 || tunnel == null) return (false, false);
 
-        string transport = string.IsNullOrWhiteSpace(tunnel.Transport) ? "yandex" : tunnel.Transport.Trim().ToLowerInvariant();
-        string docUrl = tunnel.PendingCaptchaUrl ?? "";
+        string transport = string.IsNullOrWhiteSpace(transportOverride)
+            ? (string.IsNullOrWhiteSpace(tunnel.Transport) ? "yandex" : tunnel.Transport.Trim().ToLowerInvariant())
+            : transportOverride.Trim().ToLowerInvariant();
+        if (transport == "multi") transport = "yandex";
+        string docUrl = tunnel.Url ?? tunnel.PendingCaptchaUrl ?? "";
         string altUrl = tunnel.Url ?? "";
 
         // 1. Persist to disk cookies-{transport}.json across all keys and directories
         await CookieStoreHelper.SaveCookiesToStoreFileAsync(transport, docUrl, cookies, AppContext.BaseDirectory, altUrl);
+        if (tunnel.Transport.Equals("multi", StringComparison.OrdinalIgnoreCase) || !string.IsNullOrWhiteSpace(tunnel.Transports))
+        {
+            await CookieStoreHelper.SaveCookiesToStoreFileAsync("session", docUrl, cookies, AppContext.BaseDirectory, altUrl);
+        }
         _logService.AppendLog(tunnel.Id, "system", $"[COOKIE] Сохранено {cookies.Count} кук для {transport} ({altUrl})");
 
         // 2. If IPC is active, send MsgCookiesOffer

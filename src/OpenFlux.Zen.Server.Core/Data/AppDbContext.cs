@@ -53,6 +53,13 @@ public sealed class AppDbContext : DbContext
             entity.Property(e => e.DirectDial).HasMaxLength(128);
             entity.Property(e => e.SessionContext).HasMaxLength(512);
             entity.Property(e => e.Transports).HasMaxLength(512);
+            entity.Property(e => e.YandexUrl).HasMaxLength(2048);
+            entity.Property(e => e.VyandexUrl).HasMaxLength(2048);
+            entity.Property(e => e.BoardsUrl).HasMaxLength(2048);
+            entity.Property(e => e.MailruUrl).HasMaxLength(2048);
+            entity.Property(e => e.CupsonlineUrl).HasMaxLength(2048);
+            entity.Property(e => e.OnemeToken).HasMaxLength(4096);
+            entity.Property(e => e.OnemeUid).HasMaxLength(256);
             entity.Property(e => e.YandexCookiesFile).HasMaxLength(512);
             entity.HasIndex(e => e.Name);
             entity.HasIndex(e => e.IsEnabled);
