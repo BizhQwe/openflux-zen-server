@@ -399,12 +399,228 @@ function showTunnelConnect(id) {
   openQrModal(tItem.shareLink, tItem.name);
 }
 
+function selectTransport(transportName) {
+  const select = document.getElementById('tunnel-transport');
+  if (select) {
+    select.value = transportName;
+    onTransportChange();
+  }
+}
+
+function updateTransportGuideBox(transport) {
+  const box = document.getElementById('transport-guide-box');
+  if (!box) return;
+
+  const isEn = (typeof currentLanguage !== 'undefined' && currentLanguage === 'en');
+
+  let title = '';
+  let steps = [];
+  let alerts = [];
+
+  switch (transport) {
+    case 'mailru':
+      title = isEn ? 'Instructions for Mail.ru Docs (Recommended)' : 'Инструкция для Mail.ru Docs (Рекомендуется)';
+      steps = isEn ? [
+        'Open <a href="https://cloud.mail.ru" target="_blank" rel="noopener">Cloud Mail.ru (cloud.mail.ru)</a> and click <strong>"Create" → "Spreadsheet"</strong> (or Document).',
+        'Click the <strong>"Share link"</strong> button in the top right and set access permissions to <strong>"Editing"</strong> (or "Anyone with the link can edit").',
+        'Copy the public link starting with <code>https://cloud.mail.ru/public/...</code> and paste it into the Document URL field below.'
+      ] : [
+        'Откройте <a href="https://cloud.mail.ru" target="_blank" rel="noopener">Облако Mail.ru (cloud.mail.ru)</a> и нажмите <strong>«Создать» → «Таблицу»</strong> (или Документ).',
+        'В правом верхнем углу нажмите кнопку <strong>«Поделиться ссылкой»</strong> и выберите права <strong>«Редактирование»</strong> (доступ на редактирование по ссылке).',
+        'Скопируйте ссылку вида <code>https://cloud.mail.ru/public/...</code> и вставьте её в поле «URL документа» ниже.'
+      ];
+      alerts.push({
+        type: 'tip',
+        text: isEn 
+          ? '🛡️ <strong>Why Mail.ru?</strong> Highly reliable cloud transport in Russia. No Yandex SmartCaptcha, no browser checks, fast WebSocket connection.'
+          : '🛡️ <strong>Преимущество Mail.ru:</strong> Самый надёжный облачный транспорт в РФ. Работает без SmartCaptcha от Яндекса, без проверок ботов и со стабильным соединением.'
+      });
+      break;
+
+    case 'direct':
+      title = isEn ? 'Instructions for Direct TCP Connection' : 'Инструкция для прямого TCP подключения (Direct)';
+      steps = isEn ? [
+        'Specify the exit node listening port below (default: <code>0.0.0.0:8445</code>).',
+        'Ensure this port is allowed in your server firewall and forwarded on your router (Port Forwarding), if your server is behind NAT.',
+        'The "Public Host / IP" field can be left blank — OpenFlux will automatically detect your public IP when creating client connection links.'
+      ] : [
+        'Укажите порт прослушивания exit-сервера ниже (по умолчанию <code>0.0.0.0:8445</code>).',
+        'Убедитесь, что этот порт открыт в брандмауэре (firewall) сервера и проброшен на роутере (Port Forwarding), если сервер находится за NAT.',
+        'Поле «Внешний хост / IP» можно оставить пустым: OpenFlux определит публичный IP автоматически при генерации ссылки для клиента.'
+      ];
+      alerts.push({
+        type: 'tip',
+        text: isEn
+          ? '⚡ <strong>Direct Speed:</strong> Ultra-fast raw TCP stream without third-party services. Lowest latency and highest throughput (1 Gbps+).'
+          : '⚡ <strong>Преимущество Direct:</strong> Максимальная скорость передачи (до 1 Гбит/с+) и минимальный пинг напрямую без сторонних облачных посредников.'
+      });
+      break;
+
+    case 'cupsonline':
+      title = isEn ? 'Instructions for Cups.online (Centrifugo Rooms)' : 'Инструкция для Cups.online (Centrifugo комнаты)';
+      steps = isEn ? [
+        '<strong>Zero setup required!</strong> Leave the URL field <strong>empty</strong>: OpenFlux automatically generates 4 collaborative rooms upon startup.',
+        'If you already have existing room IDs or a base64 room list from another session, you may optionally paste it below.'
+      ] : [
+        '<strong>Настройка не требуется!</strong> Оставьте поле URL <strong>пустым</strong>: OpenFlux сам автоматически создаст 4 комнаты при старте туннеля.',
+        'Если у вас уже есть ссылка на комнату или base64-список комнат, можете при желании указать его в поле ниже.'
+      ];
+      alerts.push({
+        type: 'info',
+        text: isEn
+          ? 'ℹ️ Completely autonomous cloud transport. No registration, no cloud storage, and no files needed.'
+          : 'ℹ️ Полностью автономный транспорт. Не требует создания аккаунтов, файлов или облачных дисков.'
+      });
+      break;
+
+    case 'yandex':
+      title = isEn ? 'Instructions for Yandex Docs (Excel Spreadsheet)' : 'Инструкция для Yandex Docs (Таблица Excel)';
+      steps = isEn ? [
+        'Open <a href="https://disk.yandex.ru" target="_blank" rel="noopener">Yandex Disk (disk.yandex.ru)</a> and click <strong>"Create" → "Spreadsheet"</strong> (Excel).',
+        'In the spreadsheet, click <strong>"Share"</strong> (top right) and select <strong>"Anyone with the link can edit"</strong> (read-only links will not work!).',
+        'Copy the link starting with <code>https://disk.yandex.ru/i/...</code> and paste it into the Document URL field below.'
+      ] : [
+        'Откройте <a href="https://disk.yandex.ru" target="_blank" rel="noopener">Яндекс Диск (disk.yandex.ru)</a> и нажмите <strong>«Создать» → «Таблицу»</strong> (Excel).',
+        'В открывшейся таблице нажмите кнопку <strong>«Поделиться»</strong> (вверху справа) и обязательно переключите доступ на <strong>«Редактирование для всех по ссылке»</strong> (ссылка только на просмотр работать не будет!).',
+        'Скопируйте ссылку вида <code>https://disk.yandex.ru/i/...</code> и вставьте в поле URL ниже.'
+      ];
+      alerts.push({
+        type: 'warn',
+        text: isEn
+          ? '⚠️ <strong>CRITICAL: Excel Spreadsheets (.xlsx) ONLY!</strong> Word documents (.docx) are NOT supported by the OpenFlux tunneling protocol.'
+          : '⚠️ <strong>ВАЖНО: Только Таблица Excel (.xlsx)!</strong> Текстовые документы Word (.docx) не поддерживаются протоколом OpenFlux.'
+      });
+      alerts.push({
+        type: 'info',
+        text: isEn
+          ? '🔒 <strong>Why Yandex file cannot be deleted immediately:</strong> While a tunnel is running or open in a browser tab, Yandex OnlyOffice locks the file for co-editing. To delete the file, stop the tunnel, close all browser tabs with the sheet, and wait 5–10 minutes for Yandex\'s session lock to expire.'
+          : '🔒 <strong>Почему файл не удаляется на Яндекс Диске сразу:</strong> Пока туннель запущен или таблица открыта во вкладке браузера, сервер OnlyOffice держит активную сессию соавторства и блокирует удаление файла. Чтобы удалить файл, остановите туннель, закройте вкладки с таблицей и подождите 5–10 минут (таймаут сессии Яндекс).'
+      });
+      break;
+
+    case 'vyandex':
+      title = isEn ? 'Instructions for Yandex Volga' : 'Инструкция для Yandex Volga';
+      steps = isEn ? [
+        'Create an Excel Spreadsheet (.xlsx) on <a href="https://disk.yandex.ru" target="_blank" rel="noopener">Yandex Disk</a> with public editing permissions.',
+        'Paste the document link <code>https://disk.yandex.ru/i/...</code> into the field below.'
+      ] : [
+        'Создайте Таблицу Excel (.xlsx) на <a href="https://disk.yandex.ru" target="_blank" rel="noopener">Яндекс Диске</a> с правами «Редактирование для всех по ссылке».',
+        'Вставьте ссылку вида <code>https://disk.yandex.ru/i/...</code> в поле ниже.'
+      ];
+      alerts.push({
+        type: 'warn',
+        text: isEn ? '⚠️ Only Excel Spreadsheets (.xlsx) are supported.' : '⚠️ Поддерживаются только Таблицы Excel (.xlsx).'
+      });
+      break;
+
+    case 'boards':
+      title = isEn ? 'Instructions for Yandex Boards' : 'Инструкция для Yandex Boards';
+      steps = isEn ? [
+        'Open <a href="https://boards.yandex.ru" target="_blank" rel="noopener">boards.yandex.ru</a>, sign in, and create a new whiteboard.',
+        'Click "Share", enable public link access, and copy the link <code>https://boards.yandex.ru/p/...</code>.',
+        'Paste the board link into the field below.'
+      ] : [
+        'Откройте <a href="https://boards.yandex.ru" target="_blank" rel="noopener">boards.yandex.ru</a>, войдите в Яндекс и создайте новую доску.',
+        'Нажмите «Поделиться», включите доступ по ссылке и скопируйте ссылку вида <code>https://boards.yandex.ru/p/...</code>.',
+        'Вставьте ссылку на доску в поле ниже.'
+      ];
+      break;
+
+    case 'oneme':
+      title = isEn ? 'Instructions for MAX / OneMe (WebRTC)' : 'Инструкция для MAX / OneMe (WebRTC)';
+      steps = isEn ? [
+        'Obtain your authorization token and User ID from the MAX platform client.',
+        'Enter the MAX Token and MAX User ID into the fields below.'
+      ] : [
+        'Получите токен авторизации и ID пользователя в приложении платформы MAX.',
+        'Укажите полученные MAX Token и MAX User ID в полях ниже.'
+      ];
+      break;
+
+    case 'multi':
+      title = isEn ? 'Instructions for Multi-Transport Session' : 'Инструкция для мульти-транспортной сессии';
+      steps = isEn ? [
+        'Multi-transport combines multiple carriers (e.g. Direct + Mail.ru) into a single resilient connection.',
+        'Set priorities for each transport below (e.g. Direct = 100, Mail.ru = 50). Traffic is dynamically routed through the highest priority active link.'
+      ] : [
+        'Мульти-сессия объединяет несколько транспортов (например: Direct + Mail.ru) в одну надёжную сессию с автопереключением.',
+        'Задайте приоритеты каждому транспорту ниже (например: Direct = 100, Mail.ru = 50). Трафик пойдёт по каналу с наивысшим приоритетом.'
+      ];
+      alerts.push({
+        type: 'tip',
+        text: isEn
+          ? '🛡️ <strong>Recommended Setup:</strong> Direct (priority 100) + Mail.ru (priority 50). Provides maximum local speed with transparent cloud fallback!'
+          : '🛡️ <strong>Рекомендуемая связка:</strong> Direct (приоритет 100) + Mail.ru (приоритет 50). Мгновенная скорость дома и надёжный облачный резерв!'
+      });
+      break;
+  }
+
+  let html = `<div class="guide-header">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent); flex-shrink: 0;"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+    <div class="guide-title">${escapeHtml(title)}</div>
+  </div>`;
+
+  if (steps && steps.length > 0) {
+    html += `<div class="guide-steps">`;
+    steps.forEach((st, idx) => {
+      html += `<div class="guide-step"><span class="guide-step-num">${idx + 1}</span><div>${st}</div></div>`;
+    });
+    html += `</div>`;
+  }
+
+  alerts.forEach(al => {
+    const alertClass = al.type === 'warn' ? 'guide-alert-warn' : al.type === 'tip' ? 'guide-alert-tip' : 'guide-alert-info';
+    html += `<div class="guide-alert ${alertClass}">${al.text}</div>`;
+  });
+
+  box.innerHTML = html;
+}
+
+function validateTunnelUrlInput() {
+  const transport = document.getElementById('tunnel-transport')?.value;
+  const urlInput = document.getElementById('tunnel-url');
+  const warnBox = document.getElementById('tunnel-url-warning');
+  if (!urlInput || !warnBox) return;
+
+  const urlVal = (urlInput.value || '').trim();
+  if (!urlVal) {
+    warnBox.style.display = 'none';
+    warnBox.textContent = '';
+    return;
+  }
+
+  const lower = urlVal.toLowerCase();
+  const isEn = (typeof currentLanguage !== 'undefined' && currentLanguage === 'en');
+
+  if (transport === 'yandex' || transport === 'vyandex') {
+    if (lower.includes('.docx') || lower.includes('word') || lower.includes('document')) {
+      warnBox.style.display = 'flex';
+      warnBox.innerHTML = `<span>⚠️</span><span>${isEn ? 'Warning! You specified a Word document (.docx). OpenFlux ONLY supports Excel spreadsheets (.xlsx)! Please create a Spreadsheet on Yandex Disk.' : 'Внимание! Вы указали текстовый документ Word (.docx). OpenFlux поддерживает ТОЛЬКО Таблицы Excel (.xlsx)! Создайте Таблицу на Яндекс Диске.'}</span>`;
+      return;
+    }
+    if (lower.includes('/view') || lower.includes('docview')) {
+      warnBox.style.display = 'flex';
+      warnBox.innerHTML = `<span>⚠️</span><span>${isEn ? 'Warning! Link appears to be view-only. Make sure you set "Anyone with the link can edit" in Yandex Disk!' : 'Внимание! Ссылка похожа на режим просмотра. Убедитесь, что в Яндекс Диске включено «Редактирование для всех по ссылке»!'}</span>`;
+      return;
+    }
+  } else if (transport === 'mailru') {
+    if (lower.includes('.docx') || lower.includes('word')) {
+      warnBox.style.display = 'flex';
+      warnBox.innerHTML = `<span>⚠️</span><span>${isEn ? 'Tip: An Excel Spreadsheet (.xlsx) is recommended for best compatibility in Cloud Mail.ru.' : 'Совет: Для максимальной совместимости в Облаке Mail.ru рекомендуется использовать Таблицу (.xlsx) с правами редактирования.'}</span>`;
+      return;
+    }
+  }
+
+  warnBox.style.display = 'none';
+  warnBox.textContent = '';
+}
+
 function openTunnelModal(tunnel = null) {
   document.getElementById('tunnel-id').value = tunnel ? tunnel.id : '';
   document.getElementById('tunnel-modal-title').textContent = tunnel ? t('modal_edit_tunnel') : t('modal_new_tunnel');
   document.getElementById('tunnel-name').value = tunnel ? tunnel.name : 'Tunnel-' + Math.floor(Math.random() * 1000);
   document.getElementById('tunnel-role').value = 'exit';
-  document.getElementById('tunnel-transport').value = tunnel ? tunnel.transport : 'yandex';
+  document.getElementById('tunnel-transport').value = tunnel ? tunnel.transport : 'mailru';
   document.getElementById('tunnel-mode').value = tunnel ? (tunnel.mode || 'l4') : 'l4';
   document.getElementById('tunnel-local-ip').value = tunnel ? (tunnel.localIp || '') : '';
   document.getElementById('tunnel-url').value = tunnel ? (tunnel.url || '') : '';
@@ -423,8 +639,15 @@ function openTunnelModal(tunnel = null) {
   document.getElementById('tunnel-traffic-limit').value = tunnel && tunnel.trafficLimitBytes > 0 ? Math.round(tunnel.trafficLimitBytes / (1024 * 1024)) : 0;
   document.getElementById('tunnel-extra-args').value = tunnel ? (tunnel.extraArgs || '--debug') : '--debug';
 
+  const urlInput = document.getElementById('tunnel-url');
+  if (urlInput && !urlInput._boundValidate) {
+    urlInput.addEventListener('input', validateTunnelUrlInput);
+    urlInput._boundValidate = true;
+  }
+
   renderMultiTransportRows(tunnel);
   onTransportChange();
+  validateTunnelUrlInput();
   document.getElementById('tunnel-modal').classList.add('open');
 }
 
@@ -439,8 +662,21 @@ function editTunnel(id) {
 
 function onTransportChange() {
   const transport = document.getElementById('tunnel-transport').value;
+
+  // Sync transport cards active state
+  document.querySelectorAll('#transport-cards-grid .transport-card').forEach(card => {
+    if (card.getAttribute('data-transport') === transport) {
+      card.classList.add('active');
+    } else {
+      card.classList.remove('active');
+    }
+  });
+
+  // Render guide box
+  updateTransportGuideBox(transport);
+
   document.getElementById('group-oneme').style.display = transport === 'oneme' ? 'grid' : 'none';
-  // The exit listener is shared by a multi session.  Keep it visible there;
+  // The exit listener is shared by a multi session. Keep it visible there;
   // the Direct card itself only describes that it uses this listener.
   const hasMultiDirect = transport === 'multi' && Array.from(document.querySelectorAll('.multi-transport-type')).some(select => select.value === 'direct');
   document.getElementById('group-direct').style.display = (transport === 'direct' || hasMultiDirect) ? 'grid' : 'none';
@@ -473,6 +709,8 @@ function onTransportChange() {
     urlLabel.textContent = 'URL документа (--url)';
     urlInput.placeholder = 'https://disk.yandex.ru/i/...';
   }
+
+  validateTunnelUrlInput();
 }
 
 const MULTI_TRANSPORT_TYPES = [
@@ -639,6 +877,20 @@ async function saveTunnel() {
   const multiSecondary = (type) => multiRows.find(row => row.type === type)?.secondary || null;
   const multiHas = (type) => multiRows.some(row => row.type === type);
   const urlInput = document.getElementById('tunnel-url').value.trim();
+
+  // Validate document URL requirements
+  if (['yandex', 'mailru', 'vyandex', 'boards'].includes(selectedTransport) && !urlInput) {
+    toast(currentLanguage === 'en' ? 'Please provide the document/board URL' : 'Пожалуйста, укажите ссылку на документ или доску', 'warning');
+    return;
+  }
+  if (selectedTransport === 'yandex' || selectedTransport === 'vyandex') {
+    const urlLower = urlInput.toLowerCase();
+    if (urlLower.includes('.docx') || urlLower.includes('word') || urlLower.includes('document')) {
+      toast(t('url_warn_docx') || 'Для Yandex Docs требуется Таблица Excel (.xlsx), Word не поддерживается!', 'warning');
+      return;
+    }
+  }
+
   const savedUrlForTransport = selectedTransport === 'yandex' ? existing?.yandexUrl
     : selectedTransport === 'vyandex' ? existing?.vyandexUrl
       : selectedTransport === 'boards' ? existing?.boardsUrl

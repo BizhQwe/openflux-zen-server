@@ -114,6 +114,21 @@ const I18N_DICTIONARY = {
     modal_edit_tunnel: "Редактирование туннеля",
     modal_tunnel_name: "Название туннеля",
     modal_tunnel_transport: "Транспорт (Transport)",
+    modal_tunnel_transport_select: "Выберите транспорт туннеля",
+    modal_transport_desc: "Транспорт определяет протокол передачи данных. Рекомендуется Mail.ru (без капчи) или Direct (максимальная скорость).",
+    badge_recommended: "Рекомендуется",
+    badge_no_captcha: "Без капчи",
+    badge_fastest: "Макс. скорость",
+    badge_direct_tcp: "Прямой TCP",
+    badge_auto_setup: "Авто-комнаты",
+    badge_only_xlsx: "Только .xlsx",
+    badge_multi: "Мульти-сессия",
+    badge_relay: "Volga Relay",
+    mode_l4_label: "l4 — Потоковый прокси gVisor (Рекомендуется: Windows, macOS, Linux, за NAT)",
+    mode_l3_label: "l3 — Прямая маршрутизация SNAT/DNAT (Требует Linux и права root)",
+    mode_hint: "Режим L4 работает в пользовательском пространстве без root-прав на любых ОС. L3 используется только опытными администраторами на выделенных серверах Linux.",
+    url_warn_docx: "Внимание! Вы указали текстовый документ Word (.docx). OpenFlux поддерживает ТОЛЬКО Таблицы Excel (.xlsx)! Создайте Таблицу на Яндекс Диске.",
+    url_warn_view: "Внимание! Ссылка похожа на режим просмотра. Убедитесь, что документу выданы права «Редактирование для всех по ссылке»!",
     modal_tunnel_mode: "Режим выхода (Mode)",
     modal_tunnel_url: "URL документа (--url)",
     modal_tunnel_codec: "Кодек (Codec)",
@@ -150,7 +165,7 @@ const I18N_DICTIONARY = {
     modal_tunnel_error_title: "Ошибка соединения",
     modal_tunnel_error_desc: "Обнаружена проблема связи: возможно, документ заблокирован капчей (SmartCaptcha) от Яндекса, либо документ просто недоступен (закрыт или удалён).",
     modal_tunnel_error_recs: "Рекомендации для решения:",
-    modal_tunnel_error_rec1: "Создайте новый публичный документ (Word или Excel) на Яндекс Диске и укажите новую ссылку в настройках туннеля.",
+    modal_tunnel_error_rec1: "Создайте новую публичную Таблицу Excel (.xlsx) на Яндекс Диске (Word не поддерживается) с доступом «Редактирование для всех» и укажите ссылку в настройках.",
     modal_tunnel_error_rec2: "Или переключитесь на прямое подключение Direct либо транспорт Mail.ru.",
     modal_captcha_title: "Решение капчи (Yandex)",
     btn_solve_captcha: "Пройти капчу",
@@ -352,6 +367,21 @@ const I18N_DICTIONARY = {
     modal_edit_tunnel: "Edit Tunnel",
     modal_tunnel_name: "Tunnel Name",
     modal_tunnel_transport: "Transport",
+    modal_tunnel_transport_select: "Select Tunnel Transport",
+    modal_transport_desc: "Transport determines how tunnel traffic is routed. Mail.ru (no captcha) or Direct (max speed) is recommended.",
+    badge_recommended: "Recommended",
+    badge_no_captcha: "No Captcha",
+    badge_fastest: "Max Speed",
+    badge_direct_tcp: "Direct TCP",
+    badge_auto_setup: "Auto Rooms",
+    badge_only_xlsx: "Only .xlsx",
+    badge_multi: "Multi-Session",
+    badge_relay: "Volga Relay",
+    mode_l4_label: "l4 — gVisor Stream Proxy (Recommended: Windows, macOS, Linux, behind NAT)",
+    mode_l3_label: "l3 — Direct SNAT/DNAT Routing (Requires Linux root)",
+    mode_hint: "L4 mode runs in user-space without root on any OS. L3 is only for advanced administrators on Linux servers.",
+    url_warn_docx: "Warning! You provided a Word document (.docx). OpenFlux ONLY supports Excel spreadsheets (.xlsx)! Please create a Spreadsheet on Yandex Disk.",
+    url_warn_view: "Warning! Link looks like view-only. Make sure the document has public edit permissions enabled!",
     modal_tunnel_mode: "Egress Mode",
     modal_tunnel_url: "Document URL (--url)",
     modal_tunnel_codec: "Codec",
@@ -388,7 +418,7 @@ const I18N_DICTIONARY = {
     modal_tunnel_error_title: "Connection Error",
     modal_tunnel_error_desc: "Connection issue detected: the document may be blocked by Yandex SmartCaptcha, or the document is simply inaccessible (closed or deleted).",
     modal_tunnel_error_recs: "Recommendations to resolve:",
-    modal_tunnel_error_rec1: "Create a new public document (Word or Excel) on Yandex Disk and specify the new URL in tunnel settings.",
+    modal_tunnel_error_rec1: "Create a new public Excel spreadsheet (.xlsx) on Yandex Disk (Word is not supported) with public edit permissions and update the link.",
     modal_tunnel_error_rec2: "Or switch to a Direct connection or Mail.ru transport.",
     modal_captcha_title: "Captcha Solver (Yandex)",
     btn_solve_captcha: "Solve Captcha",
@@ -548,6 +578,11 @@ function setLanguage(lang, syncServer = true) {
   // Re-render core version info if loaded
   if (typeof renderCoreVersionInfo === 'function' && typeof coreInfoCache !== 'undefined' && coreInfoCache) {
     renderCoreVersionInfo(coreInfoCache);
+  }
+
+  // Re-render transport guide box if tunnel modal is open
+  if (typeof onTransportChange === 'function' && document.getElementById('tunnel-modal')?.classList.contains('open')) {
+    onTransportChange();
   }
 
   // Sync to server settings if requested and authed

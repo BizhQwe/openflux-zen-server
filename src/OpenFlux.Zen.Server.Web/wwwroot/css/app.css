@@ -657,6 +657,208 @@
       .multi-transport-row-fields { grid-template-columns: 1fr; }
     }
 
+    /* Transport Card Selector */
+    .transport-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .transport-card {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 10px;
+      padding: 12px 14px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      position: relative;
+      user-select: none;
+    }
+    .transport-card:hover {
+      border-color: #3b82f6;
+      background: #131f38;
+      transform: translateY(-1px);
+    }
+    .transport-card.active {
+      border-color: #3b82f6;
+      background: rgba(59, 130, 246, 0.12);
+      box-shadow: 0 0 0 1px #3b82f6, 0 4px 12px rgba(59, 130, 246, 0.2);
+    }
+    .transport-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 6px;
+    }
+    .transport-card-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .transport-icon-mailru { background: rgba(0, 119, 255, 0.15); color: #38bdf8; }
+    .transport-icon-direct { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+    .transport-icon-cups { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+    .transport-icon-yandex { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+    .transport-icon-vyandex { background: rgba(249, 115, 22, 0.15); color: #fb923c; }
+    .transport-icon-boards { background: rgba(168, 85, 247, 0.15); color: #c084fc; }
+    .transport-icon-oneme { background: rgba(14, 165, 233, 0.15); color: #38bdf8; }
+    .transport-icon-multi { background: rgba(236, 72, 153, 0.15); color: #f472b6; }
+
+    .transport-card-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      justify-content: flex-end;
+    }
+    .badge-sub-pill {
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 9999px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+    .badge-sub-pill.badge-rec {
+      background: rgba(16, 185, 129, 0.2);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.35);
+    }
+    .badge-sub-pill.badge-green {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+    }
+    .badge-sub-pill.badge-blue {
+      background: rgba(59, 130, 246, 0.15);
+      color: #60a5fa;
+    }
+    .badge-sub-pill.badge-yellow {
+      background: rgba(245, 158, 11, 0.15);
+      color: #fbbf24;
+    }
+    .badge-sub-pill.badge-purple {
+      background: rgba(168, 85, 247, 0.15);
+      color: #c084fc;
+    }
+    .badge-sub-pill.badge-gray {
+      background: rgba(148, 163, 184, 0.15);
+      color: #94a3b8;
+    }
+    .transport-card-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #f8fafc;
+      margin-top: 2px;
+    }
+    .transport-card-desc {
+      font-size: 0.76rem;
+      color: var(--text-dim);
+      line-height: 1.35;
+    }
+
+    /* Transport Guide Box */
+    .transport-guide-box {
+      background: #0d1527;
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      border-left: 4px solid var(--accent);
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 20px;
+    }
+    .guide-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .guide-title {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: #93c5fd;
+    }
+    .guide-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .guide-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 0.84rem;
+      color: #cbd5e1;
+      line-height: 1.45;
+    }
+    .guide-step-num {
+      background: rgba(59, 130, 246, 0.2);
+      color: #93c5fd;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.72rem;
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .guide-step a {
+      color: #60a5fa;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .guide-step a:hover {
+      color: #93c5fd;
+    }
+    .guide-alert {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      line-height: 1.4;
+      margin-top: 8px;
+    }
+    .guide-alert-warn {
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      color: #fde68a;
+    }
+    .guide-alert-tip {
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #a7f3d0;
+    }
+    .guide-alert-info {
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.25);
+      color: #bfdbfe;
+    }
+    .url-warning-alert {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #fca5a5;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      line-height: 1.4;
+      margin-top: 6px;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
     /* Modal */
     .modal-overlay {
       position: fixed;
@@ -680,7 +882,7 @@
       border: 1px solid var(--card-border);
       border-radius: 16px;
       width: 100%;
-      max-width: 650px;
+      max-width: 760px;
       max-height: 90vh;
       max-height: min(900px, calc(100dvh - 40px));
       display: flex;
