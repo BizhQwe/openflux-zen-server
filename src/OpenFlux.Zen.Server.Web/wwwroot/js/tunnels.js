@@ -107,6 +107,7 @@ function isBrowserCheckRequired(tItem) {
   // requests. Show the action only while a live challenge URL exists and its
   // reason explicitly identifies a human check. Error text is never a signal:
   // old panel versions reused it for ordinary document/network failures.
+  if (tItem.pendingCaptchaChallengeUrl) return true;
   if (!tItem.pendingCaptchaUrl) return false;
   const reason = String(tItem.pendingCaptchaReason || '').toLowerCase();
   return reason.includes('captcha') || reason.includes('smartcaptcha') ||
@@ -117,6 +118,8 @@ function isBrowserCheckRequired(tItem) {
 }
 
 function isCaptchaRequired(tItem) {
+  if (!tItem) return false;
+  if (tItem.pendingCaptchaChallengeUrl) return true;
   if (!isBrowserCheckRequired(tItem)) return false;
   const reason = String(tItem.pendingCaptchaReason || '').toLowerCase();
   return reason.includes('captcha') || reason.includes('smartcaptcha') ||

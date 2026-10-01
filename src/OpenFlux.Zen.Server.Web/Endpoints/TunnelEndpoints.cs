@@ -86,13 +86,9 @@ public static class TunnelEndpoints
 
             var hasPending = TunnelChallengeState.HasPendingCaptcha(tunnel);
             var hasPendingAuth = TunnelChallengeState.HasPendingAuth(tunnel);
-            // Always start from the document URL. OpenFlux Android does the
-            // same: /showcaptcha URLs are one-use redirect targets and return
-            // Yandex 400 when opened without the core's redirect cookie jar.
-            var targetUrl = !string.IsNullOrWhiteSpace(tunnel.PendingCaptchaUrl) &&
-                            !tunnel.PendingCaptchaUrl.Contains("/showcaptcha", StringComparison.OrdinalIgnoreCase)
-                ? tunnel.PendingCaptchaUrl
-                : tunnel.Url;
+            var targetUrl = !string.IsNullOrWhiteSpace(tunnel.PendingCaptchaChallengeUrl)
+                ? tunnel.PendingCaptchaChallengeUrl
+                : (!string.IsNullOrWhiteSpace(tunnel.PendingCaptchaUrl) ? tunnel.PendingCaptchaUrl : tunnel.Url);
 
             // If requested directly from browser (or with ?redirect=true), redirect directly to Yandex Disk!
             var accept = context.Request.Headers.Accept.ToString();
@@ -128,10 +124,9 @@ public static class TunnelEndpoints
                 return Results.Conflict(new { error = "OpenFlux ещё не запросил проверку или вход для этого туннеля." });
             }
 
-            var targetUrl = !string.IsNullOrWhiteSpace(tunnel.PendingCaptchaUrl) &&
-                            !tunnel.PendingCaptchaUrl.Contains("/showcaptcha", StringComparison.OrdinalIgnoreCase)
-                ? tunnel.PendingCaptchaUrl
-                : tunnel.Url;
+            var targetUrl = !string.IsNullOrWhiteSpace(tunnel.PendingCaptchaChallengeUrl)
+                ? tunnel.PendingCaptchaChallengeUrl
+                : (!string.IsNullOrWhiteSpace(tunnel.PendingCaptchaUrl) ? tunnel.PendingCaptchaUrl : tunnel.Url);
 
             if (string.IsNullOrWhiteSpace(targetUrl))
             {
@@ -203,6 +198,10 @@ public static class TunnelEndpoints
             }
 
             var token = SecretPathMiddleware.ExtractToken(context);
+            if (!ContainsCaptchaChallenge(html) && !TunnelChallengeState.HasPendingAuth(tunnel))
+            {
+                return Results.Content(GetNoCaptchaDetectedHtml(), "text/html; charset=utf-8");
+            }
             return RenderCaptchaHtml(html, originHost, id, context, token, requestedTransport);
         });
 
@@ -578,6 +577,19 @@ body {{ background:#0f172a; color:#f87171; font-family:-apple-system,BlinkMacSys
 .card {{ background:#1e293b; border:1px solid #334155; border-radius:14px; padding:28px; max-width:480px; }}
 p {{ color:#cbd5e1; line-height:1.5; }}
 </style></head><body><div class='card'><h3>Не удалось применить проверку</h3><p>{WebUtility.HtmlEncode(message)}</p></div></body></html>";
+
+    private static string GetNoCaptchaDetectedHtml() => @"<!DOCTYPE html>
+<html><head><meta charset='utf-8'><style>
+body { background:#0f172a; color:#f87171; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0; padding:24px; text-align:center; }
+.card { background:#1e293b; border:1px solid #334155; border-radius:14px; padding:28px; max-width:480px; box-shadow:0 10px 25px rgba(0,0,0,0.5); }
+h3 { color:#f87171; margin-top:0; font-size:1.2rem; }
+p { color:#cbd5e1; line-height:1.5; font-size:14px; }
+.hint { color:#94a3b8; font-size:13px; margin-top:14px; padding:10px; background:#0f172a; border-radius:8px; border:1px solid #334155; }
+</style></head><body><div class='card'>
+<h3>Капча не обнаружена</h3>
+<p>Сервис не вернул защитную форму («Я не робот»). Ответ страницы не содержит капчи.</p>
+<div class='hint'>Для туннелей Yandex ссылка должна вести на открытый редактируемый документ (Excel или Word на Яндекс Диске с правами «Доступно всем по ссылке»).</div>
+</div></body></html>";
 
     private static IResult RenderCaptchaHtml(string html, string originHost, Guid id, HttpContext context, string? token, string? transport)
     {

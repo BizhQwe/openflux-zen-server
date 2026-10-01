@@ -29,8 +29,9 @@ public static class TunnelChallengeState
     }
 
     public static bool HasPendingCaptcha(Tunnel tunnel) =>
-        tunnel != null && !string.IsNullOrWhiteSpace(tunnel.PendingCaptchaUrl) &&
-        IsCaptchaReason(tunnel.PendingCaptchaReason);
+        tunnel != null &&
+        (!string.IsNullOrWhiteSpace(tunnel.PendingCaptchaChallengeUrl) ||
+         (!string.IsNullOrWhiteSpace(tunnel.PendingCaptchaUrl) && IsCaptchaReason(tunnel.PendingCaptchaReason)));
 
     public static bool HasPendingAuth(Tunnel tunnel) =>
         tunnel != null && !string.IsNullOrWhiteSpace(tunnel.PendingCaptchaUrl) &&
