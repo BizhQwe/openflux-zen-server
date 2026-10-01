@@ -85,8 +85,8 @@ function updateTunnelsInPlace(list) {
 
     const captchaActionEl = document.getElementById('tunnel-captcha-action-' + tItem.id);
     if (captchaActionEl) {
-      const needCaptcha = isCaptchaRequired(tItem);
-      const expectedCaptchaHtml = needCaptcha ? renderCaptchaActionBtn(tItem.id) : '';
+      const needBrowserCheck = isBrowserCheckRequired(tItem);
+      const expectedCaptchaHtml = needBrowserCheck ? renderCaptchaActionBtn(tItem.id, tItem.pendingCaptchaReason) : '';
       if (captchaActionEl.innerHTML !== expectedCaptchaHtml) {
         captchaActionEl.innerHTML = expectedCaptchaHtml;
       }
@@ -101,15 +101,36 @@ function updateTunnelsInPlace(list) {
   }
 }
 
-function isCaptchaRequired(tItem) {
+function isBrowserCheckRequired(tItem) {
   if (!tItem) return false;
-  if (tItem.pendingCaptchaUrl || tItem.pendingCaptchaReason) return true;
-  const msg = (tItem.errorMessage || '').toLowerCase();
-  return msg.includes('капч') || msg.includes('captcha') || msg.includes('smartcaptcha');
+  // The core uses the same IPC message for captcha, login and generic cookie
+  // requests. Show the action only while a live challenge URL exists and its
+  // reason explicitly identifies a human check. Error text is never a signal:
+  // old panel versions reused it for ordinary document/network failures.
+  if (!tItem.pendingCaptchaUrl) return false;
+  const reason = String(tItem.pendingCaptchaReason || '').toLowerCase();
+  return reason.includes('captcha') || reason.includes('smartcaptcha') ||
+    reason.includes('showcaptcha') || reason.includes('anti-bot') ||
+    reason.includes('antibot') || reason.includes('human') ||
+    reason.includes('login') || reason.includes('auth') ||
+    reason.includes('account') || reason.includes('private');
 }
 
-function renderCaptchaActionBtn(tunnelId) {
-  const label = t('btn_solve_captcha') || 'Пройти капчу';
+function isCaptchaRequired(tItem) {
+  if (!isBrowserCheckRequired(tItem)) return false;
+  const reason = String(tItem.pendingCaptchaReason || '').toLowerCase();
+  return reason.includes('captcha') || reason.includes('smartcaptcha') ||
+    reason.includes('showcaptcha') || reason.includes('anti-bot') ||
+    reason.includes('antibot') || reason.includes('human');
+}
+
+function renderCaptchaActionBtn(tunnelId, reason = '') {
+  const normalized = String(reason || '').toLowerCase();
+  const isLogin = normalized.includes('login') || normalized.includes('auth') ||
+    normalized.includes('account') || normalized.includes('private');
+  const label = isLogin
+    ? (currentLanguage === 'en' ? 'Open sign-in' : 'Открыть вход')
+    : (t('btn_solve_captcha') || 'Пройти капчу');
   return `<button class="btn btn-warning btn-sm" onclick="openCaptchaSolverModal('${tunnelId}')" title="${escapeHtml(label)}" style="display: inline-flex; align-items: center; gap: 5px; font-weight: 600;">
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
       <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
@@ -213,7 +234,7 @@ function renderTunnels(list) {
                 `<button class="btn btn-success btn-sm" onclick="startTunnel('${tItem.id}')"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>${t('btn_start')}</button>`}
             </span>
             <span id="tunnel-captcha-action-${tItem.id}">
-              ${isCaptchaRequired(tItem) ? renderCaptchaActionBtn(tItem.id) : ''}
+              ${isBrowserCheckRequired(tItem) ? renderCaptchaActionBtn(tItem.id, tItem.pendingCaptchaReason) : ''}
             </span>
             <button class="btn btn-outline btn-sm" onclick="showTunnelConnect('${tItem.id}')" title="${t('btn_connect_qr') || 'Подключение'}">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -389,7 +410,6 @@ function openTunnelModal(tunnel = null) {
   document.getElementById('tunnel-direct-listen').value = tunnel ? (tunnel.directListen || '') : '0.0.0.0:8445';
   document.getElementById('tunnel-share-host').value = tunnel ? (tunnel.shareHost || '') : '';
   document.getElementById('tunnel-transports').value = tunnel ? (tunnel.transports || '') : '';
-  document.getElementById('tunnel-multi-oneme-uid').value = tunnel ? (tunnel.onemeUid || tunnel.maxUid || '') : '';
   document.getElementById('tunnel-codec').value = tunnel ? (tunnel.codec || 'batched') : 'batched';
   document.getElementById('tunnel-encryption').value = tunnel ? (tunnel.encryptionKey || '') : generateRandomKey();
   document.getElementById('tunnel-enable-share').checked = tunnel ? (tunnel.enableShare !== false) : true;
@@ -417,7 +437,10 @@ function editTunnel(id) {
 function onTransportChange() {
   const transport = document.getElementById('tunnel-transport').value;
   document.getElementById('group-oneme').style.display = transport === 'oneme' ? 'grid' : 'none';
-  document.getElementById('group-direct').style.display = transport === 'direct' ? 'grid' : 'none';
+  // The exit listener is shared by a multi session.  Keep it visible there;
+  // the Direct card itself only describes that it uses this listener.
+  const hasMultiDirect = transport === 'multi' && Array.from(document.querySelectorAll('.multi-transport-type')).some(select => select.value === 'direct');
+  document.getElementById('group-direct').style.display = (transport === 'direct' || hasMultiDirect) ? 'grid' : 'none';
   document.getElementById('group-multi').style.display = transport === 'multi' ? 'block' : 'none';
   if (transport === 'multi' && !document.querySelector('.multi-transport-row')) {
     renderMultiTransportRows(null);
@@ -441,7 +464,7 @@ function onTransportChange() {
     urlLabel.textContent = 'URL документа Яндекс Волга (--url)';
     urlInput.placeholder = 'https://disk.yandex.ru/i/...';
   } else if (transport === 'multi') {
-    urlLabel.textContent = 'Основной URL документа (опционально)';
+    urlLabel.textContent = 'Основной URL контекста (--url, опционально)';
     urlInput.placeholder = 'https://disk.yandex.ru/i/...';
   } else {
     urlLabel.textContent = 'URL документа (--url)';
@@ -462,19 +485,42 @@ const MULTI_TRANSPORT_TYPES = [
 function createMultiTransportRow(config = {}) {
   const row = document.createElement('div');
   row.className = 'multi-transport-row';
-  row.style.cssText = 'display:grid;grid-template-columns:minmax(130px,1fr) 86px minmax(180px,2fr) auto;gap:8px;align-items:center;';
   const type = String(config.type || 'yandex').toLowerCase();
   row.innerHTML = `
-    <select class="form-control multi-transport-type" aria-label="Тип транспорта">${MULTI_TRANSPORT_TYPES.map(([v,l]) => `<option value="${v}">${l}</option>`).join('')}</select>
-    <input class="form-control multi-transport-priority" type="number" min="0" max="1000" step="1" value="${Number.isFinite(Number(config.priority)) ? Number(config.priority) : 50}" aria-label="Приоритет" title="Приоритет" />
-    <input class="form-control multi-transport-value" type="text" aria-label="Ссылка или адрес" />
-    <button type="button" class="btn btn-outline btn-sm multi-transport-remove" title="Удалить транспорт">×</button>`;
-  row.querySelector('.multi-transport-type').value = MULTI_TRANSPORT_TYPES.some(([v]) => v === type) ? type : 'yandex';
+    <div class="multi-transport-row-header">
+      <div class="multi-transport-row-title">
+        <span class="multi-transport-row-number"></span>
+        <select class="form-control multi-transport-type" aria-label="Тип транспорта">${MULTI_TRANSPORT_TYPES.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select>
+      </div>
+      <label class="multi-transport-priority-field">Приоритет
+        <input class="form-control multi-transport-priority" type="number" min="0" max="1000" step="1" value="${Number.isFinite(Number(config.priority)) ? Number(config.priority) : 50}" aria-label="Приоритет" title="Приоритет: больше = раньше" />
+      </label>
+      <button type="button" class="btn btn-outline btn-sm multi-transport-remove" title="Удалить транспорт" aria-label="Удалить транспорт">Удалить</button>
+    </div>
+    <div class="multi-transport-row-fields">
+      <label class="multi-transport-main-field">Значение
+        <input class="form-control multi-transport-value" type="text" aria-label="Параметр транспорта" />
+      </label>
+      <label class="multi-transport-secondary-field">UID MAX
+        <input class="form-control multi-transport-secondary" type="text" aria-label="UID пользователя MAX" />
+      </label>
+    </div>
+    <div class="multi-transport-row-help form-hint"></div>`;
+  const typeSelect = row.querySelector('.multi-transport-type');
+  typeSelect.value = MULTI_TRANSPORT_TYPES.some(([v]) => v === type) ? type : 'yandex';
   row.querySelector('.multi-transport-value').value = config.value || '';
-  row.querySelector('.multi-transport-type').addEventListener('change', () => updateMultiTransportRow(row));
+  row.querySelector('.multi-transport-secondary').value = config.secondary || '';
+  typeSelect.addEventListener('change', () => {
+    updateMultiTransportRow(row);
+    onTransportChange();
+  });
   row.querySelector('.multi-transport-remove').addEventListener('click', () => {
     const rows = document.querySelectorAll('.multi-transport-row');
-    if (rows.length > 1) row.remove();
+    if (rows.length > 1) {
+      row.remove();
+      updateMultiTransportRowNumbers();
+      onTransportChange();
+    }
     else toast('Оставьте хотя бы один транспорт', 'warning');
   });
   updateMultiTransportRow(row);
@@ -484,23 +530,49 @@ function createMultiTransportRow(config = {}) {
 function updateMultiTransportRow(row) {
   const type = row.querySelector('.multi-transport-type').value;
   const value = row.querySelector('.multi-transport-value');
+  const mainLabel = row.querySelector('.multi-transport-main-field');
+  const secondary = row.querySelector('.multi-transport-secondary-field');
+  const help = row.querySelector('.multi-transport-row-help');
   const labels = {
-    direct: ['Адрес Direct, например 203.0.113.7:8445', 'host:port'],
-    yandex: ['Ссылка на документ Yandex', 'https://disk.yandex.ru/i/...'],
-    vyandex: ['Ссылка на документ Yandex Volga', 'https://disk.yandex.ru/i/...'],
-    boards: ['Ссылка на Yandex Board', 'https://boards.yandex.ru/p/...'],
-    mailru: ['Публичная ссылка Mail.ru', 'https://cloud.mail.ru/public/...'],
-    cupsonline: ['Комнаты cups.online (необязательно)', 'Оставьте пустым для автосоздания'],
-    oneme: ['Токен MAX (UID укажите в отдельном поле ниже)', 'Токен MAX']
+    direct: ['Параметры Direct', 'Для exit адрес не требуется', 'Direct в exit использует порт прослушивания --direct-listen выше. --direct-dial относится к клиентскому режиму и здесь не заполняется.'],
+    yandex: ['Ссылка на документ Yandex', 'https://disk.yandex.ru/i/...', 'Ссылка документа, который будет использован этим транспортом.'],
+    vyandex: ['Ссылка на документ Yandex Volga', 'https://disk.yandex.ru/i/...', 'Ссылка документа Yandex Volga.'],
+    boards: ['Ссылка на Yandex Board', 'https://boards.yandex.ru/p/...', 'Публичная ссылка доски Yandex.'],
+    mailru: ['Публичная ссылка Mail.ru', 'https://cloud.mail.ru/public/...', 'Публичная ссылка документа Mail.ru.'],
+    cupsonline: ['Комнаты cups.online (необязательно)', 'Оставьте пустым для автосоздания', 'Можно оставить пустым: OpenFlux создаст комнаты самостоятельно.'],
+    oneme: ['Токен MAX (--maxToken)', 'Токен MAX', 'UID MAX укажите во втором поле этой карточки.']
   };
-  value.placeholder = (labels[type] || labels.yandex)[1];
-  value.title = (labels[type] || labels.yandex)[0];
+  const current = labels[type] || labels.yandex;
+  mainLabel.childNodes[0] && (mainLabel.childNodes[0].textContent = `${current[0]} `);
+  value.placeholder = current[1];
+  value.title = current[0];
+  help.textContent = current[2];
+  secondary.style.display = type === 'oneme' ? '' : 'none';
+  if (type === 'direct') {
+    value.value = '';
+    value.disabled = true;
+    value.placeholder = 'Адрес не нужен для exit';
+  } else {
+    value.disabled = false;
+  }
+  mainLabel.style.gridColumn = type === 'oneme' ? 'span 1' : '1 / -1';
+  updateMultiTransportRowNumbers();
+}
+
+function updateMultiTransportRowNumbers() {
+  document.querySelectorAll('.multi-transport-row').forEach((row, index) => {
+    const number = row.querySelector('.multi-transport-row-number');
+    if (number) number.textContent = `${index + 1}.`;
+  });
 }
 
 function addMultiTransportRow(config = {}) {
   const container = document.getElementById('multi-transport-rows');
   if (!container) return;
-  container.appendChild(createMultiTransportRow(config));
+  const selected = new Set(Array.from(container.querySelectorAll('.multi-transport-type')).map(select => select.value));
+  const nextType = MULTI_TRANSPORT_TYPES.find(([value]) => !selected.has(value))?.[0] || 'yandex';
+  container.appendChild(createMultiTransportRow({ type: nextType, ...config }));
+  if (document.getElementById('tunnel-transport')?.value === 'multi') onTransportChange();
 }
 
 function renderMultiTransportRows(tunnel) {
@@ -517,17 +589,26 @@ function renderMultiTransportRows(tunnel) {
     yandex: tunnel?.yandexUrl || tunnel?.url || '',
     vyandex: tunnel?.vyandexUrl || '', boards: tunnel?.boardsUrl || '',
     mailru: tunnel?.mailruUrl || '', cupsonline: tunnel?.cupsonlineUrl || '',
-    direct: tunnel?.directDial || '', oneme: tunnel?.onemeToken || tunnel?.maxToken || ''
+    // DirectTransport is an exit listener in this panel; --direct-dial is a
+    // client-only option and must not be copied into the multi editor.
+    direct: '', oneme: tunnel?.onemeToken || tunnel?.maxToken || ''
   };
-  specs.forEach(spec => addMultiTransportRow({ ...spec, value: values[spec.type] || '' }));
-  syncMultiTransportField();
+  specs.forEach(spec => addMultiTransportRow({
+    ...spec,
+    value: values[spec.type] || '',
+    secondary: spec.type === 'oneme' ? (tunnel?.onemeUid || tunnel?.maxUid || '') : ''
+  }));
+  // Do not serialize the default rows while editing a single-transport tunnel.
+  // saveTunnel() deliberately reads this field only when multi is selected.
+  if (tunnel?.transport === 'multi') syncMultiTransportField();
 }
 
 function readMultiTransportRows() {
   return Array.from(document.querySelectorAll('.multi-transport-row')).map(row => ({
     type: row.querySelector('.multi-transport-type').value,
     priority: Math.max(0, Number.isNaN(parseInt(row.querySelector('.multi-transport-priority').value, 10)) ? 50 : parseInt(row.querySelector('.multi-transport-priority').value, 10)),
-    value: row.querySelector('.multi-transport-value').value.trim()
+    value: row.querySelector('.multi-transport-value').value.trim(),
+    secondary: row.querySelector('.multi-transport-secondary').value.trim()
   }));
 }
 
@@ -542,30 +623,52 @@ async function saveTunnel() {
   const id = document.getElementById('tunnel-id').value;
   const existing = id ? tunnelsData.find(x => x.id === id) : null;
   const trafficMB = parseInt(document.getElementById('tunnel-traffic-limit').value) || 0;
-  const multiRows = document.getElementById('tunnel-transport').value === 'multi' ? syncMultiTransportField() : [];
+  const selectedTransport = document.getElementById('tunnel-transport').value;
+  const multiRows = selectedTransport === 'multi' ? syncMultiTransportField() : [];
+  if (selectedTransport === 'multi') {
+    const duplicates = multiRows.filter((row, index, rows) => rows.findIndex(other => other.type === row.type) !== index);
+    if (duplicates.length) {
+      toast('Добавьте каждый тип транспорта только один раз: его параметры хранятся в одной карточке.', 'warning');
+      return;
+    }
+  }
   const multiValue = (type) => multiRows.find(row => row.type === type)?.value || null;
+  const multiSecondary = (type) => multiRows.find(row => row.type === type)?.secondary || null;
+  const multiHas = (type) => multiRows.some(row => row.type === type);
+  const urlInput = document.getElementById('tunnel-url').value.trim();
+  const savedUrlForTransport = selectedTransport === 'yandex' ? existing?.yandexUrl
+    : selectedTransport === 'vyandex' ? existing?.vyandexUrl
+      : selectedTransport === 'boards' ? existing?.boardsUrl
+        : selectedTransport === 'mailru' ? existing?.mailruUrl
+          : selectedTransport === 'cupsonline' ? existing?.cupsonlineUrl : null;
   const payload = {
     name: document.getElementById('tunnel-name').value.trim(),
     role: 'exit',
-    transport: document.getElementById('tunnel-transport').value,
+    transport: selectedTransport,
     mode: document.getElementById('tunnel-mode').value,
     localIp: document.getElementById('tunnel-local-ip').value.trim() || null,
     inbound: 'socks5',
     socks5Address: ':1080',
-    url: document.getElementById('tunnel-url').value.trim() || null,
-    maxToken: document.getElementById('tunnel-maxtoken').value.trim() || null,
-    maxUid: document.getElementById('tunnel-maxuid').value.trim() || null,
-    directListen: document.getElementById('tunnel-direct-listen').value.trim() || null,
-    directDial: multiValue('direct') || (existing ? (existing.directDial || null) : null),
+    // When switching from multi to a single carrier, carry its card URL into
+    // the legacy --url field so the single session remains runnable.
+    url: urlInput || savedUrlForTransport || null,
+    maxToken: selectedTransport === 'multi' ? multiValue('oneme') : (document.getElementById('tunnel-maxtoken').value.trim() || null),
+    maxUid: selectedTransport === 'multi' ? multiSecondary('oneme') : (document.getElementById('tunnel-maxuid').value.trim() || null),
+    directListen: selectedTransport === 'multi'
+      ? (multiHas('direct') ? (document.getElementById('tunnel-direct-listen').value.trim() || null) : null)
+      : (document.getElementById('tunnel-direct-listen').value.trim() || null),
+    directDial: selectedTransport === 'multi' ? multiValue('direct') : (existing ? (existing.directDial || null) : null),
     shareHost: document.getElementById('tunnel-share-host').value.trim() || null,
-    transports: document.getElementById('tunnel-transports').value.trim() || null,
-    yandexUrl: multiValue('yandex'),
-    vyandexUrl: multiValue('vyandex'),
-    boardsUrl: multiValue('boards'),
-    mailruUrl: multiValue('mailru'),
-    cupsonlineUrl: multiValue('cupsonline'),
-    onemeToken: multiValue('oneme'),
-    onemeUid: (document.getElementById('tunnel-multi-oneme-uid').value.trim() || document.getElementById('tunnel-maxuid').value.trim()) || null,
+    // A non-multi tunnel must never inherit the hidden field from the default
+    // multi cards. That field used to turn every single save into a multi run.
+    transports: selectedTransport === 'multi' ? (document.getElementById('tunnel-transports').value.trim() || null) : null,
+    yandexUrl: selectedTransport === 'multi' ? multiValue('yandex') : (existing?.yandexUrl || null),
+    vyandexUrl: selectedTransport === 'multi' ? multiValue('vyandex') : (existing?.vyandexUrl || null),
+    boardsUrl: selectedTransport === 'multi' ? multiValue('boards') : (existing?.boardsUrl || null),
+    mailruUrl: selectedTransport === 'multi' ? multiValue('mailru') : (existing?.mailruUrl || null),
+    cupsonlineUrl: selectedTransport === 'multi' ? multiValue('cupsonline') : (existing?.cupsonlineUrl || null),
+    onemeToken: selectedTransport === 'multi' ? multiValue('oneme') : (existing?.onemeToken || null),
+    onemeUid: selectedTransport === 'multi' ? (multiSecondary('oneme') || null) : (existing?.onemeUid || null),
     codec: document.getElementById('tunnel-codec').value,
     encryptionKey: document.getElementById('tunnel-encryption').value.trim() || null,
     enableShare: document.getElementById('tunnel-enable-share').checked,
@@ -620,6 +723,11 @@ function setupCaptchaMessageListener() {
       if (typeof loadTunnels === 'function') {
         await loadTunnels();
       }
+    } else if (e.data && e.data.type === 'openflux-captcha-waiting') {
+      toast('Куки переданы. Ожидается подтверждение доступа ядром OpenFlux.', 'info');
+      if (typeof loadTunnels === 'function') {
+        await loadTunnels();
+      }
     }
   });
 }
@@ -645,7 +753,14 @@ async function openCaptchaSolverModal(tunnelId) {
       captchaTransport = data.transport || '';
       currentCaptchaTransport = captchaTransport;
       const title = document.getElementById('captcha-solver-title-text');
-      if (title && captchaTransport) title.textContent = `Решение капчи (${captchaTransport})`;
+      const reason = String(data.reason || '').toLowerCase();
+      const loginRequired = reason.includes('login') || reason.includes('auth') ||
+        reason.includes('account') || reason.includes('private');
+      if (title) {
+        title.textContent = loginRequired
+          ? `Вход в документ (${captchaTransport || 'OpenFlux'})`
+          : `Решение капчи (${captchaTransport || 'OpenFlux'})`;
+      }
     }
   } catch { }
   const params = new URLSearchParams();

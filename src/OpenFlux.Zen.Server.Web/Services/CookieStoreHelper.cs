@@ -214,12 +214,6 @@ public static class CookieStoreHelper
                     if (a.Contains('?')) targetKeys.Add(a.Substring(0, a.IndexOf('?')).Trim());
                 }
 
-                // Also merge into all currently existing keys in storeData
-                foreach (var existingKey in storeData.Keys.ToList())
-                {
-                    targetKeys.Add(existingKey);
-                }
-
                 foreach (var k in targetKeys)
                 {
                     if (string.IsNullOrWhiteSpace(k)) continue;

@@ -29,6 +29,8 @@ public static class TunnelEndpoints
 
         group.MapPost("", async (Tunnel tunnel, ITunnelManager manager) =>
         {
+            var validationError = TunnelConfigurationValidator.Validate(tunnel);
+            if (validationError != null) return Results.BadRequest(new { error = validationError });
             var created = await manager.CreateAsync(tunnel);
             return Results.Created($"/api/tunnels/{created.Id}", created);
         });
@@ -36,6 +38,8 @@ public static class TunnelEndpoints
         group.MapPut("/{id:guid}", async (Guid id, Tunnel tunnel, ITunnelManager manager) =>
         {
             tunnel.Id = id;
+            var validationError = TunnelConfigurationValidator.Validate(tunnel);
+            if (validationError != null) return Results.BadRequest(new { error = validationError });
             var updated = await manager.UpdateAsync(tunnel);
             return updated != null ? Results.Ok(updated) : Results.NotFound();
         });
@@ -80,7 +84,8 @@ public static class TunnelEndpoints
             var tunnel = await manager.GetByIdAsync(id);
             if (tunnel == null) return Results.NotFound();
 
-            var hasPending = !string.IsNullOrWhiteSpace(tunnel.PendingCaptchaUrl);
+            var hasPending = TunnelChallengeState.HasPendingCaptcha(tunnel);
+            var hasPendingAuth = TunnelChallengeState.HasPendingAuth(tunnel);
             // Always start from the document URL. OpenFlux Android does the
             // same: /showcaptcha URLs are one-use redirect targets and return
             // Yandex 400 when opened without the core's redirect cookie jar.
@@ -102,8 +107,9 @@ public static class TunnelEndpoints
             return Results.Ok(new
             {
                 hasPendingCaptcha = hasPending,
+                hasPendingAuth,
                 url = targetUrl,
-                reason = tunnel.PendingCaptchaReason ?? "smartcaptcha",
+                reason = tunnel.PendingCaptchaReason,
                 proxy = tunnel.PendingCaptchaProxy,
                 remote = tunnel.PendingCaptchaRemote,
                 transport = tunnel.PendingCaptchaTransport ?? tunnel.Transport,
@@ -117,6 +123,10 @@ public static class TunnelEndpoints
         {
             var tunnel = await manager.GetByIdAsync(id);
             if (tunnel == null) return Results.NotFound();
+            if (!TunnelChallengeState.HasPendingCaptcha(tunnel) && !TunnelChallengeState.HasPendingAuth(tunnel))
+            {
+                return Results.Conflict(new { error = "OpenFlux ещё не запросил проверку или вход для этого туннеля." });
+            }
 
             var targetUrl = !string.IsNullOrWhiteSpace(tunnel.PendingCaptchaUrl) &&
                             !tunnel.PendingCaptchaUrl.Contains("/showcaptcha", StringComparison.OrdinalIgnoreCase)
@@ -186,7 +196,7 @@ public static class TunnelEndpoints
                 if (applied.Success)
                 {
                     _captchaSessions.TryRemove(CaptchaSessionKey(id, tunnel, requestedTransport), out _);
-                    return Results.Content(GetSuccessHtml(), "text/html; charset=utf-8");
+                    return Results.Content(GetCookiesAppliedHtml(applied.AppliedViaIpc), "text/html; charset=utf-8");
                 }
 
                 return Results.Content(GetErrorHtml("Кука доступа получена, но не удалось применить её к туннелю. Повторите запуск туннеля."), "text/html; charset=utf-8");
@@ -200,6 +210,10 @@ public static class TunnelEndpoints
         {
             var tunnel = await manager.GetByIdAsync(id);
             if (tunnel == null) return Results.NotFound();
+            if (!TunnelChallengeState.HasPendingCaptcha(tunnel) && !TunnelChallengeState.HasPendingAuth(tunnel))
+            {
+                return Results.Conflict(new { error = "OpenFlux ещё не запросил проверку или вход для этого туннеля." });
+            }
 
             var targetAction = context.Request.Query["target"].ToString();
             var origin = context.Request.Query["origin"].ToString();
@@ -269,7 +283,7 @@ public static class TunnelEndpoints
                 if (applied.Success)
                 {
                     _captchaSessions.TryRemove(CaptchaSessionKey(id, tunnel, requestedTransport), out _);
-                    return Results.Content(GetSuccessHtml(), "text/html; charset=utf-8");
+                    return Results.Content(GetCookiesAppliedHtml(applied.AppliedViaIpc), "text/html; charset=utf-8");
                 }
 
                 return Results.Content(GetErrorHtml("Решение получено, но куку доступа не удалось передать туннелю."), "text/html; charset=utf-8");
@@ -294,7 +308,7 @@ public static class TunnelEndpoints
                         if (applied.Success)
                         {
                             _captchaSessions.TryRemove(CaptchaSessionKey(id, tunnel, requestedTransport), out _);
-                            return Results.Content(GetSuccessHtml(), "text/html; charset=utf-8");
+                            return Results.Content(GetCookiesAppliedHtml(applied.AppliedViaIpc), "text/html; charset=utf-8");
                         }
 
                         return Results.Content(GetErrorHtml("Решение получено, но куку доступа не удалось передать туннелю."), "text/html; charset=utf-8");
@@ -308,7 +322,7 @@ public static class TunnelEndpoints
                         if (applied.Success)
                         {
                             _captchaSessions.TryRemove(CaptchaSessionKey(id, tunnel, requestedTransport), out _);
-                            return Results.Content(GetSuccessHtml(), "text/html; charset=utf-8");
+                            return Results.Content(GetCookiesAppliedHtml(applied.AppliedViaIpc), "text/html; charset=utf-8");
                         }
                     }
                     return RenderCaptchaHtml(redHtml, redirectUri.Host, id, context, token, requestedTransport);
@@ -330,7 +344,7 @@ public static class TunnelEndpoints
                     if (applied.Success)
                     {
                         _captchaSessions.TryRemove(CaptchaSessionKey(id, tunnel, requestedTransport), out _);
-                        return Results.Content(GetSuccessHtml(), "text/html; charset=utf-8");
+                        return Results.Content(GetCookiesAppliedHtml(applied.AppliedViaIpc), "text/html; charset=utf-8");
                     }
                 }
                 var host = new Uri(targetAction).Host;
@@ -373,12 +387,7 @@ public static class TunnelEndpoints
             }
 
             tunnel.Url = newUrl.Trim();
-            tunnel.PendingCaptchaUrl = null;
-            tunnel.PendingCaptchaReason = null;
-            tunnel.PendingCaptchaProxy = null;
-            tunnel.PendingCaptchaRemote = false;
-            tunnel.PendingCaptchaTransport = null;
-            tunnel.PendingCaptchaChallengeUrl = null;
+            TunnelChallengeState.Clear(tunnel);
             tunnel.ErrorMessage = null;
             await manager.UpdateAsync(tunnel);
 
@@ -395,12 +404,7 @@ public static class TunnelEndpoints
             if (tunnel == null) return Results.NotFound();
 
             tunnel.Transport = "direct";
-            tunnel.PendingCaptchaUrl = null;
-            tunnel.PendingCaptchaReason = null;
-            tunnel.PendingCaptchaProxy = null;
-            tunnel.PendingCaptchaRemote = false;
-            tunnel.PendingCaptchaTransport = null;
-            tunnel.PendingCaptchaChallengeUrl = null;
+            TunnelChallengeState.Clear(tunnel);
             tunnel.ErrorMessage = null;
             await manager.UpdateAsync(tunnel);
 
@@ -636,6 +640,14 @@ p {{ color:#cbd5e1; line-height:1.5; }}
         return Results.Content(html, "text/html; charset=utf-8");
     }
 
+    private static string GetCookiesAppliedHtml(bool appliedViaIpc) =>
+        appliedViaIpc ? GetSuccessHtml() : GetCookiesSavedHtml();
+
+    private static string GetCookiesSavedHtml() => @"<!DOCTYPE html>
+<html><head><meta charset='utf-8'><style>
+body{background:#0f172a;color:#cbd5e1;font-family:system-ui,sans-serif;text-align:center;padding:36px}
+h3{color:#fbbf24}p{line-height:1.5}
+</style></head><body><h3>Куки сохранены</h3><p>Ядро OpenFlux загрузит их при следующем подключении. Панель не получила подтверждение по IPC, поэтому статус туннеля нужно проверить после переподключения.</p></body></html>";
     private static string GetSuccessHtml() => @"<!DOCTYPE html>
 <html>
 <head>
@@ -652,18 +664,17 @@ p {{ color:#cbd5e1; line-height:1.5; }}
 <body>
   <div class='card'>
     <div class='icon'>✅</div>
-    <h2>Капча успешно пройдена!</h2>
-    <p>Ключ доступа (spravka) получен и сохранен. Туннель запускается автоматически.</p>
+    <h2>Cookies переданы в OpenFlux</h2>
+    <p>Куки сохранены и переданы ядру. Подождите переподключения туннеля: панель уберёт это сообщение только после подтверждения доступа самим OpenFlux.</p>
     <button class='btn' onclick='closeModal()'>Закрыть окно</button>
   </div>
   <script>
     function closeModal() {
       if (window.parent) {
-        window.parent.postMessage({ type: 'openflux-captcha-solved' }, '*');
+        window.parent.postMessage({ type: 'openflux-captcha-waiting' }, '*');
       }
-      try { window.close(); } catch(e){}
     }
-    setTimeout(closeModal, 1800);
+    closeModal();
   </script>
 </body>
 </html>";

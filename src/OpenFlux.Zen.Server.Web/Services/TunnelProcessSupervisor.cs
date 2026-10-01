@@ -52,7 +52,7 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
     private readonly ConcurrentDictionary<Guid, TunnelState> _tunnelStates = new();
     private readonly string _keysDirectory;
     private readonly Timer _flushTimer;
-    private const string CaptchaErrorMessage = "Яндекс заблокировал документ капчей (SmartCaptcha) или документ недоступен. Пройдите капчу в браузере или создайте новый документ на Яндекс Диске.";
+    private const string CaptchaErrorMessage = "OpenFlux запросил проверку SmartCaptcha для документа. Откройте проверку в браузере и дождитесь переподключения туннеля.";
 
     [GeneratedRegex(@"\[ZEN-STATS\]\s+up=(\d+)\s+down=(\d+)\s+pkts_up=(\d+)\s+pkts_down=(\d+)\s+connected=(\d+)\s+established=(\d+)(?:\s+clients=([^\s]*))?(?:\s+mode=(\S+))?", RegexOptions.Compiled)]
     private static partial Regex ZenStatsRegex();
@@ -106,6 +106,11 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
             _logger.LogWarning("Tunnel {TunnelId} ({Name}) is already running", tunnel.Id, tunnel.Name);
             return true;
         }
+
+        // A previous process may have left a one-shot IPC request behind. It
+        // belongs to that process and must not make a fresh start look like a
+        // pending captcha before OpenFlux has requested anything.
+        TunnelChallengeState.Clear(tunnel);
 
         var binaryPath = _binaryResolver.GetBinaryPath();
         if (!File.Exists(binaryPath))
@@ -270,7 +275,9 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
 
                 ipcClient.OnCaptchaRequired += async req =>
                 {
-                    _logger.LogWarning("Tunnel {TunnelId} IPC: captcha required at {Url} (reason={Reason})", tunnel.Id, req.Url, req.Reason);
+                    var isCaptcha = TunnelChallengeState.IsCaptchaReason(req.Reason);
+                    var isLogin = TunnelChallengeState.IsLoginReason(req.Reason);
+                    _logger.LogWarning("Tunnel {TunnelId} IPC: cookies required at {Url} (reason={Reason}, captcha={Captcha})", tunnel.Id, req.Url, req.Reason, isCaptcha);
                     // OpenFlux Android deliberately opens the original document
                     // URL. The challenge redirect is short-lived and tied to the
                     // core's redirect cookies; opening /showcaptcha directly is
@@ -281,12 +288,26 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
                     tunnel.PendingCaptchaReason = req.Reason;
                     tunnel.PendingCaptchaProxy = req.Proxy;
                     tunnel.PendingCaptchaRemote = req.Remote;
+                    if (!isCaptcha && !isLogin)
+                    {
+                        // An IPC cookie request with an unknown reason is not a
+                        // browser challenge. Keep its diagnostic message, but
+                        // do not expose a captcha/auth action in the panel.
+                        TunnelChallengeState.Clear(tunnel);
+                    }
 
-                    var changed = !string.Equals(tunnel.ErrorMessage, CaptchaErrorMessage, StringComparison.Ordinal);
-                    tunnel.ErrorMessage = CaptchaErrorMessage;
+                    var message = isCaptcha
+                        ? CaptchaErrorMessage
+                        : isLogin
+                            ? "Документ требует входа в аккаунт. Откройте ссылку и передайте cookies, затем повторите запуск."
+                            : $"OpenFlux запросил cookies для транспорта {req.Transport ?? "unknown"}. Причина: {req.Reason ?? "не указана"}.";
+                    var changed = !string.Equals(tunnel.ErrorMessage, message, StringComparison.Ordinal);
+                    tunnel.ErrorMessage = message;
                     if (changed)
                     {
-                        _logService.AppendLog(tunnel.Id, "error", $"[CAPTCHA] Требуется проверка человека: {req.Url}");
+                        _logService.AppendLog(tunnel.Id, "error", isCaptcha
+                            ? $"[CAPTCHA] Требуется проверка человека: {req.Url}"
+                            : $"[AUTH] Требуются cookies: {req.Url} (reason={req.Reason})");
                         NotifyStatusChange(tunnel.Id);
                     }
                 };
@@ -424,7 +445,9 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
 
         // Transport: yandex | vyandex | boards | oneme | cupsonline | mailru | direct | multi
         var transport = string.IsNullOrWhiteSpace(t.Transport) ? "yandex" : t.Transport.Trim();
-        var isMulti = transport.Equals("multi", StringComparison.OrdinalIgnoreCase) || !string.IsNullOrWhiteSpace(t.Transports);
+        // The selected transport is authoritative. A stale Transports value from an older
+        // panel must never silently turn a single transport into a multi session.
+        var isMulti = transport.Equals("multi", StringComparison.OrdinalIgnoreCase);
 
         if (isMulti)
         {
@@ -475,15 +498,18 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
             }
         }
 
-        // Direct transport configuration (--direct-listen and --direct-dial)
-        if (transport == "direct" || !string.IsNullOrWhiteSpace(t.DirectListen))
+        // This panel always starts an exit node.  DirectTransport is therefore
+        // configured with a listen address; --direct-dial belongs to a client
+        // process and must never leak into an exit command.  A stale listen
+        // value on a Yandex-only tunnel is ignored.
+        var hasDirectTransport = transport.Equals("direct", StringComparison.OrdinalIgnoreCase) ||
+            (isMulti && (t.Transports ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Any(item => item.Equals("direct", StringComparison.OrdinalIgnoreCase) ||
+                             item.StartsWith("direct:", StringComparison.OrdinalIgnoreCase)));
+        if (hasDirectTransport)
         {
             var listen = string.IsNullOrWhiteSpace(t.DirectListen) ? "0.0.0.0:8445" : t.DirectListen.Trim();
             parts.Add($"--direct-listen=\"{listen}\"");
-        }
-        if (!string.IsNullOrWhiteSpace(t.DirectDial))
-        {
-            parts.Add($"--direct-dial=\"{t.DirectDial.Trim()}\"");
         }
 
         // Ensure encryption key exists (required by OpenFlux v0.2.0+ for modern clients)
@@ -855,22 +881,18 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
             }
         }
 
-        // 2. Status & warnings
+        // 2. Status & warnings.  The core also logs ordinary document, config
+        // and network failures near the auth code.  They must not be promoted
+        // to a captcha: only an explicit SmartCaptcha/external challenge is a
+        // captcha state.
         if (line.Contains("showcaptchafast", StringComparison.OrdinalIgnoreCase))
         {
-            // Internal fast PoW challenge handled automatically by OpenFlux core
+            // Internal fast PoW challenge handled automatically by OpenFlux
+            // core.  The following "showcaptcha: N bytes" line is a response
+            // body size, not a new browser challenge.
             _logService.AppendLog(tunnel.Id, "info", "[CAPTCHA] Проверка PoW-капчи...");
         }
-        else if (line.Contains("SmartCaptcha", StringComparison.OrdinalIgnoreCase) ||
-                 line.Contains("showcaptcha", StringComparison.OrdinalIgnoreCase) ||
-                 line.Contains("external solver", StringComparison.OrdinalIgnoreCase) ||
-                 line.Contains("needs external help", StringComparison.OrdinalIgnoreCase) ||
-                 line.Contains("smart-captcha", StringComparison.OrdinalIgnoreCase) ||
-                 line.Contains("cannot open the document", StringComparison.OrdinalIgnoreCase) ||
-                 line.Contains("config not found", StringComparison.OrdinalIgnoreCase) ||
-                 line.Contains("no client-config script", StringComparison.OrdinalIgnoreCase) ||
-                 line.Contains("Верификация", StringComparison.OrdinalIgnoreCase) ||
-                 line.Contains("fetchDocInfo failed", StringComparison.OrdinalIgnoreCase))
+        else if (IsExplicitCaptchaLog(line))
         {
             var captchaUrlMatch = System.Text.RegularExpressions.Regex.Match(line, @"https?://[^\s""'<>]+/showcaptcha[^\s""'<>]*", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
             if (captchaUrlMatch.Success)
@@ -880,11 +902,16 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
             }
             if (string.IsNullOrEmpty(tunnel.PendingCaptchaUrl))
             {
-                tunnel.PendingCaptchaUrl = tunnel.Url;
+                var inferred = InferTransportFromLog(line, tunnel);
+                tunnel.PendingCaptchaUrl = ResolveTransportUrl(tunnel, inferred) ?? tunnel.Url;
             }
             if (string.IsNullOrWhiteSpace(tunnel.PendingCaptchaTransport))
             {
                 tunnel.PendingCaptchaTransport = InferTransportFromLog(line, tunnel);
+            }
+            if (string.IsNullOrWhiteSpace(tunnel.PendingCaptchaReason))
+            {
+                tunnel.PendingCaptchaReason = "smartcaptcha";
             }
 
             var changed = !string.Equals(tunnel.ErrorMessage, CaptchaErrorMessage, StringComparison.Ordinal);
@@ -899,23 +926,25 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         else if (line.Contains("looks like a login page", StringComparison.OrdinalIgnoreCase) || 
                  line.Contains("doc not public", StringComparison.OrdinalIgnoreCase))
         {
-            var msg = "Документ недоступен, закрыт или удалён.";
-            if (tunnel.ErrorMessage != msg)
-            {
-                tunnel.ErrorMessage = msg;
-                _logService.AppendLog(tunnel.Id, "error", $"[ERROR] {msg}");
-                NotifyStatusChange(tunnel.Id);
-            }
+            SetProcessError(tunnel, state, "Документ недоступен, закрыт или удалён.", line);
+        }
+        else if (line.Contains("config not found", StringComparison.OrdinalIgnoreCase) ||
+                 line.Contains("no client-config script", StringComparison.OrdinalIgnoreCase))
+        {
+            SetProcessError(tunnel, state, "Конфигурация клиента OpenFlux не найдена. Проверьте установку ядра и настройки туннеля.", line);
+        }
+        else if (line.Contains("cannot open the document", StringComparison.OrdinalIgnoreCase) ||
+                 line.Contains("fetchDocInfo failed", StringComparison.OrdinalIgnoreCase))
+        {
+            SetProcessError(tunnel, state, $"OpenFlux не смог открыть документ: {ShortProcessLine(line)}", line);
+        }
+        else if (LooksLikeNetworkFailure(line))
+        {
+            SetProcessError(tunnel, state, $"Сетевая ошибка OpenFlux: {ShortProcessLine(line)}", line);
         }
         else if (line.Contains("key or context mismatch", StringComparison.OrdinalIgnoreCase))
         {
-            var msg = "Несовпадение ключа или контекста шифрования с подключившимся клиентом.";
-            if (tunnel.ErrorMessage != msg)
-            {
-                tunnel.ErrorMessage = msg;
-                _logService.AppendLog(tunnel.Id, "error", $"[ERROR] {msg}");
-                NotifyStatusChange(tunnel.Id);
-            }
+            SetProcessError(tunnel, state, "Несовпадение ключа или контекста шифрования с подключившимся клиентом.", line);
         }
         else if (line.Contains("WebSocket connected", StringComparison.OrdinalIgnoreCase) ||
                  line.Contains("Auth OK", StringComparison.OrdinalIgnoreCase) ||
@@ -926,16 +955,84 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
             if (tunnel.ErrorMessage != null || tunnel.PendingCaptchaUrl != null || tunnel.PendingCaptchaChallengeUrl != null)
             {
                 tunnel.ErrorMessage = null;
-                tunnel.PendingCaptchaUrl = null;
-                tunnel.PendingCaptchaReason = null;
-                tunnel.PendingCaptchaProxy = null;
-                tunnel.PendingCaptchaRemote = false;
-                tunnel.PendingCaptchaTransport = null;
-                tunnel.PendingCaptchaChallengeUrl = null;
+                TunnelChallengeState.Clear(tunnel);
                 Volatile.Write(ref state.CaptchaErrorReported, 0);
                 NotifyStatusChange(tunnel.Id);
             }
         }
+    }
+
+    private static bool IsExplicitCaptchaLog(string line)
+    {
+        if (string.IsNullOrWhiteSpace(line)) return false;
+
+        // "showcaptcha: 42291 bytes" is emitted after the automatic PoW
+        // request and does not mean that a browser challenge is pending.  A
+        // redirect URL, SmartCaptcha marker, or explicit solver/captcha error
+        // is required before we expose a captcha action in the panel.
+        if (line.Contains("SmartCaptcha detected", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("smart-captcha detected", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("captcha required", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("captcha solve:", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var challengeUrl = Regex.IsMatch(
+            line,
+            @"https?://[^\s""'<>]+/showcaptcha(?:[/?#]|$)",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        if (challengeUrl) return true;
+
+        return line.Contains("external solver", StringComparison.OrdinalIgnoreCase) &&
+               (line.Contains("captcha", StringComparison.OrdinalIgnoreCase) ||
+                line.Contains("challenge", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool LooksLikeNetworkFailure(string line)
+    {
+        return line.Contains("dial tcp", StringComparison.OrdinalIgnoreCase) ||
+               line.Contains("connection refused", StringComparison.OrdinalIgnoreCase) ||
+               line.Contains("network is unreachable", StringComparison.OrdinalIgnoreCase) ||
+               line.Contains("context deadline exceeded", StringComparison.OrdinalIgnoreCase) ||
+               line.Contains("i/o timeout", StringComparison.OrdinalIgnoreCase) ||
+               line.Contains("tls handshake timeout", StringComparison.OrdinalIgnoreCase) ||
+               line.Contains("http 4", StringComparison.OrdinalIgnoreCase) ||
+               line.Contains("http 5", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void SetProcessError(Tunnel tunnel, TunnelState state, string message, string sourceLine)
+    {
+        // A document/config/network error invalidates any stale challenge left
+        // by a previous process.  Keep the actual OpenFlux reason visible.
+        TunnelChallengeState.Clear(tunnel);
+        var changed = !string.Equals(tunnel.ErrorMessage, message, StringComparison.Ordinal);
+        tunnel.ErrorMessage = message;
+        Volatile.Write(ref state.CaptchaErrorReported, 0);
+        if (changed)
+        {
+            _logService.AppendLog(tunnel.Id, "error", $"[ERROR] {message}");
+            NotifyStatusChange(tunnel.Id);
+        }
+    }
+
+    private static string ShortProcessLine(string line)
+    {
+        var value = line.Trim();
+        return value.Length <= 320 ? value : value[..320] + "…";
+    }
+
+    private static string? ResolveTransportUrl(Tunnel tunnel, string transport)
+    {
+        return transport.ToLowerInvariant() switch
+        {
+            "yandex" => tunnel.YandexUrl,
+            "vyandex" => tunnel.VyandexUrl,
+            "boards" => tunnel.BoardsUrl,
+            "mailru" => tunnel.MailruUrl,
+            "cupsonline" => tunnel.CupsonlineUrl,
+            _ => null
+        };
     }
 
     private void NotifyStatusChange(Guid tunnelId)
@@ -989,13 +1086,35 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
     private static string InferTransportFromLog(string line, Tunnel tunnel)
     {
         var value = line.ToLowerInvariant();
+        // OpenFlux prefixes each transport's log lines.  This is more reliable
+        // than searching for a provider name in an error message, especially
+        // in a multi session where the first configured item may be `direct`.
+        var prefix = Regex.Match(line, @"\[(?<name>[a-z0-9_-]+)\]", RegexOptions.IgnoreCase);
+        if (prefix.Success)
+        {
+            var name = prefix.Groups["name"].Value.ToLowerInvariant();
+            var prefixed = name switch
+            {
+                "ydocs" or "yandex" => "yandex",
+                "volga" or "vyandex" => "vyandex",
+                "boards" => "boards",
+                "mailru" => "mailru",
+                "cups" or "cupsonline" => "cupsonline",
+                "max" or "oneme" => "oneme",
+                "direct" => "direct",
+                _ => null
+            };
+            if (prefixed != null) return prefixed;
+        }
         if (value.Contains("mailru")) return "mailru";
         if (value.Contains("cupsonline") || value.Contains("cups.online")) return "cupsonline";
         if (value.Contains("boards")) return "boards";
         if (value.Contains("vyandex") || value.Contains("volga")) return "vyandex";
         if (value.Contains("oneme") || value.Contains("max")) return "oneme";
         if (!string.Equals(tunnel.Transport, "multi", StringComparison.OrdinalIgnoreCase)) return tunnel.Transport;
-        var first = (tunnel.Transports ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault();
+        var first = (tunnel.Transports ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(part => part.Split(':', 2)[0])
+            .FirstOrDefault(part => !part.Equals("direct", StringComparison.OrdinalIgnoreCase));
         return first?.Split(':', 2)[0] ?? "yandex";
     }
 
@@ -1007,12 +1126,12 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
             ? (string.IsNullOrWhiteSpace(tunnel.Transport) ? "yandex" : tunnel.Transport.Trim().ToLowerInvariant())
             : transportOverride.Trim().ToLowerInvariant();
         if (transport == "multi") transport = "yandex";
-        string docUrl = tunnel.Url ?? tunnel.PendingCaptchaUrl ?? "";
-        string altUrl = tunnel.Url ?? "";
+        string docUrl = ResolveTransportUrl(tunnel, transport) ?? tunnel.PendingCaptchaUrl ?? tunnel.Url ?? "";
+        string altUrl = tunnel.Url ?? docUrl;
 
         // 1. Persist to disk cookies-{transport}.json across all keys and directories
         await CookieStoreHelper.SaveCookiesToStoreFileAsync(transport, docUrl, cookies, AppContext.BaseDirectory, altUrl);
-        if (tunnel.Transport.Equals("multi", StringComparison.OrdinalIgnoreCase) || !string.IsNullOrWhiteSpace(tunnel.Transports))
+        if (tunnel.Transport.Equals("multi", StringComparison.OrdinalIgnoreCase))
         {
             await CookieStoreHelper.SaveCookiesToStoreFileAsync("session", docUrl, cookies, AppContext.BaseDirectory, altUrl);
         }
@@ -1083,4 +1202,3 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         }
     }
 }
-

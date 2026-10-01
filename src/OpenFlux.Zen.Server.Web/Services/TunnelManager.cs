@@ -16,7 +16,7 @@ public interface ITunnelManager
     Task<bool> StopAsync(Guid id);
     Task<bool> ToggleEnableAsync(Guid id, bool isEnabled);
     Task<bool> ResetStatsAsync(Guid id);
-    Task<(bool Success, int AppliedCount, string Message)> ApplyCookiesAsync(Guid id, string rawCookiesInput, string? transportOverride = null);
+    Task<(bool Success, int AppliedCount, string Message, bool AppliedViaIpc)> ApplyCookiesAsync(Guid id, string rawCookiesInput, string? transportOverride = null);
 }
 
 public sealed class TunnelManager : ITunnelManager
@@ -72,6 +72,11 @@ public sealed class TunnelManager : ITunnelManager
             tunnel.CreatedAt = DateTime.UtcNow;
             tunnel.UpdatedAt = DateTime.UtcNow;
             tunnel.Status = TunnelStatus.Stopped;
+            if (!string.Equals(tunnel.Transport, "multi", StringComparison.OrdinalIgnoreCase))
+            {
+                tunnel.Transports = null;
+            }
+            TunnelChallengeState.Clear(tunnel);
             tunnel.UploadBytes = 0;
             tunnel.DownloadBytes = 0;
             tunnel.ConnectedClients = 0;
@@ -138,7 +143,13 @@ public sealed class TunnelManager : ITunnelManager
             existing.DirectDial = updated.DirectDial;
             existing.SessionContext = updated.SessionContext;
             existing.Negotiate = updated.Negotiate;
-            existing.Transports = updated.Transports;
+            // The transport selector is authoritative.  Ignore a stale
+            // hidden `transports` field when editing a single tunnel; keeping
+            // it would make the supervisor start a multi session on the next
+            // save.
+            existing.Transports = string.Equals(updated.Transport, "multi", StringComparison.OrdinalIgnoreCase)
+                ? updated.Transports
+                : null;
             existing.YandexUrl = updated.YandexUrl;
             existing.VyandexUrl = updated.VyandexUrl;
             existing.BoardsUrl = updated.BoardsUrl;
@@ -153,6 +164,7 @@ public sealed class TunnelManager : ITunnelManager
             existing.IsEnabled = updated.IsEnabled;
             existing.UpdatedAt = DateTime.UtcNow;
             existing.ErrorMessage = null;
+            TunnelChallengeState.Clear(existing);
             existing.RestartAttempts = 0;
 
             using (var scope = _scopeFactory.CreateScope())
@@ -256,6 +268,7 @@ public sealed class TunnelManager : ITunnelManager
 
         tunnel.Status = TunnelStatus.Starting;
         tunnel.ErrorMessage = null;
+        TunnelChallengeState.Clear(tunnel);
 
         var success = await _supervisor.StartTunnelAsync(
             tunnel,
@@ -300,6 +313,7 @@ public sealed class TunnelManager : ITunnelManager
         tunnel.Status = TunnelStatus.Stopped;
         tunnel.IsEnabled = false;
         tunnel.ErrorMessage = null;
+        TunnelChallengeState.Clear(tunnel);
         tunnel.LastStoppedAt = DateTime.UtcNow;
         tunnel.ConnectedClients = 0;
         tunnel.UploadRateBytesPerSec = 0;
@@ -377,18 +391,18 @@ public sealed class TunnelManager : ITunnelManager
         return true;
     }
 
-    public async Task<(bool Success, int AppliedCount, string Message)> ApplyCookiesAsync(Guid id, string rawCookiesInput, string? transportOverride = null)
+    public async Task<(bool Success, int AppliedCount, string Message, bool AppliedViaIpc)> ApplyCookiesAsync(Guid id, string rawCookiesInput, string? transportOverride = null)
     {
         await SyncFromDbIfEmptyAsync();
         if (!_liveTunnels.TryGetValue(id, out var tunnel))
         {
-            return (false, 0, "Туннель не найден");
+            return (false, 0, "Туннель не найден", false);
         }
 
         var cookies = CookieStoreHelper.ParseCookies(rawCookiesInput);
         if (cookies.Count == 0)
         {
-            return (false, 0, "Не удалось распознать куки. Убедитесь, что передана строка вида 'spravka=...;' или JSON");
+            return (false, 0, "Не удалось распознать куки. Убедитесь, что передана строка вида 'spravka=...;' или JSON", false);
         }
 
         var (success, appliedViaIpc) = await _supervisor.ApplyCookiesAsync(
@@ -398,7 +412,7 @@ public sealed class TunnelManager : ITunnelManager
             transportOverride ?? tunnel.PendingCaptchaTransport);
         if (!success)
         {
-            return (false, 0, "Ошибка при сохранении кук");
+            return (false, 0, "Ошибка при сохранении кук", false);
         }
 
         // If not applied via live IPC, restart or start the tunnel so it reads cookies on startup
@@ -421,7 +435,7 @@ public sealed class TunnelManager : ITunnelManager
         // Saving/sending a cookie is not proof that SmartCaptcha accepted it.
         // Keep the CAPTCHA state until the core reports a successful handshake.
         _logService.AppendLog(id, "system", $"[COOKIE] Сохранено и передано {cookies.Count} кук {(appliedViaIpc ? "(на лету через IPC)" : "(с перезапуском)")}");
-        return (true, cookies.Count, "Куки сохранены; ожидается подтверждение доступа ядром");
+        return (true, cookies.Count, "Куки сохранены; ожидается подтверждение доступа ядром", appliedViaIpc);
     }
 
     private Task OnStatsUpdateAsync(Guid tunnelId, long uploadDelta, long downloadDelta, int clients)
@@ -483,9 +497,16 @@ public sealed class TunnelManager : ITunnelManager
         tunnel.DownloadRateBytesPerSec = 0;
         _tunnelRateTrackers.TryRemove(tunnelId, out _);
 
-        bool hasCaptchaError = !string.IsNullOrWhiteSpace(tunnel.ErrorMessage) &&
-            (tunnel.ErrorMessage.Contains("капч", StringComparison.OrdinalIgnoreCase) ||
-             tunnel.ErrorMessage.Contains("SmartCaptcha", StringComparison.OrdinalIgnoreCase));
+        bool hasCaptchaError = TunnelChallengeState.HasPendingCaptcha(tunnel) ||
+            (!string.IsNullOrWhiteSpace(tunnel.ErrorMessage) &&
+             (tunnel.ErrorMessage.Contains("капч", StringComparison.OrdinalIgnoreCase) ||
+              tunnel.ErrorMessage.Contains("SmartCaptcha", StringComparison.OrdinalIgnoreCase)));
+        if (!hasCaptchaError)
+        {
+            // A dead process cannot leave a browser action visible for the next
+            // start.  Explicit captcha state is kept so the user can finish it.
+            TunnelChallengeState.Clear(tunnel);
+        }
 
         // If tunnel is supposed to be enabled, attempt auto-recovery
         if (tunnel.IsEnabled)

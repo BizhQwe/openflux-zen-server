@@ -266,7 +266,7 @@
             <h4 data-i18n="settings_panel_title">OpenFlux Zen Server</h4>
             <div style="display: flex; gap: 8px; align-items: center;">
               <span id="panel-status-badge" class="badge-status-update" style="display: none;"></span>
-              <span id="panel-current-version-badge" style="background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #93c5fd; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600;">Server: v1.0.79</span>
+              <span id="panel-current-version-badge" style="background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #93c5fd; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600;">Server: v1.0.80</span>
             </div>
           </div>
           <p style="color: var(--text-dim); margin-bottom: 16px; font-size: 0.9rem;" data-i18n="settings_panel_desc">
@@ -522,6 +522,7 @@
             <div class="form-group">
               <label for="tunnel-direct-listen" data-i18n="modal_tunnel_direct_listen">Порт прослушивания (--direct-listen)</label>
               <input type="text" id="tunnel-direct-listen" class="form-control" placeholder="0.0.0.0:8445" />
+              <small class="form-hint">Общий порт exit-сервера. В режиме multi его используют все Direct-соединения.</small>
             </div>
             <div class="form-group">
               <label for="tunnel-share-host" data-i18n="modal_tunnel_share_host">Внешний хост / IP (--share-host)</label>
@@ -532,16 +533,12 @@
           <!-- Multi Transport Fields -->
           <div id="group-multi" class="form-group" style="display: none;">
             <label data-i18n="modal_tunnel_transports">Транспорты сессии и приоритеты</label>
-            <div id="multi-transport-rows" style="display:flex; flex-direction:column; gap:8px;"></div>
+            <div class="form-hint multi-transport-explanation" data-i18n="modal_tunnel_transports_hint">
+              Добавьте каждый транспорт отдельной карточкой. Чем выше приоритет, тем раньше OpenFlux пытается его использовать; одинаковый приоритет даёт резервирование.
+            </div>
+            <div id="multi-transport-rows" class="multi-transport-rows"></div>
             <button type="button" class="btn btn-outline btn-sm" onclick="addMultiTransportRow()" style="margin-top:10px;">＋ Добавить транспорт</button>
             <input type="hidden" id="tunnel-transports" />
-            <div style="margin-top:10px; max-width:320px;">
-              <label for="tunnel-multi-oneme-uid">UID MAX для транспорта oneme</label>
-              <input type="text" id="tunnel-multi-oneme-uid" class="form-control" placeholder="ID пользователя MAX" />
-            </div>
-            <small class="form-hint" style="color: var(--text-muted); font-size: 0.78rem; margin-top: 4px; display: block;" data-i18n="modal_tunnel_transports_hint">
-              Все выбранные транспорты запускаются одновременно и переключаются по приоритету. Для каждого укажите свою ссылку; Mail.ru поддерживается в одной сессии с Yandex, Direct и cups.online.
-            </small>
           </div>
 
           <div class="form-row">
