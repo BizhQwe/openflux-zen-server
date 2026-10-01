@@ -99,6 +99,7 @@ public static class TunnelEndpoints
                 url = targetUrl,
                 reason = tunnel.PendingCaptchaReason ?? "smartcaptcha",
                 proxy = tunnel.PendingCaptchaProxy,
+                remote = tunnel.PendingCaptchaRemote,
                 documentUrl = tunnel.Url,
                 errorMessage = tunnel.ErrorMessage
             });
@@ -128,7 +129,9 @@ public static class TunnelEndpoints
                 AllowAutoRedirect = true,
                 MaxAutomaticRedirections = 10,
                 UseCookies = true,
-                CookieContainer = cookieContainer
+                CookieContainer = cookieContainer,
+                Proxy = CreateProxy(tunnel.PendingCaptchaProxy),
+                UseProxy = !string.IsNullOrWhiteSpace(tunnel.PendingCaptchaProxy)
             };
 
             using var client = new HttpClient(handler);
@@ -207,7 +210,9 @@ public static class TunnelEndpoints
             {
                 AllowAutoRedirect = false,
                 UseCookies = true,
-                CookieContainer = cookieContainer
+                CookieContainer = cookieContainer,
+                Proxy = CreateProxy(tunnel.PendingCaptchaProxy),
+                UseProxy = !string.IsNullOrWhiteSpace(tunnel.PendingCaptchaProxy)
             };
 
             using var client = new HttpClient(handler);
@@ -331,6 +336,8 @@ public static class TunnelEndpoints
             tunnel.Url = newUrl.Trim();
             tunnel.PendingCaptchaUrl = null;
             tunnel.PendingCaptchaReason = null;
+            tunnel.PendingCaptchaProxy = null;
+            tunnel.PendingCaptchaRemote = false;
             tunnel.ErrorMessage = null;
             await manager.UpdateAsync(tunnel);
 
@@ -349,6 +356,8 @@ public static class TunnelEndpoints
             tunnel.Transport = "direct";
             tunnel.PendingCaptchaUrl = null;
             tunnel.PendingCaptchaReason = null;
+            tunnel.PendingCaptchaProxy = null;
+            tunnel.PendingCaptchaRemote = false;
             tunnel.ErrorMessage = null;
             await manager.UpdateAsync(tunnel);
 
@@ -463,6 +472,21 @@ public static class TunnelEndpoints
             html,
             @"(?i)(showcaptcha|smartcaptcha|smart-captcha|checkbox-captcha|captcha__challenge|captcha-container|captcha-challenge)",
             RegexOptions.CultureInvariant);
+    }
+
+    private static IWebProxy? CreateProxy(string? proxy)
+    {
+        if (string.IsNullOrWhiteSpace(proxy)) return null;
+
+        var value = proxy.Trim();
+        if (!value.Contains("://", StringComparison.Ordinal))
+        {
+            value = "http://" + value;
+        }
+
+        return Uri.TryCreate(value, UriKind.Absolute, out var uri)
+            ? new WebProxy(uri)
+            : null;
     }
 
     private static string GetErrorHtml(string message) => $@"<!DOCTYPE html>

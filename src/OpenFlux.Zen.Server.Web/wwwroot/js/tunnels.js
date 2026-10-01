@@ -63,7 +63,9 @@ function updateTunnelsInPlace(list) {
     const statusEl = document.getElementById('tunnel-status-' + tItem.id);
     if (statusEl) {
       let badgeHtml = `<span class="badge badge-status badge-stopped">${t('badge_stopped')}</span>`;
-      if (tItem.status === 2) {
+      if (tItem.errorMessage) {
+        badgeHtml = `<span class="badge badge-status badge-failed" title="${escapeHtml(tItem.errorMessage)}">${t('badge_failed')}</span>`;
+      } else if (tItem.status === 2) {
         badgeHtml = `<span class="badge badge-status badge-running"><span class="pulse"></span>${t('badge_running')}</span>`;
       } else if (tItem.status === 1) {
         badgeHtml = `<span class="badge badge-status badge-starting">${t('badge_starting')}</span>`;
@@ -77,14 +79,8 @@ function updateTunnelsInPlace(list) {
 
     const warningEl = document.getElementById('tunnel-warning-' + tItem.id);
     if (warningEl) {
-      // The failed status already renders the single error badge below.
-      const hasError = Boolean(tItem.errorMessage) && tItem.status !== 4;
-      const expectedWarningHtml = hasError
-        ? `<span class="badge badge-warning-error" title="${escapeHtml(tItem.errorMessage)}" style="cursor: default; pointer-events: none;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>${t('badge_error')}</span></span>`
-        : '';
-      if (warningEl.innerHTML !== expectedWarningHtml) {
-        warningEl.innerHTML = expectedWarningHtml;
-      }
+      // The status badge is the single source of truth for the error state.
+      if (warningEl.innerHTML) warningEl.innerHTML = '';
     }
 
     const captchaActionEl = document.getElementById('tunnel-captcha-action-' + tItem.id);
@@ -145,7 +141,9 @@ function renderTunnels(list) {
 
   container.innerHTML = list.map(tItem => {
     let statusBadge = `<span class="badge badge-status badge-stopped">${t('badge_stopped')}</span>`;
-    if (tItem.status === 2) {
+    if (tItem.errorMessage) {
+      statusBadge = `<span class="badge badge-status badge-failed" title="${escapeHtml(tItem.errorMessage)}">${t('badge_failed')}</span>`;
+    } else if (tItem.status === 2) {
       statusBadge = `<span class="badge badge-status badge-running"><span class="pulse"></span>${t('badge_running')}</span>`;
     } else if (tItem.status === 1) {
       statusBadge = `<span class="badge badge-status badge-starting">${t('badge_starting')}</span>`;
@@ -154,10 +152,6 @@ function renderTunnels(list) {
     }
 
     const isRunning = tItem.status === 2;
-    const hasError = Boolean(tItem.errorMessage) && tItem.status !== 4;
-    const warningBadge = hasError
-      ? `<span class="badge badge-warning-error" title="${escapeHtml(tItem.errorMessage)}" style="cursor: default; pointer-events: none;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>${t('badge_error')}</span></span>`
-      : '';
     const totalBytes = (tItem.uploadBytes || 0) + (tItem.downloadBytes || 0);
     let trafficLimitStr = currentLanguage === 'en' ? 'Unlimited' : 'Без лимита';
     let trafficPct = 0;
@@ -176,7 +170,6 @@ function renderTunnels(list) {
           <div class="tunnel-title-group">
             <div class="tunnel-name">${escapeHtml(tItem.name)}</div>
             <span id="tunnel-status-${tItem.id}">${statusBadge}</span>
-            <span id="tunnel-warning-${tItem.id}">${warningBadge}</span>
             <div class="badges">
               <span class="badge badge-tag">${tItem.transport}</span>
               ${tItem.transports ? `<span class="badge badge-tag" title="${escapeHtml(tItem.transports)}">${escapeHtml(tItem.transports)}</span>` : ''}

@@ -16,7 +16,7 @@ public interface ITunnelProcessSupervisor
     bool IsRunning(Guid tunnelId);
     void StopAll();
     Task<(bool Success, bool AppliedViaIpc)> ApplyCookiesAsync(Guid tunnelId, Dictionary<string, string> cookies);
-    Task<(bool Success, bool AppliedViaIpc)> ApplyCookiesAsync(Tunnel tunnel, Dictionary<string, string> cookies);
+    Task<(bool Success, bool AppliedViaIpc)> ApplyCookiesAsync(Tunnel tunnel, Dictionary<string, string> cookies, bool remote = false);
 }
 
 public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
@@ -271,9 +271,18 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
                 ipcClient.OnCaptchaRequired += async req =>
                 {
                     _logger.LogWarning("Tunnel {TunnelId} IPC: captcha required at {Url} (reason={Reason})", tunnel.Id, req.Url, req.Reason);
-                    tunnel.PendingCaptchaUrl = req.Url;
+                    // The process log can contain the exact /showcaptcha URL, while
+                    // the IPC request usually carries only the document URL. Keep
+                    // the challenge URL when it has already been captured so the
+                    // panel opens the actual verification page.
+                    if (string.IsNullOrWhiteSpace(tunnel.PendingCaptchaUrl) ||
+                        !tunnel.PendingCaptchaUrl.Contains("/showcaptcha", StringComparison.OrdinalIgnoreCase))
+                    {
+                        tunnel.PendingCaptchaUrl = req.Url;
+                    }
                     tunnel.PendingCaptchaReason = req.Reason;
                     tunnel.PendingCaptchaProxy = req.Proxy;
+                    tunnel.PendingCaptchaRemote = req.Remote;
 
                     var changed = !string.Equals(tunnel.ErrorMessage, CaptchaErrorMessage, StringComparison.Ordinal);
                     tunnel.ErrorMessage = CaptchaErrorMessage;
@@ -899,6 +908,8 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
                 tunnel.ErrorMessage = null;
                 tunnel.PendingCaptchaUrl = null;
                 tunnel.PendingCaptchaReason = null;
+                tunnel.PendingCaptchaProxy = null;
+                tunnel.PendingCaptchaRemote = false;
                 Volatile.Write(ref state.CaptchaErrorReported, 0);
                 NotifyStatusChange(tunnel.Id);
             }
@@ -950,10 +961,10 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         }
 
         if (tunnel == null) return (false, false);
-        return await ApplyCookiesAsync(tunnel, cookies);
+        return await ApplyCookiesAsync(tunnel, cookies, tunnel.PendingCaptchaRemote);
     }
 
-    public async Task<(bool Success, bool AppliedViaIpc)> ApplyCookiesAsync(Tunnel tunnel, Dictionary<string, string> cookies)
+    public async Task<(bool Success, bool AppliedViaIpc)> ApplyCookiesAsync(Tunnel tunnel, Dictionary<string, string> cookies, bool remote = false)
     {
         if (cookies == null || cookies.Count == 0 || tunnel == null) return (false, false);
 
@@ -969,7 +980,7 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         bool appliedViaIpc = false;
         if (_tunnelStates.TryGetValue(tunnel.Id, out var state) && state.IpcClient != null && state.IpcClient.IsConnected)
         {
-            appliedViaIpc = await state.IpcClient.SendCookiesOfferAsync(transport, cookies, remote: false);
+            appliedViaIpc = await state.IpcClient.SendCookiesOfferAsync(transport, cookies, remote);
             if (appliedViaIpc)
             {
                 _logService.AppendLog(tunnel.Id, "system", $"[COOKIE] Куки успешно переданы ядру OpenFlux через IPC без перезапуска");

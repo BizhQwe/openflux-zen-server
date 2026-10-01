@@ -384,7 +384,7 @@ public sealed class TunnelManager : ITunnelManager
             return (false, 0, "Не удалось распознать куки. Убедитесь, что передана строка вида 'spravka=...;' или JSON");
         }
 
-        var (success, appliedViaIpc) = await _supervisor.ApplyCookiesAsync(tunnel, cookies);
+        var (success, appliedViaIpc) = await _supervisor.ApplyCookiesAsync(tunnel, cookies, tunnel.PendingCaptchaRemote);
         if (!success)
         {
             return (false, 0, "Ошибка при сохранении кук");

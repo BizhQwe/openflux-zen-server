@@ -63,6 +63,9 @@ public sealed class Tunnel
 
     [System.ComponentModel.DataAnnotations.Schema.NotMapped]
     public string? PendingCaptchaProxy { get; set; }
+
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public bool PendingCaptchaRemote { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
