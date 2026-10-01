@@ -728,6 +728,7 @@ function setupCaptchaMessageListener() {
       }
     } else if (e.data && e.data.type === 'openflux-captcha-waiting') {
       toast('Куки переданы. Ожидается подтверждение доступа ядром OpenFlux.', 'info');
+      closeCaptchaSolverModal();
       if (typeof loadTunnels === 'function') {
         await loadTunnels();
       }

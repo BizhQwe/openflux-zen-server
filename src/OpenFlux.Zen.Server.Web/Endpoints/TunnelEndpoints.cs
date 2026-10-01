@@ -182,19 +182,24 @@ public static class TunnelEndpoints
             // A Yandex document can become available without showing a challenge (for
             // example after the IP was already verified).  In that case the response
             // contains the access cookie and must be handed to OpenFlux immediately.
-            // Without this check the panel renders the normal document inside the
-            // solver iframe and leaves the tunnel in the captcha state forever.
             var initialJar = CollectCookieJar(cookieContainer, tunnel.Url, finalUri.ToString());
-            if (!ContainsCaptchaChallenge(html) && initialJar.Count > 0)
-            {
-                var applied = await manager.ApplyCookiesAsync(id, System.Text.Json.JsonSerializer.Serialize(initialJar), requestedTransport);
-                if (applied.Success)
-                {
-                    _captchaSessions.TryRemove(CaptchaSessionKey(id, tunnel, requestedTransport), out _);
-                    return Results.Content(GetCookiesAppliedHtml(applied.AppliedViaIpc), "text/html; charset=utf-8");
-                }
+            var initialSpravka = ExtractSpravkaCookie(resp, cookieContainer, finalUri.ToString());
+            var hasSpravka = !string.IsNullOrWhiteSpace(initialSpravka) || initialJar.ContainsKey("spravka");
 
-                return Results.Content(GetErrorHtml("Кука доступа получена, но не удалось применить её к туннелю. Повторите запуск туннеля."), "text/html; charset=utf-8");
+            if (hasSpravka || TunnelChallengeState.HasPendingAuth(tunnel))
+            {
+                if (!string.IsNullOrWhiteSpace(initialSpravka)) initialJar["spravka"] = initialSpravka;
+                if (!ContainsCaptchaChallenge(html) && initialJar.Count > 0)
+                {
+                    var applied = await manager.ApplyCookiesAsync(id, System.Text.Json.JsonSerializer.Serialize(initialJar), requestedTransport);
+                    if (applied.Success)
+                    {
+                        _captchaSessions.TryRemove(CaptchaSessionKey(id, tunnel, requestedTransport), out _);
+                        return Results.Content(GetCookiesAppliedHtml(applied.AppliedViaIpc), "text/html; charset=utf-8");
+                    }
+
+                    return Results.Content(GetErrorHtml("Кука доступа получена, но не удалось применить её к туннелю. Повторите запуск туннеля."), "text/html; charset=utf-8");
+                }
             }
 
             var token = SecretPathMiddleware.ExtractToken(context);
@@ -315,14 +320,21 @@ public static class TunnelEndpoints
 
                     var redHtml = await redResp.Content.ReadAsStringAsync();
                     var redJar = CollectCookieJar(cookieContainer, tunnel.Url, redirectUri.ToString());
-                    if (!ContainsCaptchaChallenge(redHtml) && redJar.Count > 0)
+                    var redHasSpravka = !string.IsNullOrWhiteSpace(redSpravka) || redJar.ContainsKey("spravka");
+
+                    if ((redHasSpravka || TunnelChallengeState.HasPendingAuth(tunnel)) && !ContainsCaptchaChallenge(redHtml) && redJar.Count > 0)
                     {
+                        if (!string.IsNullOrWhiteSpace(redSpravka)) redJar["spravka"] = redSpravka;
                         var applied = await manager.ApplyCookiesAsync(id, System.Text.Json.JsonSerializer.Serialize(redJar), requestedTransport);
                         if (applied.Success)
                         {
                             _captchaSessions.TryRemove(CaptchaSessionKey(id, tunnel, requestedTransport), out _);
                             return Results.Content(GetCookiesAppliedHtml(applied.AppliedViaIpc), "text/html; charset=utf-8");
                         }
+                    }
+                    if (!ContainsCaptchaChallenge(redHtml) && !redHasSpravka && !TunnelChallengeState.HasPendingAuth(tunnel))
+                    {
+                        return Results.Content(GetNoCaptchaDetectedHtml(), "text/html; charset=utf-8");
                     }
                     return RenderCaptchaHtml(redHtml, redirectUri.Host, id, context, token, requestedTransport);
                 }
@@ -337,14 +349,22 @@ public static class TunnelEndpoints
             {
                 var stepHtml = await resp.Content.ReadAsStringAsync();
                 var stepJar = CollectCookieJar(cookieContainer, tunnel.Url, targetAction);
-                if (!ContainsCaptchaChallenge(stepHtml) && stepJar.Count > 0)
+                var stepSpravka = ExtractSpravkaCookie(resp, cookieContainer, targetAction);
+                var stepHasSpravka = !string.IsNullOrWhiteSpace(stepSpravka) || stepJar.ContainsKey("spravka");
+
+                if ((stepHasSpravka || TunnelChallengeState.HasPendingAuth(tunnel)) && !ContainsCaptchaChallenge(stepHtml) && stepJar.Count > 0)
                 {
+                    if (!string.IsNullOrWhiteSpace(stepSpravka)) stepJar["spravka"] = stepSpravka;
                     var applied = await manager.ApplyCookiesAsync(id, System.Text.Json.JsonSerializer.Serialize(stepJar), requestedTransport);
                     if (applied.Success)
                     {
                         _captchaSessions.TryRemove(CaptchaSessionKey(id, tunnel, requestedTransport), out _);
                         return Results.Content(GetCookiesAppliedHtml(applied.AppliedViaIpc), "text/html; charset=utf-8");
                     }
+                }
+                if (!ContainsCaptchaChallenge(stepHtml) && !stepHasSpravka && !TunnelChallengeState.HasPendingAuth(tunnel))
+                {
+                    return Results.Content(GetNoCaptchaDetectedHtml(), "text/html; charset=utf-8");
                 }
                 var host = new Uri(targetAction).Host;
                 return RenderCaptchaHtml(stepHtml, host, id, context, token, requestedTransport);

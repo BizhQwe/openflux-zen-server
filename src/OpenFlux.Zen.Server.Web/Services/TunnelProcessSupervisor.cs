@@ -894,7 +894,7 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
         }
         else if (IsExplicitCaptchaLog(line))
         {
-            var captchaUrlMatch = System.Text.RegularExpressions.Regex.Match(line, @"https?://[^\s""'<>]+/showcaptcha[^\s""'<>]*", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            var captchaUrlMatch = System.Text.RegularExpressions.Regex.Match(line, @"https?://[^\s""'<>]+/showcaptcha(?!fast)[^\s""'<>]*", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
             if (captchaUrlMatch.Success)
             {
                 tunnel.PendingCaptchaChallengeUrl = captchaUrlMatch.Value;
@@ -966,21 +966,27 @@ public sealed partial class TunnelProcessSupervisor : ITunnelProcessSupervisor
     {
         if (string.IsNullOrWhiteSpace(line)) return false;
 
-        // "showcaptcha: 42291 bytes" is emitted after the automatic PoW
-        // request and does not mean that a browser challenge is pending.  A
-        // redirect URL, SmartCaptcha marker, or explicit solver/captcha error
-        // is required before we expose a captcha action in the panel.
+        // "showcaptchafast" is an internal fast PoW challenge handled automatically
+        // by OpenFlux core in Go. It does not require a browser or external solver.
+        if (line.Contains("showcaptchafast", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("captcha required, solving", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("captcha detected, solving", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("captcha solve: ok", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        // Only an explicit SmartCaptcha challenge is an external browser challenge.
         if (line.Contains("SmartCaptcha detected", StringComparison.OrdinalIgnoreCase) ||
             line.Contains("smart-captcha detected", StringComparison.OrdinalIgnoreCase) ||
-            line.Contains("captcha required", StringComparison.OrdinalIgnoreCase) ||
-            line.Contains("captcha solve:", StringComparison.OrdinalIgnoreCase))
+            line.Contains("external solver required", StringComparison.OrdinalIgnoreCase))
         {
             return true;
         }
 
         var challengeUrl = Regex.IsMatch(
             line,
-            @"https?://[^\s""'<>]+/showcaptcha(?:[/?#]|$)",
+            @"https?://[^\s""'<>]+/showcaptcha(?!fast)(?:[/?#]|$)",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
         if (challengeUrl) return true;
 
