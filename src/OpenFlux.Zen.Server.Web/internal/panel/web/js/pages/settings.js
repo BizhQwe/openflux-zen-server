@@ -655,14 +655,14 @@ function renderPanelVersionInfo(info) {
 
   const curBadge = document.getElementById('panel-current-version-badge');
   if (curBadge) {
-    curBadge.textContent = `Server: ${info.currentVersion || '2.0.0'}`;
+    curBadge.textContent = `Server: ${info.currentVersion || '1.0.0'}`;
   }
 
   const curVer = document.getElementById('panel-current-version');
-  if (curVer) curVer.textContent = info.currentVersion || '2.0.0';
+  if (curVer) curVer.textContent = info.currentVersion || '1.0.0';
 
   const latVer = document.getElementById('panel-latest-version');
-  if (latVer) latVer.textContent = info.latestVersion || info.currentVersion || '2.0.0';
+  if (latVer) latVer.textContent = info.latestVersion || info.currentVersion || '1.0.0';
 
   const relDate = document.getElementById('panel-release-date');
   if (relDate) {
