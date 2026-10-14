@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <title>OpenFlux Zen Server</title>
+  <link rel="icon" type="image/png" href="images/logo-32x32.png?v=1.1.2" />
+  <link rel="apple-touch-icon" href="images/logo-180x180.png?v=1.1.2" />
+  <link rel="stylesheet" href="css/app.css?v=1.1.2" />
+</head>
+<body>
+
+  <!-- App Header -->
+  <header id="app-header" style="display: none;">
+    <div class="header-inner">
+      <a href="#" class="brand">
+        <img src="images/logo-192x192.png?v=1.1.2" alt="OpenFlux Logo" />
+        <div class="brand-copy">
+          <div class="brand-title"><span>OpenFlux</span><span class="brand-accent">Zen</span></div>
+          <span class="brand-badge">Server</span>
+        </div>
+      </a>
+
+      <nav class="nav-links" aria-label="Основная навигация">
+        <button class="nav-btn active" onclick="switchTab('tunnels')" data-i18n="nav_tunnels">Туннели</button>
+        <button class="nav-btn" onclick="switchTab('logs')" data-i18n="nav_logs">Логи</button>
+        <button class="nav-btn" onclick="switchTab('config')" data-i18n="nav_config">Конфигурация</button>
+        <button class="nav-btn" onclick="switchTab('settings')" data-i18n="nav_settings">Настройки</button>
+      </nav>
+
+      <div class="header-actions" style="display: flex; gap: 8px; align-items: center;">
+        <button class="btn btn-outline btn-sm" id="header-update-badge" onclick="switchTab('settings')" title="Доступно обновление" style="display: none !important; align-items: center; gap: 8px;">
+          <span id="header-update-dot" style="width: 7px; height: 7px; border-radius: 50%; background: #f59e0b; display: inline-block; box-shadow: 0 0 6px rgba(245, 158, 11, 0.6);"></span>
+          <span id="header-status-text" style="font-weight: 600; color: #fbbf24;" data-i18n="header_status_update_available">Доступно обновление</span>
+        </button>
+        <button class="btn btn-outline btn-sm" onclick="logout()" data-i18n="nav_logout">Выход</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container app-content">
+
+    {{template "login.html"}}
+    <!-- Main View -->
+    <div id="main-view" style="display: none;">
+
+    {{template "tunnels.html"}}
+
+    {{template "logs.html"}}
+
+    {{template "config.html"}}
+
+    {{template "settings.html"}}
+
+    </div>
+  </main>
+
+    {{template "tunnel.html"}}
+
+    {{template "qr.html"}}
+
+    {{template "cookies.html"}}
+
+    {{template "version.html"}}
+  <!-- Toast notifications -->
+  <div id="toast-container" role="status" aria-live="polite"></div>
+
+  <script src="js/vendor/qrcode.min.js?v=1.1.2"></script>
+  <script src="js/common/i18n.js?v=1.1.2"></script>
+  <script src="js/common/api.js?v=1.1.2"></script>
+  <script src="js/pages/tunnels.js?v=1.1.2"></script>
+  <script src="js/pages/logs.js?v=1.1.2"></script>
+  <script src="js/pages/settings.js?v=1.1.2"></script>
+  <script src="js/pages/app.js?v=1.1.2"></script>
+</body>
+</html>

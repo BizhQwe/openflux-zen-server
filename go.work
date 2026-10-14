@@ -1,0 +1,8 @@
+go 1.26.6
+
+use (
+    ./src/OpenFlux.Zen.Server.Core
+    ./src/OpenFlux.Zen.Server.Web
+    ./src/OpenFlux.Zen.Server.Installer
+    ./src/OpenFlux.Zen.Server.Cli
+)

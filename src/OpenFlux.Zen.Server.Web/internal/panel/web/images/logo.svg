@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <g stroke="#3b82f6" fill="none" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Lines to cardinal nodes -->
+    <line x1="256" y1="256" x2="256" y2="126" />
+    <line x1="256" y1="256" x2="256" y2="386" />
+    <line x1="256" y1="256" x2="126" y2="256" />
+    <line x1="256" y1="256" x2="386" y2="256" />
+
+    <!-- Lines to diagonal nodes -->
+    <line x1="256" y1="256" x2="350" y2="162" />
+    <line x1="256" y1="256" x2="162" y2="162" />
+    <line x1="256" y1="256" x2="350" y2="350" />
+    <line x1="256" y1="256" x2="162" y2="350" />
+
+    <!-- Cardinal nodes -->
+    <rect x="220" y="54" width="72" height="72" rx="14" />
+    <rect x="220" y="386" width="72" height="72" rx="14" />
+    <rect x="54" y="220" width="72" height="72" rx="14" />
+    <rect x="386" y="220" width="72" height="72" rx="14" />
+
+    <!-- Diagonal nodes -->
+    <rect x="348.4" y="113.6" width="50" height="50" rx="11" transform="rotate(45 373.4 138.6)" />
+    <rect x="113.6" y="113.6" width="50" height="50" rx="11" transform="rotate(45 138.6 138.6)" />
+    <rect x="348.4" y="348.4" width="50" height="50" rx="11" transform="rotate(45 373.4 373.4)" />
+    <rect x="113.6" y="348.4" width="50" height="50" rx="11" transform="rotate(45 138.6 373.4)" />
+  </g>
+
+  <!-- Center Hub Node -->
+  <circle cx="256" cy="256" r="44" fill="#3b82f6" />
+</svg>

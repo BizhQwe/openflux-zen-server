@@ -1,0 +1,107 @@
+      <!-- Tab: Tunnels -->
+      <div id="tab-tunnels" class="tab-content active">
+
+        <!-- Stats Grid (Visible exclusively in Tunnels tab) -->
+        <div class="stats-grid">
+        <!-- 1. Активные туннели -->
+        <div class="stat-card">
+          <div class="stat-header">
+            <span class="stat-label" data-i18n="stat_active_tunnels">Активные туннели</span>
+            <span class="stat-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+              </svg>
+            </span>
+          </div>
+          <div class="stat-value" id="stat-active-tunnels">0 / 0</div>
+          <div class="stat-sub"><span data-i18n="stat_total_created">Всего создано:</span> <span id="stat-total-tunnels">0</span></div>
+        </div>
+
+        <!-- 2. Ресурсы хоста -->
+        <div class="stat-card">
+          <div class="stat-header">
+            <span class="stat-label" data-i18n="stat_host_resources">Ресурсы хоста</span>
+            <span class="stat-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="4" y="4" width="16" height="16" rx="2"/>
+                <rect x="9" y="9" width="6" height="6"/>
+                <line x1="9" y1="1" x2="9" y2="4"/>
+                <line x1="15" y1="1" x2="15" y2="4"/>
+                <line x1="9" y1="20" x2="9" y2="23"/>
+                <line x1="15" y1="20" x2="15" y2="23"/>
+                <line x1="20" y1="9" x2="23" y2="9"/>
+                <line x1="20" y1="14" x2="23" y2="14"/>
+                <line x1="1" y1="9" x2="4" y2="9"/>
+                <line x1="1" y1="14" x2="4" y2="14"/>
+              </svg>
+            </span>
+          </div>
+          <div class="stat-value"><span id="stat-cpu">0%</span> CPU</div>
+          <div class="stat-sub"><span>RAM: <span id="stat-ram">0 / 0 MB</span></span><span>(<span id="stat-ram-pct">0%</span>)</span></div>
+        </div>
+
+        <!-- 3. Скорость сети (загрузка и отдача) -->
+        <div class="stat-card">
+          <div class="stat-header">
+            <span class="stat-label" data-i18n="stat_network_speed">Скорость сети</span>
+            <span class="stat-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 14l4-4"/>
+                <path d="M3.34 19a10 10 0 1 1 17.32 0"/>
+              </svg>
+            </span>
+          </div>
+          <div class="stat-value" id="stat-speed-total">0 B/s</div>
+          <div class="stat-sub">
+            <span style="display: inline-flex; align-items: center; gap: 4px;">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
+              <span id="stat-speed-down">0 B/s</span>
+            </span>
+            <span>•</span>
+            <span style="display: inline-flex; align-items: center; gap: 4px;">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+              <span id="stat-speed-up">0 B/s</span>
+            </span>
+          </div>
+        </div>
+
+        <!-- 4. Сколько трафика потрачено -->
+        <div class="stat-card">
+          <div class="stat-header">
+            <span class="stat-label" data-i18n="stat_total_traffic">Общий трафик</span>
+            <span class="stat-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="20" x2="18" y2="10"/>
+                <line x1="12" y1="20" x2="12" y2="4"/>
+                <line x1="6" y1="20" x2="6" y2="14"/>
+              </svg>
+            </span>
+          </div>
+          <div class="stat-value" id="stat-total-traffic">0 B</div>
+          <div class="stat-sub">
+            <span style="display: inline-flex; align-items: center; gap: 4px;">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+              <span id="stat-upload">0 B</span>
+            </span>
+            <span>•</span>
+            <span style="display: inline-flex; align-items: center; gap: 4px;">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
+              <span id="stat-download">0 B</span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+        <div class="section-bar">
+          <h3 class="section-title" data-i18n="tunnels_title">Список туннелей</h3>
+          <div class="toolbar">
+            <button class="btn btn-outline btn-sm" onclick="loadTunnels()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg><span data-i18n="btn_refresh">Обновить</span></button>
+            <button class="btn btn-primary btn-sm" onclick="openTunnelModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg><span data-i18n="btn_add_tunnel">Добавить туннель</span></button>
+          </div>
+        </div>
+
+        <div id="tunnel-list" class="tunnel-list">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+

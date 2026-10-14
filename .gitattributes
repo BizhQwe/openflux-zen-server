@@ -1,0 +1,10 @@
+src/OpenFlux.Zen.Server.Core/deploy/node-install.sh text eol=lf
+scripts/*.sh text eol=lf
+.github/workflows/*.yml text eol=lf
+
+# Signed script-transport fixtures and their .sig files must stay exactly
+# the bytes they were signed as; a Windows checkout's LF->CRLF conversion
+# of the .js files would invalidate every signature (caught by
+# JvmPlatformServicesScriptTest's "valid" assertion failing only on the
+# Windows leg of OpenFluxDesktop's nightly CI).
+src/OpenFlux.Zen.Server.Core/transport/script/js/** -text

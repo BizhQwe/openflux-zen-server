@@ -1,0 +1,208 @@
+      <!-- Tab: Settings -->
+      <div id="tab-settings" class="tab-content">
+        <div class="section-bar">
+          <h3 class="section-title" data-i18n="settings_title">Настройки панели</h3>
+        </div>
+
+        <!-- 1. Credentials Form (Управление учётными записями) -->
+        <div class="card settings-card" id="account-settings-card">
+          <h4 style="margin-bottom: 14px;" data-i18n="settings_admin_title">Управление учётными записями</h4>
+          <form class="account-form" onsubmit="event.preventDefault(); updateAccountProfile();">
+            <div class="form-group">
+              <label for="setting-username" data-i18n="setting_user_label">Имя пользователя (Логин)</label>
+              <input type="text" id="setting-username" class="form-control" required data-i18n-placeholder="login_user_placeholder" placeholder="Имя пользователя" />
+            </div>
+            <div class="form-group">
+              <label for="cur-pass" data-i18n="setting_cur_pass_label">Текущий пароль (для подтверждения)</label>
+              <input type="password" id="cur-pass" class="form-control" required data-i18n-placeholder="setting_cur_pass_placeholder" placeholder="Введите текущий пароль" />
+            </div>
+            <div class="form-group">
+              <label for="new-pass" data-i18n="setting_new_pass_label">Новый пароль (оставьте пустым, если не меняется)</label>
+              <input type="password" id="new-pass" class="form-control" data-i18n-placeholder="setting_new_pass_placeholder" placeholder="Новый пароль (опционально)" />
+            </div>
+            <button type="submit" class="btn btn-primary" data-i18n="btn_save_changes">Сохранить изменения</button>
+          </form>
+        </div>
+
+        <!-- 2. OpenFlux Zen Server Updates -->
+        <div class="card settings-card" id="panel-update-card">
+          <div class="settings-card-header">
+            <h4 data-i18n="settings_panel_title">OpenFlux Zen Server</h4>
+            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+              <span id="panel-status-badge" class="badge-status-update" style="display: none;"></span>
+            </div>
+          </div>
+          <p style="color: var(--text-dim); margin-bottom: 16px; font-size: 0.9rem;" data-i18n="settings_panel_desc">
+            Веб-панель управления и служба сервера OpenFlux Zen Server (BizhQwe/openflux-zen-server). Отвечает за интерфейс управления, учётные записи администратора, фоновую службу системы и настройку туннелей.
+          </p>
+
+          <div class="version-stats-grid">
+            <div class="version-stat-cell">
+              <span class="version-stat-label" data-i18n="settings_core_version">Версия OpenFlux:</span>
+              <span id="core-current-version" class="version-stat-val">0.7.3</span>
+            </div>
+            <div class="version-stat-cell">
+              <span class="version-stat-label" data-i18n="settings_panel_version">Версия веб-панели:</span>
+              <span id="panel-current-version" class="version-stat-val">2.0.0</span>
+            </div>
+            <div class="version-stat-cell">
+              <span class="version-stat-label" data-i18n="settings_panel_latest_version">Доступная версия:</span>
+              <span id="panel-latest-version" class="version-stat-val">2.0.0</span>
+            </div>
+            <div class="version-stat-cell">
+              <span class="version-stat-label" data-i18n="settings_panel_published">Дата релиза:</span>
+              <span id="panel-release-date" class="version-stat-val" style="font-family: inherit; font-size: 0.88rem; font-weight: 500;">—</span>
+            </div>
+          </div>
+
+          <div id="panel-release-notes-box" style="display: none; margin-bottom: 16px; padding: 12px; background: rgba(59, 130, 246, 0.06); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <strong style="font-size: 0.85rem; color: #93c5fd;" data-i18n="settings_panel_release_notes">Что нового в обновлении:</strong>
+              <a id="panel-release-link" href="https://github.com/BizhQwe/openflux-zen-server/releases" target="_blank" rel="noopener noreferrer" class="btn btn-outline" style="min-height: 32px; height: 32px; padding: 0 12px; font-size: 0.8rem; gap: 6px; text-decoration: none; border-radius: 6px;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                <span data-i18n="settings_panel_github_link">Релиз на GitHub</span>
+              </a>
+            </div>
+            <div id="panel-release-notes-text" class="release-notes-content"></div>
+          </div>
+
+          <div class="button-row" style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button id="btn-check-panel" class="btn btn-outline" type="button" onclick="checkForPanelUpdates()">
+              <span id="btn-check-panel-spinner" style="display: none;" class="spinner-inline"></span>
+              <span data-i18n="btn_check_panel_updates">Проверить обновления</span>
+            </button>
+            <button id="btn-update-panel" class="btn btn-primary" type="button" onclick="confirmUpdatePanel()" style="display: none;">
+              <span id="btn-update-panel-spinner" style="display: none;" class="spinner-inline"></span>
+              <span data-i18n="btn_update_panel">Обновить</span>
+            </button>
+            <button id="btn-rollback-panel" class="btn btn-outline" type="button" onclick="openRollbackModal('panel')">
+              <span data-i18n="btn_change_version_panel">Сменить версию</span>
+            </button>
+            <button type="button" class="btn btn-outline" onclick="window.open('https://github.com/BizhQwe/openflux-zen-server/releases', '_blank')">
+              <span data-i18n="btn_view_panel_releases">Релизы GitHub</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Network Placement -->
+        <div class="card settings-card" id="network-placement-card">
+          <div class="settings-card-header">
+            <h4 data-i18n="settings_change_network_mode_title">Управление сетевым размещением</h4>
+            <span id="setting-network-mode" class="network-mode-badge">—</span>
+          </div>
+          <p class="settings-card-description" data-i18n="settings_change_network_mode_desc">
+            Настройте, откуда разрешён доступ к веб-панели сервера. Вы можете включить несколько вариантов одновременно.
+          </p>
+
+          <div class="placement-compact-list">
+            <!-- 1. Localhost (Always enabled) -->
+            <div class="placement-item active" id="placement-item-localhost">
+              <div class="placement-item-left">
+                <label class="custom-toggle disabled" title="Всегда активен">
+                  <input type="checkbox" id="check-placement-localhost" checked disabled />
+                  <span class="toggle-slider"></span>
+                </label>
+                <span class="placement-item-title" data-i18n="placement_localhost_title">Этот компьютер (Localhost)</span>
+              </div>
+              <div class="placement-item-right" id="placement-box-localhost">
+                <input type="text" id="url-placement-localhost" class="form-control form-control-sm placement-url-input" readonly spellcheck="false" />
+                <button type="button" class="btn btn-outline btn-sm placement-copy-btn" onclick="copyPlacementUrl('url-placement-localhost')">
+                  <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  <span data-i18n="btn_copy">Копировать</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- 2. LAN (Local Network) -->
+            <div class="placement-item" id="placement-item-lan">
+              <div class="placement-item-left">
+                <label class="custom-toggle">
+                  <input type="checkbox" id="check-placement-lan" onchange="onPlacementOptionToggle()" />
+                  <span class="toggle-slider"></span>
+                </label>
+                <span class="placement-item-title" data-i18n="placement_lan_title">Локальная сеть (LAN / Wi-Fi)</span>
+              </div>
+              <div class="placement-item-right" id="placement-box-lan" style="display: none;">
+                <input type="text" id="url-placement-lan" class="form-control form-control-sm placement-url-input" readonly spellcheck="false" />
+                <button type="button" class="btn btn-outline btn-sm placement-copy-btn" onclick="copyPlacementUrl('url-placement-lan')">
+                  <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  <span data-i18n="btn_copy">Копировать</span>
+                </button>
+              </div>
+              <span class="placement-status-muted" id="off-label-lan" data-i18n="placement_disabled">Отключено</span>
+            </div>
+
+            <!-- 3. Localtunnel (Internet) -->
+            <div class="placement-item" id="placement-item-localtunnel">
+              <div class="placement-item-left">
+                <label class="custom-toggle">
+                  <input type="checkbox" id="check-placement-localtunnel" onchange="onPlacementOptionToggle()" />
+                  <span class="toggle-slider"></span>
+                </label>
+                <span class="placement-item-title" data-i18n="placement_localtunnel_title">Localtunnel (Интернет)</span>
+              </div>
+              <div class="placement-item-right" id="placement-box-localtunnel" style="display: none;">
+                <input type="text" id="url-placement-localtunnel" class="form-control form-control-sm placement-url-input" readonly spellcheck="false" placeholder="Ожидание подключения к Localtunnel..." />
+                <button type="button" class="btn btn-outline btn-sm placement-copy-btn" onclick="copyPlacementUrl('url-placement-localtunnel')">
+                  <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  <span data-i18n="btn_copy">Копировать</span>
+                </button>
+              </div>
+              <span class="placement-status-muted" id="off-label-localtunnel" data-i18n="placement_disabled">Отключено</span>
+            </div>
+
+            <!-- 4. Domain / Public IP -->
+            <div class="placement-item" id="placement-item-domain">
+              <div class="placement-item-left">
+                <label class="custom-toggle">
+                  <input type="checkbox" id="check-placement-domain" onchange="onPlacementOptionToggle()" />
+                  <span class="toggle-slider"></span>
+                </label>
+                <span class="placement-item-title" data-i18n="placement_domain_title">Собственный домен / IP</span>
+              </div>
+              <div class="placement-item-right" id="placement-box-domain" style="display: none;">
+                <input type="text" id="setting-domain-input" class="form-control form-control-sm placement-domain-input" placeholder="my-server.com" autocapitalize="none" spellcheck="false" oninput="updateDomainPreviewUrl()" />
+                <input type="text" id="url-placement-domain" class="form-control form-control-sm placement-url-input" readonly spellcheck="false" />
+                <button type="button" class="btn btn-outline btn-sm placement-copy-btn" onclick="copyPlacementUrl('url-placement-domain')">
+                  <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  <span data-i18n="btn_copy">Копировать</span>
+                </button>
+              </div>
+              <span class="placement-status-muted" id="off-label-domain" data-i18n="placement_disabled">Отключено</span>
+            </div>
+          </div>
+
+          <div id="placement-lan-subnets" class="form-group" style="display: none; margin-top: 14px;">
+            <label for="setting-lan-subnets" data-i18n="settings_lan_subnets">Разрешённые подсети LAN</label>
+            <input id="setting-lan-subnets" type="text" class="form-control" spellcheck="false" placeholder="192.168.1.0/24, 10.8.0.0/24" />
+            <p class="settings-helper" data-i18n="settings_lan_subnets_hint">Пустое поле — частные подсети сетевых интерфейсов. Можно указать свои частные подсети через запятую. Публичный HTTP всегда закрыт.</p>
+          </div>
+          <p class="settings-helper" data-i18n="settings_domain_hint">Для внешнего доступа используйте HTTPS через домен. Полный URL укажите для уже настроенного reverse proxy.</p>
+          <div class="placement-actions">
+            <label for="setting-panel-port" data-i18n="settings_panel_port">Порт панели</label>
+            <input id="setting-panel-port" type="number" min="1" max="65535" class="form-control" oninput="updateDomainPreviewUrl()" />
+            <button id="btn-save-network-mode" type="button" class="btn btn-primary" onclick="saveNetworkPlacement()">
+              <span id="btn-save-network-spinner" style="display: none;" class="spinner-inline"></span>
+              <span data-i18n="btn_apply_network_mode">Применить размещение</span>
+            </button>
+            <button id="btn-regenerate-panel-link" type="button" class="btn btn-outline" onclick="regenerateSecretPath()" aria-describedby="panel-link-note">
+              <span data-i18n="btn_regen_secret">Обновить ссылку</span>
+            </button>
+          </div>
+          <p id="panel-link-note" class="settings-helper" data-i18n="settings_secret_note">В ссылке есть секретный путь для защиты от сканеров и ботов. После обновления прежняя ссылка перестанет работать.</p>
+        </div>
+
+        <!-- 6. Language Selector -->
+        <div class="card settings-card" id="language-settings-card">
+          <h4 style="margin-bottom: 8px;" data-i18n="settings_lang_title">Язык интерфейса</h4>
+          <p style="color: var(--text-dim); margin-bottom: 16px; font-size: 0.9rem;" data-i18n="settings_lang_desc">
+            Выберите язык для веб-интерфейса панели управления.
+          </p>
+          <div style="max-width: 320px;">
+            <select id="setting-language" class="form-control" onchange="setLanguage(this.value, true)" aria-label="Language / Язык">
+              <option value="ru">Русский (RU)</option>
+              <option value="en">English (EN)</option>
+            </select>
+          </div>
+        </div>
+      </div>

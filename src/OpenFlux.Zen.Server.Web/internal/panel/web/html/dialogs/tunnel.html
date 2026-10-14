@@ -1,0 +1,313 @@
+  <!-- Tunnel Modal (Add / Edit) -->
+  <div id="tunnel-modal" class="modal-overlay">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="tunnel-modal-title">
+      <div class="modal-header">
+        <h4 class="modal-title" id="tunnel-modal-title" data-i18n="modal_new_tunnel">Новый туннель</h4>
+        <button class="modal-close" aria-label="Закрыть" onclick="closeTunnelModal()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form id="tunnel-form" onsubmit="event.preventDefault(); saveTunnel(); return false;">
+          <input type="hidden" id="tunnel-id" />
+
+          <div class="form-group">
+            <label for="tunnel-name" data-i18n="modal_tunnel_name">Название туннеля</label>
+            <input type="text" id="tunnel-name" class="form-control" placeholder="Yandex Exit Server" required />
+          </div>
+
+          <input type="hidden" id="tunnel-role" value="exit" />
+
+          <!-- Transport Selection Section -->
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label data-i18n="modal_tunnel_transport_select">Транспорт туннеля</label>
+            <div class="transport-grid" id="transport-cards-grid">
+              <!-- Mail.ru Docs -->
+              <div class="transport-card" data-transport="mailru" onclick="selectTransport('mailru')">
+                <div class="transport-card-icon transport-icon-mailru">
+                  <img src="images/transport-mail-ru.png" alt="Mail.ru" width="28" height="28" style="object-fit: contain; display: block;" />
+                </div>
+                <div class="transport-card-info">
+                  <span class="transport-card-title">Mail.ru Docs</span>
+                  <span class="transport-card-sub">Облако Mail.ru</span>
+                </div>
+              </div>
+
+              <!-- Direct TCP -->
+              <div class="transport-card" data-transport="direct" onclick="selectTransport('direct')">
+                <div class="transport-card-icon transport-icon-direct">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/><path d="M12 10v4"/></svg>
+                </div>
+                <div class="transport-card-info">
+                  <span class="transport-card-title">Direct TCP</span>
+                  <span class="transport-card-sub">Прямой порт</span>
+                </div>
+              </div>
+
+              <!-- Cups.online -->
+              <div class="transport-card" data-transport="cupsonline" onclick="selectTransport('cupsonline')">
+                <div class="transport-card-icon transport-icon-cups">
+                  <img src="images/transport-cups-online.png" alt="Cups.online" width="28" height="28" style="object-fit: contain; display: block;" />
+                </div>
+                <div class="transport-card-info">
+                  <span class="transport-card-title">Cups.online</span>
+                  <span class="transport-card-sub">Авто-комнаты</span>
+                </div>
+              </div>
+
+              <!-- Avito -->
+              <div class="transport-card" data-transport="avito" onclick="selectTransport('avito')">
+                <div class="transport-card-icon transport-icon-avito">
+                  <img src="images/transport-avito.png" alt="Avito" width="28" height="28" style="object-fit: contain; display: block;" />
+                </div>
+                <div class="transport-card-info">
+                  <span class="transport-card-title">Avito</span>
+                  <span class="transport-card-sub">code.avito.ru</span>
+                </div>
+              </div>
+
+              <!-- Yandex Docs -->
+              <div class="transport-card" data-transport="yandex" onclick="selectTransport('yandex')">
+                <div class="transport-card-icon transport-icon-yandex">
+                  <img src="images/transport-yandex.png" alt="Yandex Docs" width="28" height="28" style="object-fit: contain; display: block;" />
+                </div>
+                <div class="transport-card-info">
+                  <span class="transport-card-title">Yandex Docs</span>
+                  <span class="transport-card-sub">Яндекс Документы</span>
+                </div>
+              </div>
+
+              <!-- Multi-Transport -->
+              <div class="transport-card" data-transport="multi" onclick="selectTransport('multi')">
+                <div class="transport-card-icon transport-icon-multi">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M6 9v6"/><path d="M9 6h6a3 3 0 0 1 3 3v6"/></svg>
+                </div>
+                <div class="transport-card-info">
+                  <span class="transport-card-title">Multi-Session</span>
+                  <span class="transport-card-sub">Объединение</span>
+                </div>
+              </div>
+
+              <!-- Yandex Volga -->
+              <div class="transport-card" data-transport="vyandex" onclick="selectTransport('vyandex')">
+                <div class="transport-card-icon transport-icon-vyandex">
+                  <img src="images/transport-yandex.png" alt="Yandex Volga" width="28" height="28" style="object-fit: contain; display: block;" />
+                </div>
+                <div class="transport-card-info">
+                  <span class="transport-card-title">Yandex Volga</span>
+                  <span class="transport-card-sub">Volga Relay</span>
+                </div>
+              </div>
+
+              <!-- Yandex Boards -->
+              <div class="transport-card" data-transport="boards" onclick="selectTransport('boards')">
+                <div class="transport-card-icon transport-icon-boards">
+                  <img src="images/transport-yandex-boards.png" alt="Yandex Boards" width="28" height="28" style="object-fit: contain; display: block;" />
+                </div>
+                <div class="transport-card-info">
+                  <span class="transport-card-title">Yandex Boards</span>
+                  <span class="transport-card-sub">Интер. Доска</span>
+                </div>
+              </div>
+
+              <!-- MAX / OneMe -->
+              <div class="transport-card" data-transport="oneme" onclick="selectTransport('oneme')">
+                <div class="transport-card-icon transport-icon-oneme">
+                  <img src="images/transport-max.png" alt="MAX / OneMe" width="28" height="28" style="object-fit: contain; display: block;" />
+                </div>
+                <div class="transport-card-info">
+                  <span class="transport-card-title">MAX / OneMe</span>
+                  <span class="transport-card-sub">WebRTC звонки</span>
+                </div>
+              </div>
+
+              <!-- Yandex Telemost -->
+              <div class="transport-card" data-transport="telemost" onclick="selectTransport('telemost')">
+                <div class="transport-card-icon transport-icon-telemost">
+                  <img src="images/transport-telemost.png" alt="Yandex Telemost" width="28" height="28" style="object-fit: contain; display: block;" />
+                </div>
+                <div class="transport-card-info">
+                  <span class="transport-card-title">Yandex Telemost</span>
+                  <span class="transport-card-sub">Телемост</span>
+                </div>
+              </div>
+              <div class="transport-card" data-transport="script" onclick="selectTransport('script')">
+                <div class="transport-card-icon transport-icon-script">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                </div>
+                <div class="transport-card-info">
+                  <span class="transport-card-title">Script / .flux</span>
+                  <span class="transport-card-sub" data-i18n="script_transport_desc">Подписанный транспорт</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Underlying select element kept for backwards compatibility and form serialization -->
+            <select id="tunnel-transport" class="form-control" style="display: none;" onchange="onTransportChange()">
+              <option value="yandex">yandex (Yandex Docs)</option>
+              <option value="avito">avito (code.avito.ru)</option>
+              <option value="telemost">telemost (Yandex Telemost)</option>
+              <option value="direct">direct (Direct TCP)</option>
+              <option value="cupsonline">cupsonline (Cups.online)</option>
+              <option value="mailru">mailru (Mail.ru Docs)</option>
+              <option value="script">script (Signed .flux)</option>
+              <option value="multi">multi (Multi-Transport)</option>
+              <option value="vyandex">vyandex (Yandex Volga)</option>
+              <option value="boards">boards (Yandex Boards)</option>
+              <option value="oneme">oneme (MAX / OneMe)</option>
+            </select>
+          </div>
+
+          <!-- URL / Links -->
+          <div id="group-url" class="form-group">
+            <label id="tunnel-url-label" for="tunnel-url" data-i18n="modal_tunnel_url">URL документа (--url)</label>
+            <input type="text" id="tunnel-url" class="form-control" placeholder="https://disk.yandex.ru/i/..." />
+            <div id="tunnel-url-warning" class="url-warning-alert" style="display: none;"></div>
+          </div>
+
+          <!-- OneMe Fields -->
+          <div id="group-oneme" class="form-row" style="display: none;">
+            <div class="form-group">
+              <label for="tunnel-maxtoken">MAX Token (--maxToken)</label>
+              <input type="text" id="tunnel-maxtoken" class="form-control" placeholder="Токен авторизации MAX" />
+            </div>
+            <div class="form-group">
+              <label for="tunnel-maxuid">MAX User ID (--maxUid)</label>
+              <input type="text" id="tunnel-maxuid" class="form-control" placeholder="ID пользователя" />
+            </div>
+          </div>
+
+          <!-- Direct Transport Fields -->
+          <div id="group-direct" class="form-row" style="display: none;">
+            <div class="form-group">
+              <label for="tunnel-direct-listen" data-i18n="modal_tunnel_direct_listen">Порт прослушивания (--direct-listen)</label>
+              <input type="text" id="tunnel-direct-listen" class="form-control" placeholder="0.0.0.0:8445" />
+            </div>
+            <div class="form-group">
+              <label for="tunnel-share-host" data-i18n="modal_tunnel_share_host">Внешний хост / IP (--share-host)</label>
+              <input type="text" id="tunnel-share-host" class="form-control" placeholder="Авто (публичный IP)" />
+            </div>
+          </div>
+
+          <!-- Multi Transport Fields -->
+          <div id="group-multi" class="form-group" style="display: none;">
+            <label data-i18n="modal_tunnel_transports">Транспорты сессии и приоритеты</label>
+            <div id="multi-transport-rows" class="multi-transport-rows"></div>
+            <button type="button" class="btn btn-outline btn-sm" onclick="addMultiTransportRow()" style="margin-top: 8px;">＋ Добавить транспорт</button>
+            <input type="hidden" id="tunnel-transports" />
+          </div>
+
+          <div class="form-group">
+            <label for="tunnel-encryption" data-i18n="modal_tunnel_key">Ключ шифрования (AES-256-GCM)</label>
+            <div class="key-input-group">
+              <input type="text" id="tunnel-encryption" class="form-control" data-i18n-placeholder="modal_tunnel_key_placeholder" placeholder="32-байтный hex-ключ (мин. 16 символов)" style="font-family: monospace; font-size: 0.85rem;" />
+              <button type="button" class="btn btn-outline key-generate-btn" onclick="generateAndSetKey()" data-i18n="btn_generate_key">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-6 6l-3-3m0 0l-3 3m3-3l3 3m-3-3l7-7m-7 7l-7 7m7-7l3 3"/><circle cx="7.5" cy="15.5" r="5.5"/></svg>
+                <span data-i18n="btn_generate_key">Сгенерировать</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label class="checkbox-label" style="display: inline-flex; align-items: center; gap: 8px; font-size: 0.88rem; cursor: pointer;">
+              <input type="checkbox" id="tunnel-enable-share" checked />
+              <span data-i18n="modal_tunnel_enable_share">Генерировать клиентскую ссылку openflux:// и QR-код (--share)</span>
+            </label>
+          </div>
+
+          <details class="advanced-settings-accordion">
+            <summary class="advanced-settings-summary">
+              <div class="advanced-settings-summary-left">
+                <svg class="advanced-settings-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="3"></circle>
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                </svg>
+                <span class="advanced-settings-title" data-i18n="modal_tunnel_advanced_title">Расширенные параметры</span>
+              </div>
+              <svg class="advanced-settings-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </summary>
+            <div class="advanced-settings-body">
+              <div class="form-row form-row-3">
+                <div class="form-group">
+                  <label for="tunnel-mode" data-i18n="modal_tunnel_mode">Режим выхода</label>
+                  <select id="tunnel-mode" class="form-control">
+                    <option value="l4" data-i18n="mode_l4_label">l4 — gVisor (без root, везде)</option>
+                    <option value="l3" data-i18n="mode_l3_label">l3 — SNAT/DNAT (root, Linux)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="tunnel-codec" data-i18n="modal_tunnel_codec">Кодек сжатия</label>
+                  <select id="tunnel-codec" class="form-control">
+                    <option value="batched">batched (zstd + coalescing)</option>
+                    <option value="legacy">legacy (per-packet LZ4)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="tunnel-max-packet" data-i18n="modal_tunnel_max_packet">Размер пакета</label>
+                  <input type="number" id="tunnel-max-packet" class="form-control" value="65000" min="1280" max="65000" placeholder="65000" />
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="tunnel-local-ip" data-i18n="modal_tunnel_egress">Egress IP (L3)</label>
+                  <input type="text" id="tunnel-local-ip" class="form-control" data-i18n-placeholder="modal_tunnel_egress_placeholder" placeholder="Авто (0.0.0.0)" />
+                </div>
+                <div class="form-group">
+                  <label for="tunnel-session-context" data-i18n="modal_tunnel_context">KDF Контекст</label>
+                  <input type="text" id="tunnel-session-context" class="form-control" placeholder="URL документа" />
+                </div>
+              </div>
+
+              <div class="advanced-settings-checkbox">
+                <label class="checkbox-label" style="display: inline-flex; align-items: center; gap: 8px; font-size: 0.85rem; cursor: pointer;">
+                  <input type="checkbox" id="tunnel-negotiate" />
+                  <span data-i18n="modal_tunnel_negotiate">Строгое согласование (--negotiate)</span>
+                </label>
+              </div>
+
+              <div id="group-script">
+                <div class="form-group">
+                  <label for="tunnel-script-path" data-i18n="script_path">Путь к .flux / .js на сервере</label>
+                  <input type="text" id="tunnel-script-path" class="form-control" placeholder="/opt/openflux/transports/yandex.flux" />
+                </div>
+                <div class="form-group">
+                  <label for="tunnel-script-pubkey" data-i18n="script_pubkey">Публичный ключ подписи (64 hex)</label>
+                  <input type="text" id="tunnel-script-pubkey" class="form-control" maxlength="64" />
+                </div>
+                <div class="form-group">
+                  <label for="tunnel-script-name" data-i18n="script_name">Имя транспорта (необязательно)</label>
+                  <input type="text" id="tunnel-script-name" class="form-control" />
+                </div>
+                <div class="script-update-settings">
+                <label class="checkbox-label script-update-toggle">
+                  <input type="checkbox" id="tunnel-script-auto-update" onchange="updateScriptChannelState()" />
+                  <span data-i18n="script_auto_update">Автообновление .flux-транспортов</span>
+                </label>
+                <div class="form-group">
+                  <span class="script-channel-label" data-i18n="script_channel">Канал обновлений</span>
+                  <fieldset id="tunnel-script-channel" class="script-channel-options" aria-label="Update channel">
+                    <label><input type="radio" name="script-channel" value="stable" checked /><span>Stable</span></label>
+                    <label><input type="radio" name="script-channel" value="nightly" /><span>Nightly</span></label>
+                  </fieldset>
+                </div>
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 0;">
+                <label for="tunnel-extra-args" data-i18n="modal_tunnel_extra">Параметры CLI</label>
+                <input type="text" id="tunnel-extra-args" class="form-control" placeholder="--debug=2" />
+              </div>
+            </div>
+          </details>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeTunnelModal()" data-i18n="btn_cancel">Отмена</button>
+        <button class="btn btn-primary" onclick="saveTunnel()" data-i18n="btn_save">Сохранить</button>
+      </div>
+    </div>
+  </div>
+

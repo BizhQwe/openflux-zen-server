@@ -1,0 +1,34 @@
+  <!-- Cookies Management Modal -->
+  <div id="cookies-modal" class="modal-overlay" onclick="if(event.target === this) closeCookiesModal()">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cookies-modal-title" style="max-width: 520px;">
+      <div class="modal-header" style="padding: 16px 20px;">
+        <h4 class="modal-title" id="cookies-modal-title" style="font-size: 1.1rem;">Ввод куки</h4>
+        <button class="modal-close" aria-label="Закрыть" onclick="closeCookiesModal()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="modal-body" style="padding: 18px 20px 16px;">
+        <input type="hidden" id="cookies-tunnel-id" />
+		<div class="form-group" id="cookies-transport-group" hidden>
+		  <label for="cookies-transport-select">Транспорт Multi</label>
+		  <select id="cookies-transport-select" class="form-control" onchange="switchCookiesTransport()"></select>
+		</div>
+        <p id="cookies-modal-description" style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 12px; line-height: 1.45;">
+          Куки можно сохранить до запуска туннеля. Поддерживаются Cookie-заголовок, JSON из расширений и Netscape cookies.txt.
+        </p>
+
+        <div class="form-group" style="margin-bottom: 0;">
+          <label for="cookies-input-text" style="font-size: 0.82rem; font-weight: 500; margin-bottom: 6px;">Данные куки:</label>
+          <textarea id="cookies-input-text" class="form-control" rows="6" placeholder="Вставьте сюда скопированные куки (spravka=...; Session_id=... или JSON)" style="font-family: monospace; font-size: 0.82rem; resize: vertical; min-height: 120px;"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; border-top: 1px solid var(--card-border);">
+        <button type="button" class="btn btn-danger btn-sm" id="btn-clear-cookies" onclick="clearCurrentModalCookies()">Сбросить куки</button>
+        <div style="display: flex; gap: 8px;">
+          <button type="button" class="btn btn-outline btn-sm" onclick="closeCookiesModal()">Отмена</button>
+          <button type="button" class="btn btn-primary btn-sm" id="btn-save-cookies" onclick="submitCookiesModal()">Применить куки</button>
+        </div>
+      </div>
+    </div>
+  </div>
+

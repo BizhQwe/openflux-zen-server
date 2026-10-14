@@ -1,0 +1,31 @@
+  <!-- QR Code / Client Link Modal -->
+  <div id="qr-modal" class="modal-overlay" onclick="if(event.target === this) closeQrModal()">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="qr-modal-title" style="max-width: 760px; max-height: calc(100dvh - 24px); overflow-y: auto;">
+      <div class="modal-header">
+        <h4 class="modal-title" id="qr-modal-title">Подключение</h4>
+        <button class="modal-close" aria-label="Закрыть" onclick="closeQrModal()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="modal-body" style="text-align: center; padding: 20px 24px 16px;">
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;" data-i18n="modal_qr_subtitle">
+          Отсканируйте QR-код в приложении OpenFlux или скопируйте ссылку для быстрого импорта конфигурации:
+        </p>
+        <div id="qrcode-box" style="display: inline-block; background: #ffffff; margin-bottom: 14px; max-width: 100%;">
+          <div id="qrcode-canvas" style="display: flex; justify-content: center; align-items: center; min-height: 160px;"></div>
+        </div>
+        <div class="form-group" style="text-align: left; margin-bottom: 0;">
+          <label style="font-size: 0.8rem; color: var(--text-muted);" data-i18n="modal_qr_link_label">Клиентская ссылка OpenFlux:</label>
+          <div style="display: flex; gap: 8px; align-items: stretch;">
+            <input type="text" id="qr-modal-link-input" class="form-control" readonly style="flex: 1; min-width: 0; height: 42px; min-height: 42px; font-family: monospace; font-size: 0.82rem; box-sizing: border-box;" />
+            <button class="btn btn-primary" onclick="copyQrModalLink()" style="height: 42px; min-height: 42px; padding: 0 18px; white-space: nowrap; box-sizing: border-box;" data-i18n="btn_copy">Скопировать</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="padding: 14px 24px; border-top: 1px solid var(--card-border); gap: 8px;">
+        <a id="qr-download-link" class="btn btn-primary" download="openflux-connection.png" hidden data-i18n="btn_download_qr">Скачать PNG</a>
+        <button type="button" class="btn btn-outline" onclick="closeQrModal()" style="height: 40px; min-height: 40px;" data-i18n="btn_close">Закрыть</button>
+      </div>
+    </div>
+  </div>
+

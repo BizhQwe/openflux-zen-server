@@ -1,0 +1,227 @@
+// OpenFlux Zen Server - Core App Initialization & Routing
+
+let tunnelsData = [];
+let statsInterval = null;
+
+async function doLogin() {
+  const u = document.getElementById('login-user').value.trim();
+  const p = document.getElementById('login-pass').value;
+  if (!u || !p) {
+    toast(t('toast_fill_login'), 'danger');
+    return;
+  }
+
+  try {
+    const res = await fetch('api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ username: u, password: p })
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      localStorage.setItem('zen_token', data.token);
+      await initApp();
+      toast(t('toast_login_success'), 'success');
+    } else {
+      toast(data.message || t('toast_invalid_credentials'), 'danger');
+    }
+  } catch (err) {
+    toast(t('toast_server_error'), 'danger');
+  }
+}
+
+async function logout() {
+  const token = localStorage.getItem('zen_token');
+  localStorage.removeItem('zen_token');
+
+  if (statsInterval) {
+    clearInterval(statsInterval);
+    statsInterval = null;
+  }
+  if (typeof stopLogsPolling === 'function') {
+    stopLogsPolling();
+  }
+
+  if (token) {
+    try {
+      await fetch('api/auth/logout', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        credentials: 'same-origin'
+      });
+    } catch (_) {}
+  }
+
+  document.getElementById('app-header').style.display = 'none';
+  document.getElementById('main-view').style.display = 'none';
+  document.getElementById('login-view').style.display = 'block';
+}
+
+async function checkAuth() {
+  const token = localStorage.getItem('zen_token');
+  if (!token) return false;
+  try {
+    const res = await api('api/auth/me');
+    if (res.ok) {
+      const data = await res.json();
+      const secretInput = document.getElementById('setting-secret-path');
+      if (secretInput && data.secretPath) {
+        secretInput.value = '/' + data.secretPath.replace(/^\/+|\/+$/g, '') + '/';
+      }
+      const userInput = document.getElementById('setting-username');
+      if (userInput && data.username) {
+        userInput.value = data.username;
+      }
+      return true;
+    }
+  } catch (err) {
+    console.warn('Auth check failed:', err);
+  }
+  return false;
+}
+
+async function initApp() {
+  if (typeof setLanguage === 'function') {
+    setLanguage(currentLanguage, false);
+  }
+  const isAuthed = await checkAuth();
+  if (!isAuthed) {
+    localStorage.removeItem('zen_token');
+    if (statsInterval) {
+      clearInterval(statsInterval);
+      statsInterval = null;
+    }
+    document.getElementById('app-header').style.display = 'none';
+    document.getElementById('main-view').style.display = 'none';
+    document.getElementById('login-view').style.display = 'block';
+    return;
+  }
+
+  document.getElementById('login-view').style.display = 'none';
+  document.getElementById('app-header').style.display = 'block';
+  document.getElementById('main-view').style.display = 'block';
+
+  if (typeof updateHeaderStatusBadge === 'function') {
+    updateHeaderStatusBadge();
+  }
+
+  loadStats();
+  loadTunnels();
+  if (typeof loadPanelVersionInfo === 'function') {
+    loadPanelVersionInfo(false);
+  }
+  if (typeof loadCoreVersionInfo === 'function') {
+    loadCoreVersionInfo(false);
+  }
+  if (!statsInterval) {
+    let isPolling = false;
+    statsInterval = setInterval(async () => {
+      if (document.hidden || isPolling) return;
+      const tunnelsTab = document.getElementById('tab-tunnels');
+      if (!tunnelsTab || !tunnelsTab.classList.contains('active')) return;
+      isPolling = true;
+      try {
+        await Promise.allSettled([loadStats(), loadTunnels(true)]);
+      } finally {
+        isPolling = false;
+      }
+    }, 1000);
+
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && document.getElementById('main-view').style.display !== 'none') {
+        const tunnelsTab = document.getElementById('tab-tunnels');
+        if (tunnelsTab && tunnelsTab.classList.contains('active')) {
+          loadStats();
+          loadTunnels(true);
+        }
+        const logsTab = document.getElementById('tab-logs');
+        if (logsTab && logsTab.classList.contains('active')) {
+          if (typeof loadActiveLogs === 'function') loadActiveLogs(true);
+        }
+      }
+    });
+
+    setInterval(() => {
+      if (document.hidden || document.getElementById('main-view').style.display === 'none') return;
+      if (typeof loadPanelVersionInfo === 'function') loadPanelVersionInfo(false);
+      if (typeof loadCoreVersionInfo === 'function') loadCoreVersionInfo(false);
+    }, 5 * 60 * 1000);
+  }
+}
+
+function switchTab(tabId) {
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  const activeBtn = Array.from(document.querySelectorAll('.nav-btn')).find(b => b.getAttribute('onclick').includes(tabId));
+  if (activeBtn) activeBtn.classList.add('active');
+  const tabEl = document.getElementById('tab-' + tabId);
+  if (tabEl) tabEl.classList.add('active');
+
+  if (tabId === 'tunnels') {
+    loadStats();
+    loadTunnels(true);
+  }
+  if (tabId === 'logs') {
+    if (typeof startLogsPolling === 'function') {
+      startLogsPolling();
+    } else if (typeof loadActiveLogs === 'function') {
+      loadActiveLogs();
+    }
+  } else {
+    if (typeof stopLogsPolling === 'function') {
+      stopLogsPolling();
+    }
+  }
+  if (tabId === 'settings') loadSettings();
+}
+
+async function loadStats() {
+  try {
+    const res = await api('api/stats');
+    if (!res.ok) return;
+    const s = await res.json();
+    const activeEl = document.getElementById('stat-active-tunnels');
+    if (activeEl) activeEl.textContent = s.activeTunnels + ' / ' + s.totalTunnels;
+    const totalEl = document.getElementById('stat-total-tunnels');
+    if (totalEl) totalEl.textContent = s.totalTunnels;
+    const cpuEl = document.getElementById('stat-cpu');
+    if (cpuEl) {
+      const cpuVal = typeof s.cpuUsagePercent === 'number' ? s.cpuUsagePercent : 0;
+      cpuEl.textContent = (cpuVal > 0 && cpuVal < 10 ? cpuVal.toFixed(1) : Math.round(cpuVal)) + '%';
+    }
+    const ramEl = document.getElementById('stat-ram');
+    if (ramEl) {
+      if (s.memoryTotalBytes && s.memoryTotalBytes > 0) {
+        ramEl.textContent = `${fmtBytes(s.memoryUsedBytes)} / ${fmtBytes(s.memoryTotalBytes)}`;
+      } else {
+        ramEl.textContent = fmtBytes(s.memoryUsedBytes);
+      }
+    }
+    const ramPctEl = document.getElementById('stat-ram-pct');
+    if (ramPctEl) ramPctEl.textContent = Math.round(s.memoryUsagePercent) + '%';
+    const speedDown = s.downloadRateBytesPerSec || 0;
+    const speedUp = s.uploadRateBytesPerSec || 0;
+    const speedTotal = speedDown + speedUp;
+    const speedTotalEl = document.getElementById('stat-speed-total');
+    if (speedTotalEl) speedTotalEl.textContent = fmtSpeed(speedTotal);
+    const speedUpEl = document.getElementById('stat-speed-up');
+    if (speedUpEl) speedUpEl.textContent = fmtSpeed(speedUp);
+    const speedDownEl = document.getElementById('stat-speed-down');
+    if (speedDownEl) speedDownEl.textContent = fmtSpeed(speedDown);
+    const upTraffic = s.totalUploadBytes || 0;
+    const downTraffic = s.totalDownloadBytes || 0;
+    const totalTraffic = upTraffic + downTraffic;
+    const trafficEl = document.getElementById('stat-total-traffic');
+    if (trafficEl) trafficEl.textContent = fmtBytes(totalTraffic);
+    const uploadEl = document.getElementById('stat-upload');
+    if (uploadEl) uploadEl.textContent = fmtBytes(upTraffic);
+    const downloadEl = document.getElementById('stat-download');
+    if (downloadEl) downloadEl.textContent = fmtBytes(downTraffic);
+  } catch (err) {
+    console.warn('Failed to load stats:', err);
+  }
+}
+
+// Auto-login check on page load
+initApp();

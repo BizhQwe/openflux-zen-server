@@ -1,0 +1,19 @@
+      <!-- Tab: Logs -->
+      <div id="tab-logs" class="tab-content">
+        <div class="section-bar">
+          <h3 class="section-title" data-i18n="logs_title">Системные логи</h3>
+          <div class="toolbar">
+            <select id="log-target-select" class="form-control form-control-sm" aria-label="Источник логов" onchange="loadActiveLogs()">
+              <option value="system" data-i18n="logs_panel_system">Лог панели (System)</option>
+            </select>
+            <button class="btn btn-outline btn-sm" onclick="loadActiveLogs()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg><span data-i18n="btn_refresh">Обновить</span></button>
+            <button class="btn btn-outline btn-sm" onclick="downloadCurrentLogs()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span data-i18n="btn_download_logs">Скачать логи</span></button>
+            <button class="btn btn-outline btn-sm" onclick="clearCurrentLogs()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><span data-i18n="btn_clear_logs">Очистить</span></button>
+          </div>
+        </div>
+
+        <div class="terminal-container" id="terminal-output">
+          <div class="log-line log-system" data-i18n="logs_loading">Загрузка логов...</div>
+        </div>
+      </div>
+
