@@ -152,9 +152,11 @@ jobs:
           if [[ "$RELEASE_TAG" == *-* ]]; then
             release_flags=(--prerelease --latest=false)
           fi
-          if gh release view "$RELEASE_TAG" --json isDraft --jq '.isDraft' > "$RUNNER_TEMP/openflux-release-draft.txt"; then
-            if [[ "$(cat "$RUNNER_TEMP/openflux-release-draft.txt")" != true ]]; then
-              echo "Release $RELEASE_TAG is already published. Existing assets are preserved."
+          if gh release view "$RELEASE_TAG" --json isDraft,assets > "$RUNNER_TEMP/openflux-release-info.json"; then
+            is_draft=$(jq -r '.isDraft' "$RUNNER_TEMP/openflux-release-info.json")
+            asset_count=$(jq -r '.assets | length' "$RUNNER_TEMP/openflux-release-info.json")
+            if [[ "$is_draft" != "true" && "$asset_count" -gt 0 ]]; then
+              echo "Release $RELEASE_TAG is already published with $asset_count assets. Existing assets are preserved."
               exit 0
             fi
           else

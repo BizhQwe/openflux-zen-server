@@ -24,6 +24,5 @@ for target in windows-amd64 windows-arm64 windows-386 linux-amd64 linux-arm64 li
     set -- "$@" "$asset"
 done
 
-cp scripts/install.sh scripts/install.ps1 LICENSE NOTICE COPYRIGHT "$release_dir/"
-(cd "$release_dir" && sha256sum "$@" install.sh install.ps1 LICENSE NOTICE COPYRIGHT > SHA256SUMS.txt)
-echo 'Release ready: 7 installers, individual SHA-256 files, bootstrap scripts and licenses.'
+(cd "$release_dir" && sha256sum "$@" > SHA256SUMS.txt)
+echo 'Release ready: 7 installers, individual SHA-256 files and SHA256SUMS.txt.'
