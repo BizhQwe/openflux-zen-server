@@ -35,7 +35,10 @@ func TestPanelVersionAPI(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	manager := NewManager(store, "dummy-core")
+	manager, err := NewManager(store, "dummy-core")
+	if err != nil {
+		t.Fatal(err)
+	}
 	s := NewServer(store, Settings{SecretPath: "test-secret"}, manager)
 
 	// Test GET api/panel/version
