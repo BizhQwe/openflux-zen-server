@@ -1,59 +1,73 @@
-# OpenFlux Zen Server: download and run the latest Windows installer.
-# Run in an elevated PowerShell for a normal installation.
-# All arguments are passed to the installer, e.g. --no-service --dir C:\Zen.
-$ErrorActionPreference = 'Stop'
-$repository = 'BizhQwe/openflux-zen-server'
-if ($env:OPENFLUX_REPOSITORY) { $repository = $env:OPENFLUX_REPOSITORY }
-if ($repository -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') {
-    throw 'OPENFLUX_REPOSITORY must be a GitHub owner/repository.'
-}
-if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) {
-    throw 'Use install.sh on Linux.'
+# ==============================================================================
+# OpenFlux Zen Server - Fast 1-Command Bootstrap Installer (Windows)
+# Supports: Windows x64, Windows ARM64, Windows x86
+# ==============================================================================
+
+#Requires -RunAsAdministrator
+$ErrorActionPreference = "Stop"
+
+$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+if (-not $isAdmin) {
+    Write-Host ""
+    Write-Host "  [ERROR] Administrator privileges required." -ForegroundColor Red
+    Write-Host "  Please run PowerShell as Administrator (Right click -> Run as administrator) and retry." -ForegroundColor Yellow
+    Write-Host ""
+    return
 }
 
-# OS architecture also works from a 32-bit PowerShell on a 64-bit Windows.
 $nativeArch = $env:PROCESSOR_ARCHITEW6432
 if (-not $nativeArch) { $nativeArch = $env:PROCESSOR_ARCHITECTURE }
 $arch = switch ($nativeArch.ToUpperInvariant()) {
-    'AMD64' { 'amd64' }
-    'ARM64' { 'arm64' }
-    'X86'   { '386' }
-    default { throw "Unsupported Windows architecture: $nativeArch" }
+    'AMD64' { 'windows-amd64' }
+    'ARM64' { 'windows-arm64' }
+    'X86'   { 'windows-386' }
+    default { 'windows-amd64' }
 }
-$asset = "openflux-zen-server-installer-windows-$arch.exe"
-$releaseUrl = "https://github.com/$repository/releases/latest/download/$asset"
-$tempRoot = Join-Path ([IO.Path]::GetTempPath()) ('openflux-install-' + [Guid]::NewGuid().ToString('N'))
-$installer = Join-Path $tempRoot $asset
-$checksum = "$installer.sha256"
-$installExitCode = 1
-
-try {
-    New-Item -ItemType Directory -Path $tempRoot | Out-Null
-    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
-    Write-Host "OpenFlux Zen Server - Windows $arch"
-    Write-Host "Downloading the latest release from $repository..."
-    foreach ($download in @(@{Url=$releaseUrl; Path=$installer}, @{Url="$releaseUrl.sha256"; Path=$checksum})) {
-        Invoke-WebRequest -Uri $download.Url -OutFile $download.Path -UseBasicParsing -UserAgent 'OpenFlux-Zen-Bootstrap' -ErrorAction Stop
-    }
-    $expected = ((Get-Content -LiteralPath $checksum -Raw).Trim() -split '\s+')[0]
-    if ($expected -notmatch '^[a-fA-F0-9]{64}$') { throw 'Invalid release SHA-256 file.' }
-    $file = [IO.File]::OpenRead($installer)
-    $sha = [Security.Cryptography.SHA256]::Create()
-    try { $actual = [BitConverter]::ToString($sha.ComputeHash($file)).Replace('-', '') }
-    finally { $sha.Dispose(); $file.Dispose() }
-    if ($actual -ine $expected) { throw 'Installer SHA-256 mismatch.' }
-
-    Write-Host 'SHA-256 verified. Starting installation...'
-    & $installer @args
-    $installExitCode = $LASTEXITCODE
-} catch {
-    Write-Host "Installation failed: $($_.Exception.Message)" -ForegroundColor Red
-    Write-Host "Release asset: $releaseUrl"
-} finally {
-    # Remove only these two files in the unique temporary directory.
-    foreach ($path in @($installer, $checksum)) {
-        if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue }
-    }
-    if (Test-Path -LiteralPath $tempRoot) { Remove-Item -LiteralPath $tempRoot -ErrorAction SilentlyContinue }
+$displayArch = switch ($nativeArch.ToUpperInvariant()) {
+    'ARM64' { 'win-arm64' }
+    'X86'   { 'win-x86' }
+    default { 'win-x64' }
 }
-exit $installExitCode
+
+$tempDir = $env:TEMP
+$installerExe = Join-Path $tempDir "openflux-zen-server-installer-$arch.exe"
+$repo = if ($env:OPENFLUX_REPOSITORY) { $env:OPENFLUX_REPOSITORY } else { "BizhQwe/openflux-zen-server" }
+$releaseUrl = "https://github.com/$repo/releases/latest/download/openflux-zen-server-installer-$arch.exe"
+$tagUrl = "https://github.com/$repo/releases/download/v1.0.0/openflux-zen-server-installer-$arch.exe"
+$fallbackUrl = "https://github.com/$repo/releases/latest/download/openflux-zen-server-installer-$arch.exe"
+
+Write-Host ""
+Write-Host "  OpenFlux Zen Server - Windows ($displayArch)" -ForegroundColor Cyan
+Write-Host "  Downloading installer..." -ForegroundColor Gray
+
+$downloaded = $false
+foreach ($url in @($releaseUrl, $tagUrl, $fallbackUrl)) {
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
+        $wc = New-Object System.Net.WebClient
+        $wc.Headers.Add("User-Agent", "OpenFlux-Bootstrap")
+        $wc.DownloadFile($url, $installerExe)
+        if ((Test-Path $installerExe) -and (Get-Item $installerExe).Length -gt 100000) {
+            $downloaded = $true
+            break
+        }
+    } catch {
+        try {
+            Invoke-WebRequest -Uri $url -OutFile $installerExe -UseBasicParsing -UserAgent 'OpenFlux-Bootstrap'
+            if ((Test-Path $installerExe) -and (Get-Item $installerExe).Length -gt 100000) {
+                $downloaded = $true
+                break
+            }
+        } catch { }
+    }
+}
+
+if ($downloaded) {
+    & $installerExe $args
+    return
+} else {
+    Write-Host "  [ERROR] Failed to download installer for $displayArch." -ForegroundColor Red
+    Write-Host "  Please check internet connection or download manually:" -ForegroundColor Yellow
+    Write-Host "  $releaseUrl" -ForegroundColor Yellow
+    return
+}

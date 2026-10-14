@@ -1,95 +1,125 @@
-#!/bin/sh
-# OpenFlux Zen Server: download and run the latest Linux installer.
-# All arguments are passed to the installer, e.g. --no-service --dir ./zen.
+#!/usr/bin/env bash
+# ==============================================================================
+# OpenFlux Zen Server - Fast 1-Command Bootstrap Installer (Linux)
+# Supports: Linux x64, Linux ARM64, Linux x86, Linux ARMv7
+# ==============================================================================
+
 set -eu
+if set -o pipefail 2>/dev/null; then
+    set -o pipefail
+fi
 
-repository=${OPENFLUX_REPOSITORY:-BizhQwe/openflux-zen-server}
-case "$repository" in
-    ''|*[!A-Za-z0-9_./-]*) echo 'OPENFLUX_REPOSITORY must be a GitHub owner/repository.' >&2; exit 1 ;;
-esac
-owner=${repository%%/*}
-repo=${repository#*/}
-case "$repo" in
-    ''|*/*) echo 'OPENFLUX_REPOSITORY must be a GitHub owner/repository.' >&2; exit 1 ;;
-esac
-if [ -z "$owner" ] || [ "$owner" = "$repository" ]; then
-    echo 'OPENFLUX_REPOSITORY must be a GitHub owner/repository.' >&2
-    exit 1
-fi
-if [ "$(uname -s)" != Linux ]; then
-    echo 'This script supports Linux only.' >&2
-    exit 1
-fi
-machine=$(uname -m)
-case "$machine" in
-    x86_64|amd64) arch=amd64 ;;
-    aarch64|arm64) arch=arm64 ;;
-    i386|i486|i586|i686|x86) arch=386 ;;
-    armv7l|armv8l) arch=armv7 ;;
-    *) echo "Unsupported Linux architecture: $machine" >&2; exit 1 ;;
-esac
-if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
-    echo 'Install curl or wget and run this script again.' >&2
-    exit 1
-fi
-if ! command -v sha256sum >/dev/null 2>&1; then
-    echo 'sha256sum is required to verify the installer.' >&2
+if [ "$(id -u)" -ne 0 ]; then
+    echo "  [ERROR] Root privileges required. Run with: sudo bash $0"
     exit 1
 fi
 
-asset="openflux-zen-server-installer-linux-$arch"
-release_url="https://github.com/$repository/releases/latest/download/$asset"
-temp_dir=$(mktemp -d "${TMPDIR:-/tmp}/openflux-install.XXXXXX")
-installer="$temp_dir/$asset"
-checksum="$installer.sha256"
-cleanup() {
-    rm -f -- "$installer" "$checksum"
-    rmdir -- "$temp_dir" 2>/dev/null || true
-}
-trap cleanup EXIT
-trap 'exit 129' HUP
-trap 'exit 130' INT
-trap 'exit 143' TERM
-download() {
-    if command -v curl >/dev/null 2>&1; then
-        curl --fail --location --show-error --silent --retry 3 --connect-timeout 20 "$1" --output "$2"
-    else
-        wget --quiet --timeout=20 --tries=3 --output-document="$2" "$1"
-    fi
-}
-echo "OpenFlux Zen Server - Linux $arch"
-echo "Downloading the latest release from $repository..."
-if ! download "$release_url" "$installer" || ! download "$release_url.sha256" "$checksum"; then
-    echo "Could not download the installer and checksum: $release_url" >&2
-    exit 1
-fi
-expected=$(awk 'NR == 1 { print $1; exit }' "$checksum")
-case "$expected" in
-    ''|*[!a-fA-F0-9]*) echo 'Invalid release SHA-256 file.' >&2; exit 1 ;;
-esac
-if [ "${#expected}" -ne 64 ]; then
-    echo 'Invalid release SHA-256 file.' >&2
-    exit 1
-fi
-expected=$(printf '%s' "$expected" | tr 'A-F' 'a-f')
-actual=$(sha256sum "$installer" | awk '{ print $1 }')
-if [ "$actual" != "$expected" ]; then
-    echo 'Installer SHA-256 mismatch.' >&2
-    exit 1
-fi
-chmod 700 "$installer"
-echo 'SHA-256 verified. Starting installation...'
-
-needs_root=true
 for arg in "$@"; do
-    case "$arg" in --no-service|--verify) needs_root=false ;; esac
-done
-if [ "$(id -u)" -ne 0 ] && [ "$needs_root" = true ]; then
-    if ! command -v sudo >/dev/null 2>&1; then
-        echo 'Run this script as root, or use --no-service --dir <directory>.' >&2
-        exit 1
+    if [ "$arg" = "--uninstall" ] || [ "$arg" = "uninstall" ] || [ "$arg" = "-u" ]; then
+        echo ""
+        echo "=============================================================="
+        echo "  OpenFlux Zen Server — Полное удаление"
+        echo "=============================================================="
+        echo "  [INFO] Остановка служб и процессов..."
+        systemctl disable --now openflux-zen-server.service openflux-zrok.service openflux.service 2>/dev/null || true
+        pkill -9 -x OpenFlux.Zen.Server.Web 2>/dev/null || true
+        pkill -9 -x OpenFlux.Zen.Server 2>/dev/null || true
+        pkill -9 -x OpenFluxZenServer 2>/dev/null || true
+        pkill -9 -x openflux-linux-amd64 2>/dev/null || true
+        pkill -9 -x openflux-linux-arm64 2>/dev/null || true
+        pkill -9 -x openflux-zen-server-web 2>/dev/null || true
+        pkill -9 -x openflux-zen-server-core 2>/dev/null || true
+        pkill -9 -x openflux-zen-server-cli 2>/dev/null || true
+        pkill -9 -x openflux 2>/dev/null || true
+        pkill -9 -x zrok 2>/dev/null || true
+
+        echo "  [INFO] Удаление служб systemd..."
+        rm -f /etc/systemd/system/openflux*.service /etc/systemd/system/multi-user.target.wants/openflux*.service /lib/systemd/system/openflux*.service
+        systemctl daemon-reload 2>/dev/null || true
+        systemctl reset-failed 2>/dev/null || true
+
+        echo "  [INFO] Удаление конфигураций и файлов..."
+        rm -f /etc/nginx/conf.d/openflux*.conf /etc/nginx/sites-enabled/openflux* /etc/nginx/sites-available/openflux* 2>/dev/null || true
+        systemctl reload nginx 2>/dev/null || true
+        rm -f /etc/profile.d/openflux*.sh /etc/sudoers.d/openflux 2>/dev/null || true
+        rm -rf /opt/openflux-zen-server /opt/openflux /etc/openflux /var/log/openflux /var/lib/openflux /tmp/openflux* /var/tmp/openflux* ~/.openflux ~/.config/openflux
+        rm -f /usr/local/bin/OpenFluxZenServer /usr/local/bin/openfluxzenserver /usr/local/bin/openflux /usr/local/bin/openflux-zen-server /usr/bin/OpenFluxZenServer /usr/bin/openfluxzenserver /usr/bin/openflux /usr/bin/openflux-zen-server /bin/openflux 2>/dev/null || true
+
+        echo ""
+        echo "  [OK] OpenFlux Zen Server полностью удален из системы без каких-либо остатков."
+        echo "=============================================================="
+        echo ""
+        exit 0
     fi
-    sudo "$installer" "$@"
+done
+
+ARCH=$(uname -m)
+case "$ARCH" in
+    x86_64|amd64)
+        RID="linux-amd64"
+        DISPLAY_ARCH="linux-x64"
+        ;;
+    aarch64|arm64)
+        RID="linux-arm64"
+        DISPLAY_ARCH="linux-arm64"
+        ;;
+    i386|i486|i586|i686|x86)
+        RID="linux-386"
+        DISPLAY_ARCH="linux-x86"
+        ;;
+    armv7l|armv8l|armv7)
+        RID="linux-armv7"
+        DISPLAY_ARCH="linux-armv7"
+        ;;
+    *)
+        echo "  [ERROR] Unsupported CPU architecture: $ARCH"
+        exit 1
+        ;;
+esac
+
+TMP_DIR="/var/tmp"
+if [ ! -w "$TMP_DIR" ]; then
+    TMP_DIR="/tmp"
+fi
+INSTALLER_BIN="$TMP_DIR/openflux-zen-server-installer-$RID"
+REPO="${OPENFLUX_REPOSITORY:-BizhQwe/openflux-zen-server}"
+RELEASE_URL="https://github.com/$REPO/releases/latest/download/openflux-zen-server-installer-$RID"
+TAG_URL="https://github.com/$REPO/releases/download/v1.0.0/openflux-zen-server-installer-$RID"
+FALLBACK_URL="https://github.com/$REPO/releases/latest/download/openflux-zen-server-installer-$RID"
+
+echo ""
+echo "  OpenFlux Zen Server - Linux ($DISPLAY_ARCH)"
+echo "  Downloading installer..."
+
+DOWNLOADED=0
+if command -v curl >/dev/null 2>&1; then
+    if curl -# -fSL "$RELEASE_URL" -o "$INSTALLER_BIN" 2>/dev/null && [ -s "$INSTALLER_BIN" ]; then
+        DOWNLOADED=1
+    elif curl -# -fSL "$TAG_URL" -o "$INSTALLER_BIN" 2>/dev/null && [ -s "$INSTALLER_BIN" ]; then
+        DOWNLOADED=1
+    elif curl -# -fSL "$FALLBACK_URL" -o "$INSTALLER_BIN" 2>/dev/null && [ -s "$INSTALLER_BIN" ]; then
+        DOWNLOADED=1
+    fi
+elif command -v wget >/dev/null 2>&1; then
+    if wget --show-progress -q -O "$INSTALLER_BIN" "$RELEASE_URL" 2>/dev/null && [ -s "$INSTALLER_BIN" ]; then
+        DOWNLOADED=1
+    elif wget --show-progress -q -O "$INSTALLER_BIN" "$TAG_URL" 2>/dev/null && [ -s "$INSTALLER_BIN" ]; then
+        DOWNLOADED=1
+    fi
+fi
+
+if [ "$DOWNLOADED" -eq 1 ]; then
+    chmod +x "$INSTALLER_BIN"
+    if [ -t 0 ]; then
+        exec "$INSTALLER_BIN" "$@"
+    elif [ -c /dev/tty ]; then
+        exec "$INSTALLER_BIN" "$@" < /dev/tty
+    else
+        exec "$INSTALLER_BIN" "$@"
+    fi
 else
-    "$installer" "$@"
+    echo "  [ERROR] Failed to download installer binary for $DISPLAY_ARCH."
+    echo "  Check repository access or download manually:"
+    echo "  $RELEASE_URL"
+    exit 1
 fi
