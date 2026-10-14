@@ -22,6 +22,9 @@ jobs:
     name: Check (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
+    env:
+      GOMAXPROCS: '2'
+      OPENFLUX_TEST_REQUIRE_PHP: '1'
     strategy:
       fail-fast: false
       matrix:
@@ -39,9 +42,21 @@ jobs:
         with:
           go-version-file: go.work
           cache-dependency-path: src/**/go.sum
+      - name: Set up PHP for integration tests
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
+        with:
+          php-version: '8.5'
+          extensions: openssl
+          coverage: none
+          tools: none
+      - name: Check test runtimes
+        run: |
+          go version
+          php --version
+          php -r 'if (!extension_loaded("openssl")) { fwrite(STDERR, "PHP OpenSSL is required\n"); exit(1); }'
       - name: Test core, web, installer and CLI
         run: >-
-          go test -timeout 5m
+          go test -p 2 -timeout 5m -count=1
           ./src/OpenFlux.Zen.Server.Core/...
           ./src/OpenFlux.Zen.Server.Web/...
           ./src/OpenFlux.Zen.Server.Installer/...

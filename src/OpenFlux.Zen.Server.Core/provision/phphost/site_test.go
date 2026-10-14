@@ -196,6 +196,9 @@ func TestStartGivesUpWhenTheNodeNeverRuns(t *testing.T) {
 func TestDeployedFilesRunUnderPHP(t *testing.T) {
 	php, err := exec.LookPath("php")
 	if err != nil {
+		if os.Getenv("OPENFLUX_TEST_REQUIRE_PHP") == "1" {
+			t.Fatal("PHP is required for the CI integration test but is not on PATH")
+		}
 		t.Skip("no php on this machine")
 	}
 	srv := newFakeFTP(t, "u", "pw", "htdocs")
@@ -204,32 +207,32 @@ func TestDeployedFilesRunUnderPHP(t *testing.T) {
 		t.Fatal(err)
 	}
 	root := filepath.Join(t.TempDir(), "htdocs")
-	for p, b := range srv.files {
-		rel := strings.TrimPrefix(p, "/htdocs/")
-		if rel == p {
-			continue
-		}
-		dst := filepath.Join(root, rel)
-		_ = os.MkdirAll(filepath.Dir(dst), 0o755)
-		_ = os.WriteFile(dst, b, 0o644)
-	}
-	port := freePort(t)
-	cmd := exec.Command(php, "-S", fmt.Sprintf("127.0.0.1:%d", port), "-t", root)
-	cmd.Env = append(os.Environ(), "TMPDIR="+t.TempDir(), "PHP_CLI_SERVER_WORKERS=4")
-	if err := cmd.Start(); err != nil {
+	if err := os.MkdirAll(root, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = cmd.Process.Kill(); _ = cmd.Wait() })
-	site := &Site{URL: fmt.Sprintf("http://127.0.0.1:%d", port), Token: in.Token, Carrier: "mailru"}
-	var st *Status
-	for i := 0; i < 30; i++ {
-		if st, err = site.Check(ctx(t)); err == nil {
-			break
+	func() {
+		srv.mu.Lock()
+		defer srv.mu.Unlock()
+		for p, b := range srv.files {
+			rel := strings.TrimPrefix(p, "/htdocs/")
+			if rel == p {
+				continue
+			}
+			dst := filepath.Join(root, rel)
+			if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(dst, b, 0o644); err != nil {
+				t.Fatal(err)
+			}
 		}
-		time.Sleep(200 * time.Millisecond)
-	}
+	}()
+	serverURL, logPath := startPHPTestServer(t, php, root)
+	site := &Site{URL: serverURL, Token: in.Token, Carrier: "mailru"}
+	st, err := site.Check(ctx(t))
 	if err != nil {
-		t.Fatalf("the deployed node does not answer: %v", err)
+		output, _ := os.ReadFile(logPath)
+		t.Fatalf("the deployed node does not answer: %v\nPHP output:\n%s", err, output)
 	}
 	if st.Carrier != "mailru" || !st.StateDir || !st.Parser {
 		t.Errorf("ping: %+v", st)
@@ -240,15 +243,6 @@ func TestDeployedFilesRunUnderPHP(t *testing.T) {
 	if ns, err := site.Node(ctx(t), "some-doc"); err != nil || ns.Running {
 		t.Errorf("a fresh node reports %+v %v", ns, err)
 	}
-}
-
-func freePort(t *testing.T) int {
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ln.Close()
-	return ln.Addr().(*net.TCPAddr).Port
 }
 
 // Seen live: one domain, two servers. The device's DNS pointed at a stranger's nginx (404 for everything), the public
