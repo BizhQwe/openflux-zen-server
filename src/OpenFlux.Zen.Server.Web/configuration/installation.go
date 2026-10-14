@@ -24,15 +24,30 @@ func CanonicalDir(dir string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if strings.TrimSpace(dir) == "" || filepath.Clean(abs) == filepath.VolumeName(abs)+string(filepath.Separator) {
+	if strings.TrimSpace(dir) == "" || filepath.Dir(abs) == abs {
 		return "", errors.New("отказ работать с корнем файловой системы")
 	}
-	resolved, err := filepath.EvalSymlinks(abs)
-	if err != nil {
-		return "", err
-	}
-	if !SamePath(abs, resolved) {
-		return "", errors.New("каталог установки не должен проходить через символическую ссылку")
+	// Check actual link attributes, including parent directories. On Windows,
+	// EvalSymlinks also expands ordinary DOS 8.3 names, so comparing its result
+	// with the input incorrectly rejects valid paths such as RUNNER~1.
+	for path := abs; ; {
+		info, err := os.Lstat(path)
+		if err != nil {
+			return "", err
+		}
+		// Modern Go reports Windows junctions as irregular name-surrogate
+		// entries rather than directories or POSIX symlinks.
+		if info.Mode()&os.ModeSymlink != 0 || (info.Mode()&os.ModeIrregular != 0 && !info.IsDir()) {
+			return "", errors.New("каталог установки не должен проходить через символическую ссылку")
+		}
+		if !info.IsDir() {
+			return "", errors.New("путь установки должен указывать на каталог")
+		}
+		parent := filepath.Dir(path)
+		if parent == path {
+			break
+		}
+		path = parent
 	}
 	return abs, nil
 }

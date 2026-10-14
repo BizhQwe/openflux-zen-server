@@ -15,6 +15,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"openflux.local/zen/panel/configuration"
 )
 
 //go:embed payload
@@ -143,17 +145,11 @@ func installFiles(dir string, bundle Bundle) error {
 	if e := os.MkdirAll(dir, 0755); e != nil {
 		return e
 	}
-	resolved, e := filepath.EvalSymlinks(dir)
+	validatedDir, e := configuration.CanonicalDir(dir)
 	if e != nil {
 		return e
 	}
-	same := filepath.Clean(dir) == filepath.Clean(resolved)
-	if runtime.GOOS == "windows" {
-		same = strings.EqualFold(filepath.Clean(dir), filepath.Clean(resolved))
-	}
-	if !same {
-		return errors.New("installation directory must not pass through a symbolic link")
-	}
+	dir = validatedDir
 	entries, e := os.ReadDir(dir)
 	if e != nil {
 		return e

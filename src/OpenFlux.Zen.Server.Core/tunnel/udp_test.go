@@ -42,6 +42,16 @@ func (p *pairedTransport) Receive(cb func([]byte)) {
 func (p *pairedTransport) IsConnected() bool               { return true }
 func (p *pairedTransport) Stats() transport.TransportStats { return transport.TransportStats{} }
 
+type delayedDeliveryTransport struct {
+	transport.Transport
+	delay time.Duration
+}
+
+func (p delayedDeliveryTransport) Send(data []byte) error {
+	time.Sleep(p.delay)
+	return p.Transport.Send(data)
+}
+
 func TestL4UDPDatagramRoundTrip(t *testing.T) {
 	for _, codec := range []string{"raw", "batched", "batched-encrypted", "legacy-encrypted", "negotiated"} {
 		t.Run(codec, func(t *testing.T) { testL4UDPDatagramRoundTrip(t, codec) })
@@ -83,6 +93,11 @@ func testL4UDPDatagramRoundTrip(t *testing.T, codec string) {
 			}
 		}
 		if codec == "negotiated" {
+			if !exit {
+				// The client can become ready before its final hello reaches
+				// the exit, reproducing the scheduling difference seen in CI.
+				inner = delayedDeliveryTransport{Transport: inner, delay: 50 * time.Millisecond}
+			}
 			params := transport.PeerParameters{
 				Capabilities:  transport.CapabilityIPv4 | transport.CapabilityTCP | transport.CapabilityUDP,
 				MaxPacketSize: 1280,
@@ -107,6 +122,22 @@ func testL4UDPDatagramRoundTrip(t *testing.T, codec string) {
 	for i := 0; i < 2; i++ {
 		if err := <-errs; err != nil {
 			t.Fatal(err)
+		}
+	}
+	if codec == "negotiated" {
+		// Exit Start returns before negotiation. The client can finish while
+		// its final handshake message is still queued for delivery to the exit.
+		deadline := time.Now().Add(3 * time.Second)
+		for {
+			_, clientReady := clientTransport.(transport.PeerParameterProvider).PeerParameters()
+			_, exitReady := exitTransport.(transport.PeerParameterProvider).PeerParameters()
+			if clientReady && exitReady {
+				break
+			}
+			if time.Now().After(deadline) {
+				t.Fatalf("Session negotiation incomplete: client=%t exit=%t", clientReady, exitReady)
+			}
+			time.Sleep(time.Millisecond)
 		}
 	}
 	exit := NewTCPTunnelMode(exitTransport, true, ExitModeL4)

@@ -88,8 +88,16 @@ sudo env OPENFLUX_TEST_CORE="$PWD/dist/linux-amd64/openflux-zen-server-core" OPE
 
 1. provision.TestPinnedScriptHash: SHA-256 локального deploy/node-install.sh не совпадал с pin.go. После переноса обоих файлов из v0.7.3 тест проходит.
 2. transport/yandex.TestDialIPv4FirstFallsBackToIPv6: IPv6 fallback не проходит на этом Windows-хосте.
-3. tunnel.TestL4UDPDatagramRoundTrip/negotiated: непостоянный сбой проверки MTU при согласовании.
+3. tunnel.TestL4UDPDatagramRoundTrip/negotiated: прежний непостоянный сбой проверки MTU исправлен ожиданием согласования на обеих сторонах перед созданием стека gVisor.
 
 Первые два сбоя были воспроизведены в сохранённой старой копии. Это результаты прежнего полного прогона; обновление v0.7.3 устраняет первый из них.
 
 Windows-процессы ядра находятся в Job Object с KILL_ON_JOB_CLOSE; Linux использует Pdeathsig. Основание Windows-механизма — [Microsoft Job Objects](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects).
+
+## Проверка Windows CI — 15.10.2026
+
+Сбой установщика и удаления воспроизведён при TEMP/TMP с коротким именем DOS 8.3. Сравнение строк с результатом EvalSymlinks ошибочно принимало такие имена за ссылки. Общая проверка каталога теперь проверяет атрибуты каждого компонента пути; установщик использует ту же проверку, что и CLI. Регрессии подтверждают поддержку коротких имён и отказ для корня файловой системы, символических ссылок и Windows junction-каталогов.
+
+Тест UDP воспроизводит задержку доставки последнего сообщения согласования: прежняя проверка MTU падает, а ожидание готовности обоих Session проходит 30 повторов. Передача UDP и проверка MTU остаются частью теста.
+
+Полный `go test -timeout 5m -count=1` четырёх модулей прошёл на Windows с TEMP/TMP в формате 8.3. Также прошёл `go vet`; установщики собраны для всех семи целевых платформ.
