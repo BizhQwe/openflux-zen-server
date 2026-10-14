@@ -14,10 +14,8 @@
   <img src="https://img.shields.io/badge/Go-1.26.6-00ADD8?logo=go&logoColor=white" alt="Go 1.26.6">
   <img src="https://img.shields.io/badge/Platforms-Windows%20%7C%20Linux-blue" alt="Windows and Linux">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-blue" alt="GPL-3.0"></a>
-  <a href="https://github.com/BizhQwe/openflux-zen-server/releases/latest"><img src="https://img.shields.io/github/v/release/BizhQwe/openflux-zen-server?label=Release" alt="Latest Release"></a>
+  <a href="https://github.com/BizhQwe/openflux-zen-server/releases"><img src="https://img.shields.io/github/v/release/BizhQwe/openflux-zen-server?color=blue&label=Release&logo=github" alt="Latest Release"></a>
 </p>
-
----
 
 ## About
 
@@ -29,8 +27,6 @@ All components (**Core**, **Web**, **CLI**, and **Installer**) are written in Go
 - **No external databases** — settings and tunnel state are stored locally.
 - **No external web server required** — web interface assets are embedded directly into the panel binary.
 - **No Docker required** — runs natively as a managed background service (systemd on Linux or Windows Service).
-
----
 
 ## Features
 
@@ -46,8 +42,6 @@ All components (**Core**, **Web**, **CLI**, and **Installer**) are written in Go
 - 🔒 **Built-in Security**: The web panel is protected behind an obfuscated secret URL path (`/<secret_path>/`), salted & hashed passwords, rate limiting, and optional TLS/HTTPS.
 - 🛠 **Integrated CLI (`openflux`)**: Check status, inspect login credentials, restart services, and toggle system boot autostart right from the terminal.
 - 🌍 **Bilingual Interface**: Full English and Russian language support across the web panel, installer, and CLI tool.
-
----
 
 ## Screenshots
 
@@ -69,8 +63,6 @@ All components (**Core**, **Web**, **CLI**, and **Installer**) are written in Go
 
 </details>
 
----
-
 ## Installation
 
 Two convenient installation methods are supported:
@@ -91,11 +83,9 @@ Open **PowerShell as Administrator** and execute:
 irm https://raw.githubusercontent.com/BizhQwe/openflux-zen-server/main/scripts/install.ps1 | iex
 ```
 
----
-
 ### Method 2: Standalone Release Installer (GitHub Releases)
 
-Head over to [GitHub Releases](https://github.com/BizhQwe/openflux-zen-server/releases/latest) and download the standalone installer for your platform:
+Head over to [GitHub Releases](https://github.com/BizhQwe/openflux-zen-server/releases) and download the standalone installer for your platform:
 
 | Platform | Architectures | Installer Binary |
 |---|---|---|
@@ -111,8 +101,6 @@ sudo ./openflux-zen-server-installer-linux-amd64
 # Windows
 .\openflux-zen-server-installer-windows-amd64.exe
 ```
-
----
 
 ### Silent and Custom Installation Flags
 
@@ -140,8 +128,6 @@ sudo ./openflux-zen-server-installer-linux-amd64 --silent --mode domain --domain
 > [!NOTE]
 > On the initial installation, a unique administrator username and secure password are automatically generated and displayed in the summary alongside the panel URL. **Make sure to record them!**
 
----
-
 ## Quick Start
 
 Once installation completes:
@@ -166,8 +152,6 @@ Once installation completes:
 > ```
 > *(on Linux: `sudo openflux credentials`)* — this immediately prints the generated username, password, and all available access URLs.
 
----
-
 ## CLI Management (`openflux`)
 
 The package includes the `openflux` CLI tool. On Windows, it is available globally in any command prompt; on Linux, it is symlinked to `/usr/local/bin/openflux` (or accessible via sudo).
@@ -189,8 +173,6 @@ openflux <command> [options]
 | `uninstall [-y]` | Completely remove server, service, tunnels, and data | `sudo openflux uninstall` |
 | `help` | Display CLI help and command overview | `openflux help` |
 
----
-
 ## Network Accessibility Modes
 
 OpenFlux Zen Server provides 4 deployment modes:
@@ -205,8 +187,6 @@ OpenFlux Zen Server provides 4 deployment modes:
    - The panel is accessible to all devices connected to your local home or office network (via the server's local network IP, e.g. `http://192.168.1.100:5000/...`).
 4. **Localhost Only (`localhost`)**:
    - Binds strictly to `127.0.0.1` and is accessible only from the machine it is running on.
-
----
 
 ## Project Structure
 
@@ -223,8 +203,6 @@ go.work                           # Go workspace configuration
 ```
 
 Web interface sources are located in `src/OpenFlux.Zen.Server.Web/internal/panel/web`. Templates, scripts, styles, and images are embedded into the panel binary via `go:embed`.
-
----
 
 ## Building from Source
 
@@ -257,8 +235,6 @@ powershell -ExecutionPolicy Bypass -File scripts\build.ps1 -All
 ```
 
 Compiled binaries and self-extracting installer packages (`openflux-zen-server-installer-*`) with SHA-256 digests will be generated in `dist/`.
-
----
 
 ## License & Acknowledgments
 

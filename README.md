@@ -12,12 +12,10 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Go-1.26.6-00ADD8?logo=go&logoColor=white" alt="Go 1.26.6">
-  <img src="https://img.shields.io/badge/Платформы-Windows%20%7C%20Linux-blue" alt="Windows and Linux">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/Лицензия-GPL--3.0-blue" alt="GPL-3.0"></a>
-  <a href="https://github.com/BizhQwe/openflux-zen-server/releases/latest"><img src="https://img.shields.io/github/v/release/BizhQwe/openflux-zen-server?label=Релиз" alt="Последний релиз"></a>
+  <img src="https://img.shields.io/badge/%D0%9F%D0%BB%D0%B0%D1%82%D1%84%D0%BE%D1%80%D0%BC%D1%8B-Windows%20%7C%20Linux-blue" alt="Windows and Linux">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/%D0%9B%D0%B8%D1%86%D0%B5%D0%BD%D0%B7%D0%B8%D1%8F-GPL--3.0-blue" alt="GPL-3.0"></a>
+  <a href="https://github.com/BizhQwe/openflux-zen-server/releases"><img src="https://img.shields.io/github/v/release/BizhQwe/openflux-zen-server?color=blue&label=%D0%A0%D0%B5%D0%BB%D0%B8%D0%B7&logo=github" alt="Последний релиз"></a>
 </p>
-
----
 
 ## О проекте
 
@@ -29,8 +27,6 @@
 - **Никаких сторонних баз данных** — данные и настройки надёжно хранятся локально.
 - **Никакого внешнего веб-сервера** — статика интерфейса встроена прямо в бинарник панели.
 - **Не требуется Docker** — всё работает нативно как системная служба (systemd в Linux или Windows Service).
-
----
 
 ## Возможности
 
@@ -46,8 +42,6 @@
 - 🔒 **Безопасность из коробки**: панель скрыта за уникальным секретным URL-путём (`/<secret_path>/`), пароли хранятся в виде криптографических хэшей с солью, поддерживаются HTTPS/TLS-сертификаты.
 - 🛠 **Встроенный CLI (`openflux`)**: быстрая проверка статуса, просмотр реквизитов доступа, перезапуск службы и управление автозагрузкой из терминала.
 - 🌍 **Двуязычный интерфейс**: полноценная поддержка русского и английского языков в панели, установщике и CLI.
-
----
 
 ## Скриншоты
 
@@ -69,8 +63,6 @@
 
 </details>
 
----
-
 ## Установка
 
 Поддерживаются 2 удобных способа установки:
@@ -91,11 +83,9 @@ curl -sSL https://raw.githubusercontent.com/BizhQwe/openflux-zen-server/main/scr
 irm https://raw.githubusercontent.com/BizhQwe/openflux-zen-server/main/scripts/install.ps1 | iex
 ```
 
----
-
 ### Вариант 2: Загрузка готового установщика (GitHub Releases)
 
-Перейдите на страницу [GitHub Releases](https://github.com/BizhQwe/openflux-zen-server/releases/latest) и скачайте файл установщика для своей системы:
+Перейдите на страницу [GitHub Releases](https://github.com/BizhQwe/openflux-zen-server/releases) и скачайте файл установщика для своей системы:
 
 | Платформа | Архитектуры | Файл установщика |
 |---|---|---|
@@ -111,8 +101,6 @@ sudo ./openflux-zen-server-installer-linux-amd64
 # Windows
 .\openflux-zen-server-installer-windows-amd64.exe
 ```
-
----
 
 ### Параметры тихой установки и тонкой настройки
 
@@ -140,8 +128,6 @@ sudo ./openflux-zen-server-installer-linux-amd64 --silent --mode domain --domain
 > [!NOTE]
 > При первой установке автоматически генерируются уникальный логин администратора и надёжный пароль. Они выводятся в итоговой сводке вместе с адресом входа в панель. **Обязательно сохраните их!**
 
----
-
 ## Быстрый старт
 
 После завершения установки:
@@ -166,8 +152,6 @@ sudo ./openflux-zen-server-installer-linux-amd64 --silent --mode domain --domain
 > ```
 > *(в Linux: `sudo openflux credentials`)* — команда мгновенно отобразит сгенерированный логин, пароль и все доступные URL-адреса панели.
 
----
-
 ## Управление через CLI (`openflux`)
 
 В состав сервера входит удобная консольная утилита `openflux`. В Windows она доступна сразу из любой командной строки, в Linux — в `/usr/local/bin/openflux` (или через sudo).
@@ -189,8 +173,6 @@ openflux <команда> [параметры]
 | `uninstall [-y]` | Полное удаление сервера, службы, туннелей и данных | `sudo openflux uninstall` |
 | `help` | Показать встроенную справку | `openflux help` |
 
----
-
 ## Сетевые режимы и публикация
 
 OpenFlux Zen Server поддерживает четыре сценария сетевого размещения:
@@ -205,8 +187,6 @@ OpenFlux Zen Server поддерживает четыре сценария се�
    - Панель доступна для всех устройств в вашей домашней или рабочей сети (по локальному IP-адресу сервера в сети, например `http://192.168.1.100:5000/...`).
 4. **Только этот ПК (`localhost`)**:
    - Сервер привязывается к локальному адресу `127.0.0.1` и доступен исключительно с машины, на которой запущен.
-
----
 
 ## Структура проекта
 
@@ -223,8 +203,6 @@ go.work                           # Go workspace проекта
 ```
 
 Исходный код веб-интерфейса находится в каталоге `src/OpenFlux.Zen.Server.Web/internal/panel/web`. Все шаблоны, скрипты, стили и изображения упаковываются в исполняемый файл через `go:embed`.
-
----
 
 ## Сборка из исходников
 
@@ -257,8 +235,6 @@ powershell -ExecutionPolicy Bypass -File scripts\build.ps1 -All
 ```
 
 Готовые бинарники и самодостаточные файлы установщиков (`openflux-zen-server-installer-*`) вместе с SHA-256 хэшами будут сохранены в каталоге `dist/`.
-
----
 
 ## Лицензия и благодарности
 
