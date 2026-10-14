@@ -93,17 +93,17 @@ echo "  Downloading installer..."
 
 DOWNLOADED=0
 if command -v curl >/dev/null 2>&1; then
-    if curl -# -fSL "$RELEASE_URL" -o "$INSTALLER_BIN" 2>/dev/null && [ -s "$INSTALLER_BIN" ]; then
+    if curl -s -fSL "$RELEASE_URL" -o "$INSTALLER_BIN" 2>/dev/null && [ -s "$INSTALLER_BIN" ]; then
         DOWNLOADED=1
-    elif curl -# -fSL "$TAG_URL" -o "$INSTALLER_BIN" 2>/dev/null && [ -s "$INSTALLER_BIN" ]; then
+    elif curl -s -fSL "$TAG_URL" -o "$INSTALLER_BIN" 2>/dev/null && [ -s "$INSTALLER_BIN" ]; then
         DOWNLOADED=1
-    elif curl -# -fSL "$FALLBACK_URL" -o "$INSTALLER_BIN" 2>/dev/null && [ -s "$INSTALLER_BIN" ]; then
+    elif curl -s -fSL "$FALLBACK_URL" -o "$INSTALLER_BIN" 2>/dev/null && [ -s "$INSTALLER_BIN" ]; then
         DOWNLOADED=1
     fi
 elif command -v wget >/dev/null 2>&1; then
-    if wget --show-progress -q -O "$INSTALLER_BIN" "$RELEASE_URL" 2>/dev/null && [ -s "$INSTALLER_BIN" ]; then
+    if wget -q -O "$INSTALLER_BIN" "$RELEASE_URL" 2>/dev/null && [ -s "$INSTALLER_BIN" ]; then
         DOWNLOADED=1
-    elif wget --show-progress -q -O "$INSTALLER_BIN" "$TAG_URL" 2>/dev/null && [ -s "$INSTALLER_BIN" ]; then
+    elif wget -q -O "$INSTALLER_BIN" "$TAG_URL" 2>/dev/null && [ -s "$INSTALLER_BIN" ]; then
         DOWNLOADED=1
     fi
 fi
