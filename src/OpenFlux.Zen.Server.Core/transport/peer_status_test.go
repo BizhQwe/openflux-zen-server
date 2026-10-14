@@ -2,33 +2,51 @@ package transport
 
 import (
 	"testing"
+	"testing/synctest"
 	"time"
 )
 
-func TestPeerStatusExpiresWhileRoomStaysConnected(t *testing.T) {
-	client, exit, _, rooms := linkedSessions(t, "avito")
-	fastKeepalive(client, exit)
-	startPair(t, client, exit)
-	if exit.PeerStatus() != PeerConnected {
-		t.Fatal("authenticated peer missing")
-	}
-	if err := client.Stop(); err != nil {
+func testPeerStatusWithClock(t *testing.T, test func(*testing.T)) {
+	t.Helper()
+	// Shared zstd codecs lazily create channels on first use. Initialize
+	// them outside the clock bubble so other tests can use them as well.
+	if _, err := decodeBatch(encodeBatch([][]byte{make([]byte, 256)})); err != nil {
 		t.Fatal(err)
 	}
-	if !rooms["avito"].IsConnected() {
-		t.Fatal("fixture must keep the exit attached to its room")
-	}
-	eventually(t, "peer disconnect without carrier disconnect", func() bool { return exit.PeerStatus() == PeerDisconnected })
+	synctest.Test(t, test)
+}
+
+func TestPeerStatusExpiresWhileRoomStaysConnected(t *testing.T) {
+	testPeerStatusWithClock(t, func(t *testing.T) {
+		client, exit, _, rooms := linkedSessions(t, "avito")
+		fastKeepalive(client, exit)
+		startPair(t, client, exit)
+		if exit.PeerStatus() != PeerConnected {
+			t.Fatal("authenticated peer missing")
+		}
+		if err := client.Stop(); err != nil {
+			t.Fatal(err)
+		}
+		if !rooms["avito"].IsConnected() {
+			t.Fatal("fixture must keep the exit attached to its room")
+		}
+		eventually(t, "peer disconnect without carrier disconnect", func() bool { return exit.PeerStatus() == PeerDisconnected })
+	})
 }
 
 func TestPeerStatusKeepsIdleHeartbeatClient(t *testing.T) {
-	client, exit, _, _ := linkedSessions(t, "avito")
-	fastKeepalive(client, exit)
-	startPair(t, client, exit)
-	time.Sleep(250 * time.Millisecond)
-	if got := exit.PeerStatus(); got != PeerConnected {
-		t.Fatalf("idle client with heartbeat: %s", got)
-	}
+	// Test the real heartbeat exchange against a virtual clock: a loaded
+	// Windows runner may otherwise pause past the 30 ms presence window.
+	testPeerStatusWithClock(t, func(t *testing.T) {
+		client, exit, _, _ := linkedSessions(t, "avito")
+		fastKeepalive(client, exit)
+		startPair(t, client, exit)
+		time.Sleep(250 * time.Millisecond)
+		synctest.Wait()
+		if got := exit.PeerStatus(); got != PeerConnected {
+			t.Fatalf("idle client with heartbeat: %s", got)
+		}
+	})
 }
 
 func TestClassicPeerStatusRequiresRecentPeerNotRoom(t *testing.T) {
