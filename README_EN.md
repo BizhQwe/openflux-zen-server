@@ -73,7 +73,7 @@ The installation script automatically detects your CPU architecture, downloads t
 
 #### Linux
 ```bash
-curl -sSL https://raw.githubusercontent.com/BizhQwe/openflux-zen-server/main/scripts/install.sh | sh
+curl -sSL https://raw.githubusercontent.com/BizhQwe/openflux-zen-server/main/scripts/install.sh | sudo sh
 ```
 *(if curl is not available, use `wget -qO- ... | sh`)*
 

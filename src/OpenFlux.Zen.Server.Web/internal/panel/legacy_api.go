@@ -1,6 +1,7 @@
 package panel
 
 import (
+	"encoding/json"
 	"errors"
 	"net"
 	"net/http"
@@ -92,15 +93,31 @@ func (s *Server) legacyRoute(w http.ResponseWriter, r *http.Request, route strin
 				jsonResponse(w, 200, next)
 			}
 		}
-	case (route == "api/panel/version" || route == "api/core/version") && r.Method == "GET":
-		version := CoreVersion
-		if route == "api/panel/version" {
-			version = Version
+	case route == "api/panel/version" && r.Method == "GET":
+		jsonResponse(w, 200, s.CheckPanelUpdates(false))
+	case route == "api/core/version" && r.Method == "GET":
+		jsonResponse(w, 200, map[string]any{"currentVersion": CoreVersion, "latestVersion": CoreVersion, "isUpdateAvailable": false})
+	case route == "api/panel/check-update" && r.Method == "POST":
+		jsonResponse(w, 200, s.CheckPanelUpdates(true))
+	case route == "api/core/check-update" && r.Method == "POST":
+		jsonResponse(w, 200, map[string]any{"currentVersion": CoreVersion, "latestVersion": CoreVersion, "isUpdateAvailable": false})
+	case route == "api/panel/releases" && r.Method == "GET":
+		jsonResponse(w, 200, s.GetAvailablePanelReleases())
+	case route == "api/core/releases" && r.Method == "GET":
+		jsonResponse(w, 200, []any{})
+	case route == "api/panel/update" && r.Method == "POST":
+		var req struct {
+			TargetVersion string `json:"targetVersion"`
 		}
-		jsonResponse(w, 200, map[string]any{"currentVersion": version, "latestVersion": version, "isUpdateAvailable": false})
-	case (strings.HasPrefix(route, "api/panel/") || strings.HasPrefix(route, "api/core/")) &&
-		(strings.HasSuffix(route, "/check-update") || strings.HasSuffix(route, "/update") || strings.HasSuffix(route, "/releases")):
-		jsonResponse(w, http.StatusNotImplemented, map[string]any{"success": false, "message": "обновление и смена версии этой Go-сборки выполняются её цельным установщиком; прежние .NET-релизы не подходят"})
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		ok, msg := s.UpdatePanel(req.TargetVersion)
+		if ok {
+			jsonResponse(w, 200, map[string]any{"success": true, "message": msg})
+		} else {
+			jsonResponse(w, 400, map[string]any{"success": false, "message": msg})
+		}
+	case route == "api/core/update" && r.Method == "POST":
+		jsonResponse(w, 400, map[string]any{"success": false, "message": "Ядро OpenFlux встроено в дистрибутив OpenFlux Zen Server. Чтобы обновить ядро, обновите панель до последней версии."})
 	default:
 		return false
 	}

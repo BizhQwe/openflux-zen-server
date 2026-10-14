@@ -40,6 +40,7 @@ type Server struct {
 	host         hostSampler
 	publication  *publication.Client
 	applyNetwork func(Settings) (func(), error)
+	updateCache  updateCache
 }
 
 func NewServer(store *Store, settings Settings, manager *Manager) *Server {
