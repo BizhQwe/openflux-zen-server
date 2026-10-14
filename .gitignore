@@ -18,7 +18,9 @@ tunnel.txt
 
 *.test
 *.out
-vendor/
+# Go vendor directories; frontend JS libraries are part of the panel assets.
+/vendor/
+/src/*/vendor/
 .cache/
 
 .idea/
