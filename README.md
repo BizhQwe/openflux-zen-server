@@ -72,10 +72,10 @@
 Скрипт автоматически определит архитектуру процессора, загрузит подходящий установщик из последнего релиза GitHub, сверит контрольную сумму SHA-256 и запустит мастер установки.
 
 #### Linux
+В системе должен быть установлен `curl` (при необходимости: `sudo apt install -y curl`):
 ```bash
 curl -sSL https://raw.githubusercontent.com/BizhQwe/openflux-zen-server/main/scripts/install.sh | sudo sh
 ```
-*(если curl не установлен, можно использовать `wget -qO- ... | sh`)*
 
 #### Windows
 Откройте **PowerShell от имени администратора** и выполните:

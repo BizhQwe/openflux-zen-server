@@ -72,6 +72,7 @@ Two convenient installation methods are supported:
 The installation script automatically detects your CPU architecture, downloads the matching installer from the latest GitHub Release, verifies the SHA-256 checksum, and launches the interactive setup wizard.
 
 #### Linux
+`curl` must be installed on your system (e.g., `sudo apt install -y curl`):
 ```bash
 curl -sSL https://raw.githubusercontent.com/BizhQwe/openflux-zen-server/main/scripts/install.sh | sudo sh
 ```
