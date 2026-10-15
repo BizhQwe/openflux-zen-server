@@ -30,19 +30,10 @@ func TestCompareVersions(t *testing.T) {
 }
 
 func TestPanelVersionAPI(t *testing.T) {
-	temp := t.TempDir()
-	store, err := NewStore(temp)
-	if err != nil {
-		t.Fatal(err)
-	}
-	manager, err := NewManager(store, "dummy-core")
-	if err != nil {
-		t.Fatal(err)
-	}
-	s := NewServer(store, Settings{SecretPath: "test-secret"}, manager)
+	s, settings, _ := testServer(t)
 
 	// Test GET api/panel/version
-	req := httptest.NewRequest("GET", "/test-secret/api/panel/version", nil)
+	req := httptest.NewRequest("GET", "/"+settings.SecretPath+"/api/panel/version", nil)
 	w := httptest.NewRecorder()
 	handled := s.legacyRoute(w, req, "api/panel/version")
 	if !handled {
@@ -60,7 +51,7 @@ func TestPanelVersionAPI(t *testing.T) {
 	}
 
 	// Test GET api/panel/releases
-	req = httptest.NewRequest("GET", "/test-secret/api/panel/releases", nil)
+	req = httptest.NewRequest("GET", "/"+settings.SecretPath+"/api/panel/releases", nil)
 	w = httptest.NewRecorder()
 	handled = s.legacyRoute(w, req, "api/panel/releases")
 	if !handled {
