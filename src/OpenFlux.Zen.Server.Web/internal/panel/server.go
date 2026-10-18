@@ -106,6 +106,11 @@ func (s *Server) saveSettingsLocked(next Settings, displayPassword ...string) er
 		return e
 	}
 	s.settings = next
+	// Invalidate under the same lock used by login: a request which began
+	// before a credential/path change must not mint a session afterwards.
+	if next.Username != previous.Username || next.PasswordHash != previous.PasswordHash || next.PasswordSalt != previous.PasswordSalt || next.SecretPath != previous.SecretPath {
+		s.auth.clear()
+	}
 	s.manager.SystemLog("info", "Настройки панели сохранены: listen=%s, language=%s, TLS=%t, localtunnel=%t, domain=%t", next.Listen, next.Language, next.TLSCert != "", next.LocaltunnelEnabled, next.DomainEnabled)
 	return nil
 }
@@ -205,12 +210,9 @@ func (s *Server) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Method != "GET" && r.Method != "HEAD" {
-		if origin := r.Header.Get("Origin"); origin != "" {
-			u, e := url.Parse(origin)
-			if e != nil || !strings.EqualFold(u.Host, r.Host) {
-				jsonResponse(w, 403, map[string]string{"error": "Origin mismatch"})
-				return
-			}
+		if !sameOriginRequest(r, settings) {
+			jsonResponse(w, 403, map[string]string{"error": "Origin mismatch"})
+			return
 		}
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, 2<<20)
@@ -225,11 +227,11 @@ func (s *Server) serveHTTP(w http.ResponseWriter, r *http.Request) {
 			fail(w, e)
 			return
 		}
-		if credentials.Username != settings.Username || !CheckPassword(credentials.Password, settings) {
+		settings, value, ok := s.login(credentials.Username, credentials.Password, settings.SecretPath)
+		if !ok {
 			jsonResponse(w, 401, map[string]string{"error": "неверный логин или пароль"})
 			return
 		}
-		value := s.auth.issue()
 		secure := r.TLS != nil
 		if settings.DomainEnabled {
 			if address, e := configuration.DomainURL(settings); e == nil {
@@ -277,6 +279,7 @@ func (s *Server) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	case route == "api/auth/me" && r.Method == "GET":
 		jsonResponse(w, 200, map[string]string{"username": settings.Username, "secretPath": settings.SecretPath})
 	case route == "api/auth/change-profile" && r.Method == "POST":
+		previous := settings
 		var req struct{ CurrentPassword, NewUsername, NewPassword string }
 		if e := decode(r, &req); e != nil {
 			fail(w, e)
@@ -301,11 +304,10 @@ func (s *Server) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		if displayPassword == "" {
 			displayPassword = req.CurrentPassword
 		}
-		if e := s.saveSettings(settings, displayPassword); e != nil {
+		if e := s.saveAuthenticatedSettings(r, previous, settings, displayPassword); e != nil {
 			fail(w, e)
 			return
 		}
-		s.auth.clear()
 		jsonResponse(w, 200, map[string]any{"success": true, "username": settings.Username})
 	case route == "api/settings" && r.Method == "GET":
 		settings.PasswordSalt = ""
@@ -321,7 +323,7 @@ func (s *Server) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		next.PasswordSalt = settings.PasswordSalt
 		next.Username = settings.Username
 		next.SecretPath = settings.SecretPath
-		if e := s.saveSettings(next); e != nil {
+		if e := s.saveAuthenticatedSettings(r, settings, next); e != nil {
 			fail(w, e)
 			return
 		}
@@ -329,12 +331,12 @@ func (s *Server) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		next.PasswordSalt = ""
 		jsonResponse(w, 200, next)
 	case route == "api/settings/regenerate-secret" && r.Method == "POST":
+		previous := settings
 		settings.SecretPath = RandomAccessPath()
-		if e := s.saveSettings(settings); e != nil {
+		if e := s.saveAuthenticatedSettings(r, previous, settings); e != nil {
 			fail(w, e)
 			return
 		}
-		s.auth.clear()
 		jsonResponse(w, 200, map[string]string{"secretPath": settings.SecretPath})
 	case route == "api/system/stats" && r.Method == "GET":
 		var mem runtime.MemStats

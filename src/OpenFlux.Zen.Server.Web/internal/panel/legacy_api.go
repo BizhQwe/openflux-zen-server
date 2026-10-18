@@ -1,7 +1,6 @@
 package panel
 
 import (
-	"encoding/json"
 	"errors"
 	"net"
 	"net/http"
@@ -46,8 +45,9 @@ func (s *Server) legacyRoute(w http.ResponseWriter, r *http.Request, route strin
 		} else if req.Language != "ru" && req.Language != "en" {
 			fail(w, errors.New("язык должен быть ru или en"))
 		} else {
+			previous := settings
 			settings.Language = req.Language
-			if err := s.saveSettings(settings); err != nil {
+			if err := s.saveAuthenticatedSettings(r, previous, settings); err != nil {
 				fail(w, err)
 			} else {
 				jsonResponse(w, 200, map[string]any{"success": true, "language": settings.Language})
@@ -147,7 +147,10 @@ func (s *Server) legacyRoute(w http.ResponseWriter, r *http.Request, route strin
 		var req struct {
 			TargetVersion string `json:"targetVersion"`
 		}
-		_ = json.NewDecoder(r.Body).Decode(&req)
+		if err := decode(r, &req); err != nil {
+			fail(w, err)
+			return true
+		}
 		ok, msg := s.UpdatePanel(req.TargetVersion)
 		if ok {
 			jsonResponse(w, 200, map[string]any{"success": true, "message": msg})

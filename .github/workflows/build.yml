@@ -54,6 +54,19 @@ jobs:
           go version
           php --version
           php -r 'if (!extension_loaded("openssl")) { fwrite(STDERR, "PHP OpenSSL is required\n"); exit(1); }'
+      - name: Check release versions
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          version="${RELEASE_TAG#v}"
+          panel_version=$(sed -n 's/^const Version = "\([^"]*\)"/\1/p' src/OpenFlux.Zen.Server.Web/internal/panel/model.go)
+          cli_version=$(sed -n 's/^const Version = "\([^"]*\)"/\1/p' src/OpenFlux.Zen.Server.Cli/internal/commands/app.go)
+          bundle_version=$(sed -n 's/.*"version": "\([^"]*\)".*/\1/p' src/OpenFlux.Zen.Server.Installer/cmd/bundle/main.go)
+          test "$version" = "$panel_version"
+          test "$version" = "$cli_version"
+          test "$version" = "$bundle_version"
+          test -s "docs/releases/$RELEASE_TAG.md"
       - name: Test core, web, installer and CLI
         run: >-
           go test -p 2 -timeout 5m -count=1
@@ -61,8 +74,8 @@ jobs:
           ./src/OpenFlux.Zen.Server.Web/...
           ./src/OpenFlux.Zen.Server.Installer/...
           ./src/OpenFlux.Zen.Server.Cli/...
-      - name: Test network placement UI
-        run: node --test scripts/tests/network-placement.test.cjs
+      - name: Test UI and bootstrap verification
+        run: node --test scripts/tests/*.test.cjs
       - name: Vet
         run: >-
           go vet
@@ -163,7 +176,7 @@ jobs:
               exit 0
             fi
           else
-            gh release create "$RELEASE_TAG" --verify-tag --draft --generate-notes \
+            gh release create "$RELEASE_TAG" --verify-tag --draft --notes-file "docs/releases/$RELEASE_TAG.md" \
               --title "OpenFlux Zen Server $RELEASE_TAG"
           fi
           gh release upload "$RELEASE_TAG" release/* --clobber

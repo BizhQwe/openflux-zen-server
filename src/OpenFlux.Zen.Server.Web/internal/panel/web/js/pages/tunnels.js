@@ -666,7 +666,6 @@ function onTransportChange() {
   document.getElementById('group-oneme').style.display = transport === 'oneme' ? 'grid' : 'none';
   const multiTypes = Array.from(document.querySelectorAll('.multi-transport-type')).map(select => select.value);
   document.getElementById('group-bitrix24').style.display = (transport === 'bitrix24' || (transport === 'multi' && multiTypes.includes('bitrix24'))) ? 'block' : 'none';
-  document.getElementById('mixed-compatibility-help').style.display = (transport === 'mixed' || (transport === 'multi' && multiTypes.includes('mixed'))) ? 'block' : 'none';
   document.getElementById('group-lanes').style.display = AUTO_ROOM_TRANSPORTS.has(transport) ? 'block' : 'none';
   // The exit listener is shared by a multi session. Keep it visible there;
   // the Direct card itself only describes that it uses this listener.

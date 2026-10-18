@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Go-1.26.6-00ADD8?logo=go&logoColor=white" alt="Go 1.26.6">
+  <img src="https://img.shields.io/badge/Go-1.26.9-00ADD8?logo=go&logoColor=white" alt="Go 1.26.9">
   <img src="https://img.shields.io/badge/Platforms-Windows%20%7C%20Linux-blue" alt="Windows and Linux">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-blue" alt="GPL-3.0"></a>
   <a href="https://github.com/BizhQwe/openflux-zen-server/releases"><img src="https://img.shields.io/github/v/release/BizhQwe/openflux-zen-server?color=blue&label=Release&logo=github" alt="Latest Release"></a>
@@ -209,7 +209,7 @@ Web interface sources are located in `src/OpenFlux.Zen.Server.Web/internal/panel
 
 ## Building from Source
 
-Building requires **Go 1.26.6+** (the version is specified in `go.work`).
+Building requires **Go 1.26.9+** (the version is specified in `go.work`).
 The `.sh` scripts require a POSIX shell and `sha256sum` (Linux / Git Bash); the `.ps1` versions work without Git Bash.
 
 Clone the repository:

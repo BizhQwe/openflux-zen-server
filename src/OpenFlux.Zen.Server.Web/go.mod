@@ -1,6 +1,6 @@
 module openflux.local/zen/panel
 
-go 1.26.6
+go 1.26.9
 
 require (
 	github.com/google/nftables v0.3.0

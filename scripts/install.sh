@@ -5,7 +5,7 @@
 # ==============================================================================
 
 set -eu
-if set -o pipefail 2>/dev/null; then
+if (set -o pipefail) 2>/dev/null; then
     set -o pipefail
 fi
 
@@ -77,49 +77,66 @@ case "$ARCH" in
         ;;
 esac
 
-TMP_DIR="/var/tmp"
-if [ ! -w "$TMP_DIR" ]; then
-    TMP_DIR="/tmp"
-fi
-INSTALLER_BIN="$TMP_DIR/openflux-zen-server-installer-$RID"
+umask 077
+TMP_BASE="/var/tmp"
+[ -w "$TMP_BASE" ] || TMP_BASE="/tmp"
+TMP_DIR=$(mktemp -d "$TMP_BASE/openflux-install.XXXXXXXXXX") || exit 1
+ASSET="openflux-zen-server-installer-$RID"
+INSTALLER_BIN="$TMP_DIR/$ASSET"
+CHECKSUM_FILE="$TMP_DIR/installer.sha256"
+trap 'rm -f -- "$INSTALLER_BIN" "$CHECKSUM_FILE"; rmdir -- "$TMP_DIR"' EXIT
+trap 'exit 1' HUP INT TERM
 REPO="${OPENFLUX_REPOSITORY:-BizhQwe/openflux-zen-server}"
-RELEASE_URL="https://github.com/$REPO/releases/latest/download/openflux-zen-server-installer-$RID"
-TAG_URL="https://github.com/$REPO/releases/download/v1.1.1/openflux-zen-server-installer-$RID"
-FALLBACK_URL="https://github.com/$REPO/releases/latest/download/openflux-zen-server-installer-$RID"
+RELEASE_BASE="https://github.com/$REPO/releases/latest/download"
+TAG_BASE="https://github.com/$REPO/releases/download/v1.1.2"
+
+command -v curl >/dev/null 2>&1 || { echo '  [ERROR] curl is required.' >&2; exit 1; }
+command -v sha256sum >/dev/null 2>&1 || { echo '  [ERROR] sha256sum is required.' >&2; exit 1; }
+
+download() {
+    curl --proto '=https' --proto-redir '=https' --tlsv1.2 \
+        --connect-timeout 15 --max-time 300 --max-filesize "$3" \
+        --retry 2 -fsSL "$1" -o "$2"
+}
 
 echo ""
 echo "  OpenFlux Zen Server - Linux ($DISPLAY_ARCH)"
-echo "  Downloading installer..."
+echo "  Downloading and verifying installer..."
 
 DOWNLOADED=0
-if command -v curl >/dev/null 2>&1; then
-    if curl -s -fSL "$RELEASE_URL" -o "$INSTALLER_BIN" 2>/dev/null && [ -s "$INSTALLER_BIN" ]; then
-        DOWNLOADED=1
-    elif curl -s -fSL "$TAG_URL" -o "$INSTALLER_BIN" 2>/dev/null && [ -s "$INSTALLER_BIN" ]; then
-        DOWNLOADED=1
-    elif curl -s -fSL "$FALLBACK_URL" -o "$INSTALLER_BIN" 2>/dev/null && [ -s "$INSTALLER_BIN" ]; then
-        DOWNLOADED=1
+for base in "$RELEASE_BASE" "$TAG_BASE"; do
+    if ! download "$base/$ASSET.sha256" "$CHECKSUM_FILE" 4096; then
+        continue
     fi
-elif command -v wget >/dev/null 2>&1; then
-    if wget -q -O "$INSTALLER_BIN" "$RELEASE_URL" 2>/dev/null && [ -s "$INSTALLER_BIN" ]; then
-        DOWNLOADED=1
-    elif wget -q -O "$INSTALLER_BIN" "$TAG_URL" 2>/dev/null && [ -s "$INSTALLER_BIN" ]; then
-        DOWNLOADED=1
+    expected_hash=''
+    expected_file=''
+    extra=''
+    read -r expected_hash expected_file extra < "$CHECKSUM_FILE" || [ -n "$expected_hash" ]
+    expected_file=$(printf '%s' "$expected_file" | tr -d '\r')
+    case "$expected_hash" in *[!0-9a-fA-F]*|'') echo '  [ERROR] Invalid SHA-256.' >&2; exit 1 ;; esac
+    [ "${#expected_hash}" -eq 64 ] && [ -z "$extra" ] || { echo '  [ERROR] Invalid SHA-256.' >&2; exit 1; }
+    case "$expected_file" in "$ASSET"|"*$ASSET") ;; *) echo '  [ERROR] Invalid checksum filename.' >&2; exit 1 ;; esac
+    if ! download "$base/$ASSET" "$INSTALLER_BIN" 268435456; then
+        continue
     fi
-fi
+    [ -s "$INSTALLER_BIN" ] || { echo '  [ERROR] Empty installer.' >&2; exit 1; }
+    if ! (cd "$TMP_DIR" && printf '%s  %s\n' "$expected_hash" "$ASSET" | sha256sum --check --status); then
+        echo '  [ERROR] Installer SHA-256 mismatch. Nothing was executed.' >&2
+        exit 1
+    fi
+    DOWNLOADED=1
+    break
+done
 
-if [ "$DOWNLOADED" -eq 1 ]; then
-    chmod +x "$INSTALLER_BIN"
-    if [ -t 0 ]; then
-        exec "$INSTALLER_BIN" "$@"
-    elif [ -c /dev/tty ]; then
-        exec "$INSTALLER_BIN" "$@" < /dev/tty
-    else
-        exec "$INSTALLER_BIN" "$@"
-    fi
-else
-    echo "  [ERROR] Failed to download installer binary for $DISPLAY_ARCH."
-    echo "  Check repository access or download manually:"
-    echo "  $RELEASE_URL"
+if [ "$DOWNLOADED" -ne 1 ]; then
+    echo "  [ERROR] Failed to download a verified installer for $DISPLAY_ARCH." >&2
     exit 1
+fi
+chmod 700 "$INSTALLER_BIN"
+if [ -t 0 ]; then
+    "$INSTALLER_BIN" "$@"
+elif [ -c /dev/tty ] && ( : < /dev/tty ) 2>/dev/null; then
+    "$INSTALLER_BIN" "$@" < /dev/tty
+else
+    "$INSTALLER_BIN" "$@"
 fi

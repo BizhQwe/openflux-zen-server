@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -102,7 +101,7 @@ func (s *Server) CheckPanelUpdates(force bool) PanelVersionInfo {
 		return s.updateCache.info
 	}
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := updateHTTPClient(10 * time.Second)
 	req, err := http.NewRequest("GET", githubLatestRelease, nil)
 	if err == nil {
 		req.Header.Set("User-Agent", "OpenFluxZenServer-PanelUpdater/1.0")
@@ -112,7 +111,7 @@ func (s *Server) CheckPanelUpdates(force bool) PanelVersionInfo {
 			defer resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
 				var rel ghRelease
-				if json.NewDecoder(resp.Body).Decode(&rel) == nil && rel.TagName != "" {
+				if json.NewDecoder(io.LimitReader(resp.Body, 2<<20)).Decode(&rel) == nil && rel.TagName != "" {
 					isNewer := compareVersions(rel.TagName, curVer) > 0
 					s.updateCache.info = PanelVersionInfo{
 						CurrentVersion:    curVer,
@@ -166,7 +165,7 @@ func (s *Server) GetAvailablePanelReleases() []ReleaseItemDto {
 		return s.updateCache.releases
 	}
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := updateHTTPClient(10 * time.Second)
 	req, err := http.NewRequest("GET", githubReleasesList, nil)
 	if err == nil {
 		req.Header.Set("User-Agent", "OpenFluxZenServer-PanelUpdater/1.0")
@@ -176,7 +175,7 @@ func (s *Server) GetAvailablePanelReleases() []ReleaseItemDto {
 			defer resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
 				var list []ghRelease
-				if json.NewDecoder(resp.Body).Decode(&list) == nil && len(list) > 0 {
+				if json.NewDecoder(io.LimitReader(resp.Body, 2<<20)).Decode(&list) == nil && len(list) > 0 {
 					var result []ReleaseItemDto
 					for _, r := range list {
 						if r.TagName != "" {
@@ -232,11 +231,14 @@ func fetchAtomReleases(client *http.Client) []ReleaseItemDto {
 	req.Header.Set("User-Agent", "Mozilla/5.0")
 	resp, err := client.Do(req)
 	if err != nil || resp.StatusCode != http.StatusOK {
+		if resp != nil {
+			resp.Body.Close()
+		}
 		return nil
 	}
 	defer resp.Body.Close()
 	var feed atomFeed
-	if xml.NewDecoder(resp.Body).Decode(&feed) != nil {
+	if xml.NewDecoder(io.LimitReader(resp.Body, 2<<20)).Decode(&feed) != nil {
 		return nil
 	}
 	var res []ReleaseItemDto
@@ -266,12 +268,18 @@ func (s *Server) UpdatePanel(targetVersion string) (bool, string) {
 	s.updateCache.isUpdating = true
 	s.updateCache.mu.Unlock()
 
+	scheduled := false
 	defer func() {
-		time.AfterFunc(10*time.Minute, func() {
+		reset := func() {
 			s.updateCache.mu.Lock()
 			s.updateCache.isUpdating = false
 			s.updateCache.mu.Unlock()
-		})
+		}
+		if scheduled {
+			time.AfterFunc(10*time.Minute, reset)
+		} else {
+			reset()
+		}
 	}()
 
 	targetTag := strings.TrimSpace(targetVersion)
@@ -322,96 +330,37 @@ func (s *Server) UpdatePanel(targetVersion string) (bool, string) {
 	}
 	assetName := fmt.Sprintf("openflux-zen-server-installer-%s%s", targetArch, suffix)
 
-	candidateURLs := []string{
-		fmt.Sprintf("https://github.com/%s/releases/download/%s/%s", updateRepo, targetTag, assetName),
-		fmt.Sprintf("https://github.com/%s/releases/latest/download/%s", updateRepo, assetName),
+	var err error
+	targetTag, err = releaseTag(targetTag)
+	if err != nil {
+		return false, err.Error()
 	}
-
-	tempInstaller := filepath.Join(os.TempDir(), fmt.Sprintf("openflux_install_%d_%s", time.Now().Unix(), assetName))
-
-	var downloaded bool
-	client := &http.Client{Timeout: 5 * time.Minute}
-	for _, downloadURL := range candidateURLs {
-		req, err := http.NewRequest("GET", downloadURL, nil)
-		if err != nil {
-			continue
-		}
-		req.Header.Set("User-Agent", "OpenFluxZenServer-PanelUpdater/1.0")
-		resp, err := client.Do(req)
-		if err != nil || resp.StatusCode != http.StatusOK {
-			if resp != nil {
-				resp.Body.Close()
-			}
-			continue
-		}
-		f, err := os.OpenFile(tempInstaller, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
-		if err != nil {
-			resp.Body.Close()
-			continue
-		}
-		_, copyErr := io.Copy(f, resp.Body)
-		f.Close()
-		resp.Body.Close()
-		if copyErr != nil {
-			_ = os.Remove(tempInstaller)
-			continue
-		}
-
-		fi, err := os.Stat(tempInstaller)
-		if err == nil && fi.Size() > 1000000 {
-			downloaded = true
-			break
-		}
-		_ = os.Remove(tempInstaller)
+	// Inherit the data directory's owner-only ACL on Windows as well.
+	updateDir, err := os.MkdirTemp(s.store.Dir, ".update-*")
+	if err != nil {
+		return false, fmt.Sprintf("Не удалось создать закрытый каталог обновления: %v", err)
 	}
-
-	if !downloaded {
-		return false, fmt.Sprintf("Не удалось загрузить файл обновления (%s) из релиза %s.", assetName, targetTag)
+	cleanup := func() {
+		// Only known files in our private directory; never recurse through temp.
+		_ = os.Remove(filepath.Join(updateDir, assetName))
+		_ = os.Remove(filepath.Join(updateDir, "apply.ps1"))
+		_ = os.Remove(updateDir)
 	}
-
+	base := fmt.Sprintf("https://github.com/%s/releases/download/%s", updateRepo, targetTag)
+	tempInstaller, err := downloadPanelInstaller(updateHTTPClient(5*time.Minute), base, assetName, updateDir)
+	if err != nil {
+		cleanup()
+		return false, fmt.Sprintf("Обновление %s отменено: %v", targetTag, err)
+	}
 	exe, err := os.Executable()
 	if err != nil {
-		_ = os.Remove(tempInstaller)
+		cleanup()
 		return false, fmt.Sprintf("Не удалось определить каталог установки: %v", err)
 	}
-	appDir := filepath.Dir(exe)
-
-	if runtime.GOOS == "windows" {
-		batPath := filepath.Join(os.TempDir(), fmt.Sprintf("oflux_apply_%d.bat", time.Now().Unix()))
-		batContent := fmt.Sprintf(`@echo off
-timeout /t 2 /nobreak >nul
-net stop openflux-zen-server >nul 2>&1
-taskkill /f /im openflux-zen-server-web.exe >nul 2>&1
-timeout /t 1 /nobreak >nul
-"%s" --silent --dir "%s"
-net start openflux-zen-server >nul 2>&1
-if errorlevel 1 (
-    start "" "%s\openflux-zen-server-web.exe"
-)
-del "%s" >nul 2>&1
-del "%%~f0" >nul 2>&1
-`, tempInstaller, appDir, appDir, tempInstaller)
-		if err := os.WriteFile(batPath, []byte(batContent), 0700); err != nil {
-			_ = os.Remove(tempInstaller)
-			return false, fmt.Sprintf("Не удалось создать скрипт применения обновления: %v", err)
-		}
-		cmd := exec.Command("cmd.exe", "/c", batPath)
-		prepareProcess(cmd)
-		if err := cmd.Start(); err != nil {
-			_ = os.Remove(batPath)
-			_ = os.Remove(tempInstaller)
-			return false, fmt.Sprintf("Не удалось запустить скрипт обновления: %v", err)
-		}
-	} else {
-		_ = os.Chmod(tempInstaller, 0755)
-		shScript := fmt.Sprintf(`sleep 2 && "%s" --silent --dir "%s" && (systemctl restart openflux-zen-server 2>/dev/null || (cd "%s" && nohup ./openflux-zen-server-web >/dev/null 2>&1 &)) && rm -f "%s"`, tempInstaller, appDir, appDir, tempInstaller)
-		cmd := exec.Command("sh", "-c", shScript)
-		prepareProcess(cmd)
-		if err := cmd.Start(); err != nil {
-			_ = os.Remove(tempInstaller)
-			return false, fmt.Sprintf("Не удалось запустить обновление: %v", err)
-		}
+	if err := startPanelUpdate(tempInstaller, filepath.Dir(exe), updateDir); err != nil {
+		cleanup()
+		return false, fmt.Sprintf("Не удалось запустить обновление: %v", err)
 	}
-
+	scheduled = true
 	return true, fmt.Sprintf("Панель успешно обновляется до %s и перезагружается. Страница обновится автоматически.", targetTag)
 }

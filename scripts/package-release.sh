@@ -65,5 +65,11 @@ if [ "$input_dir" != "$release_dir" ]; then
         cp -p "$input_dir/$asset.sha256" "$release_dir/$asset.sha256"
     done
 fi
+installer_count=$#
+for bootstrap in install.sh install.ps1; do
+    cp "scripts/$bootstrap" "$release_dir/$bootstrap"
+    (cd "$release_dir" && sha256sum "$bootstrap" > "$bootstrap.sha256")
+    set -- "$@" "$bootstrap"
+done
 (cd "$release_dir" && sha256sum "$@" > SHA256SUMS.txt)
-echo "Release ready: $# installers, individual SHA-256 files and SHA256SUMS.txt in $release_dir."
+echo "Release ready: $installer_count installers, bootstrap scripts, individual SHA-256 files and SHA256SUMS.txt in $release_dir."
