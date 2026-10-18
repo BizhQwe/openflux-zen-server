@@ -19,6 +19,8 @@ import (
 	"openflux.local/zen/panel/publication"
 )
 
+var issueTLS = configuration.IssueTLS
+
 func bootstrapPassword(output string) string {
 	for _, line := range strings.Split(output, "\n") {
 		if value, ok := strings.CutPrefix(strings.TrimSpace(line), "Password: "); ok && !strings.HasPrefix(value, "stored as a hash") {
@@ -235,6 +237,26 @@ func run() (result error) {
 		next := settings
 		if err = opts.apply(&next); err != nil {
 			return err
+		}
+		if next.DomainEnabled && configuration.DirectDomainTLS(next) {
+			if err = configuration.ValidateDomainTLSName(next.Domain); err != nil {
+				return err
+			}
+			cert, key, err := configuration.FindDomainTLS(data, next.Domain, next.TLSCert, next.TLSKey)
+			if err != nil {
+				ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+				cert, key, err = issueTLS(ctx, data, next.Domain)
+				cancel()
+				if err != nil {
+					errMsg := fmt.Sprintf("выпуск TLS-сертификата (HTTPS) для %s не удался: %s", next.Domain, err.Error())
+					if u.Language != "ru" {
+						errMsg = fmt.Sprintf("failed to issue TLS certificate (HTTPS) for %s: %s", next.Domain, err.Error())
+					}
+					return errors.New(errMsg)
+				}
+			}
+			next.TLSCert = cert
+			next.TLSKey = key
 		}
 		if next != settings {
 			if err = configuration.AtomicJSON(filepath.Join(data, "settings.json"), next); err != nil {
