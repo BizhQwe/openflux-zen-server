@@ -83,7 +83,10 @@ func DomainURL(s Settings) (string, error) {
 		u, _ := url.Parse(base)
 		_, port, _ := net.SplitHostPort(s.Listen)
 		u.Scheme = "http"
-		if s.TLSCert != "" && net.ParseIP(u.Hostname()) == nil && !strings.EqualFold(u.Hostname(), "localhost") {
+		if DirectDomainTLS(s) {
+			if s.TLSCert == "" || s.TLSKey == "" {
+				return "", errors.New("HTTPS домена ещё не настроен: требуется сертификат")
+			}
 			u.Scheme = "https"
 		}
 		u.Host = net.JoinHostPort(u.Hostname(), port)
@@ -93,6 +96,20 @@ func DomainURL(s Settings) (string, error) {
 		base = u.String()
 	}
 	return base + "/" + s.SecretPath + "/", nil
+}
+
+// DirectDomainTLS distinguishes the panel's own HTTPS endpoint from a proxy
+// URL and local IP/localhost access, which can keep using HTTP.
+func DirectDomainTLS(s Settings) bool {
+	if strings.Contains(s.Domain, "://") {
+		return false
+	}
+	base, err := DomainAddress(s.Domain)
+	if err != nil {
+		return false
+	}
+	u, _ := url.Parse(base)
+	return net.ParseIP(u.Hostname()) == nil && !strings.EqualFold(u.Hostname(), "localhost")
 }
 
 func LocalAddress(s Settings) string {

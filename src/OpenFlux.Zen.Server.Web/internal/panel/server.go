@@ -41,21 +41,34 @@ type Server struct {
 	publication  *publication.Client
 	applyNetwork func(Settings) (func(), error)
 	updateCache  updateCache
+	domainSetup  domainSetup
 }
 
 func NewServer(store *Store, settings Settings, manager *Manager) *Server {
 	web, _ := fs.Sub(assets, "web")
 	s := &Server{settings: settings, store: store, manager: manager, auth: newAuth(), files: http.FileServer(http.FS(web)), started: time.Now()}
 	s.publication = publication.New(s, func(status publication.Status) { _ = store.Write("publication.json", status) })
+	s.domainSetup.requests = make(chan domainSetupRequest, 1)
+	s.domainSetup.issue = configuration.IssueTLS
 	manager.SystemLog("info", "Подготовлен HTTP-сервер панели: listen=%s, TLS=%t, os=%s/%s, Go=%s", settings.Listen, settings.TLSCert != "", runtime.GOOS, runtime.GOARCH, runtime.Version())
 	return s
 }
-func (s *Server) RunPublication(ctx context.Context) { s.publication.Run(ctx, s.Settings) }
-func (s *Server) Settings() Settings                 { s.mu.RLock(); defer s.mu.RUnlock(); return s.settings }
+func (s *Server) RunPublication(ctx context.Context) {
+	done := make(chan struct{})
+	go func() { defer close(done); s.runDomainSetup(ctx) }()
+	s.publication.Run(ctx, s.Settings)
+	<-done
+}
+func (s *Server) Settings() Settings { s.mu.RLock(); defer s.mu.RUnlock(); return s.settings }
 
 // SetNetworkApply installs the listener controller before serving requests.
 func (s *Server) SetNetworkApply(apply func(Settings) (func(), error)) { s.applyNetwork = apply }
 func (s *Server) saveSettings(next Settings, displayPassword ...string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.saveSettingsLocked(next, displayPassword...)
+}
+func (s *Server) saveSettingsLocked(next Settings, displayPassword ...string) error {
 	if e := ValidateSettings(next); e != nil {
 		return e
 	}
@@ -65,8 +78,6 @@ func (s *Server) saveSettings(next Settings, displayPassword ...string) error {
 	if (next.TLSCert == "") != (next.TLSKey == "") {
 		return errors.New("задайте сертификат и ключ TLS вместе")
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	previous := s.settings
 	undo := func() {}
 	if next.Listen != previous.Listen || next.TLSCert != previous.TLSCert || next.TLSKey != previous.TLSKey {

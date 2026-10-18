@@ -8,7 +8,6 @@ import (
 
 func TestDomainURLUsesActualPanelOrExplicitProxy(t *testing.T) {
 	for _, test := range []struct{ domain, listen, cert, want string }{
-		{"panel.example.test", "0.0.0.0:5000", "", "http://panel.example.test:5000/test-path/"},
 		{"panel.example.test", "0.0.0.0:5443", "cert", "https://panel.example.test:5443/test-path/"},
 		{"http://panel.example.test", "127.0.0.1:5000", "", "http://panel.example.test/test-path/"},
 		{"https://panel.example.test", "127.0.0.1:5000", "", "https://panel.example.test/test-path/"},
@@ -17,7 +16,7 @@ func TestDomainURLUsesActualPanelOrExplicitProxy(t *testing.T) {
 		{"192.168.1.20", "0.0.0.0:5000", "cert", "http://192.168.1.20:5000/test-path/"},
 		{"localhost", "127.0.0.1:5000", "cert", "http://localhost:5000/test-path/"},
 	} {
-		s := Settings{Domain: test.domain, DomainEnabled: true, Listen: test.listen, TLSCert: test.cert, SecretPath: "test-path"}
+		s := Settings{Domain: test.domain, DomainEnabled: true, Listen: test.listen, TLSCert: test.cert, TLSKey: test.cert, SecretPath: "test-path"}
 		got, err := DomainURL(s)
 		if err != nil || got != test.want {
 			t.Errorf("%s: %s, %v; want %s", test.domain, got, err, test.want)
@@ -25,6 +24,16 @@ func TestDomainURLUsesActualPanelOrExplicitProxy(t *testing.T) {
 		if PanelURLs(s)["domain"] != test.want {
 			t.Fatal("CLI and panel disagree about domain URL")
 		}
+	}
+}
+
+func TestDomainWithoutCertificateHasNoUsableURL(t *testing.T) {
+	s := Settings{Domain: "panel.example.test", DomainEnabled: true, Listen: "0.0.0.0:5000", SecretPath: "test-path"}
+	if address, err := DomainURL(s); err == nil || address != "" {
+		t.Fatalf("domain without HTTPS was advertised: %s, %v", address, err)
+	}
+	if PanelURLs(s)["domain"] != "" {
+		t.Fatal("panel must not advertise a public HTTP domain")
 	}
 }
 
@@ -46,7 +55,7 @@ func TestCertificateDomainCannotEscapeStorage(t *testing.T) {
 }
 
 func TestLocalAndLANLinksStayHTTPWithDomainCertificate(t *testing.T) {
-	s := Settings{Domain: "panel.example.test", DomainEnabled: true, Listen: "0.0.0.0:5000", TLSCert: "configured-cert", SecretPath: "test-path"}
+	s := Settings{Domain: "panel.example.test", DomainEnabled: true, Listen: "0.0.0.0:5000", TLSCert: "configured-cert", TLSKey: "configured-key", SecretPath: "test-path"}
 	urls := PanelURLs(s)
 	if urls["localhost"] != "http://127.0.0.1:5000/test-path/" {
 		t.Fatal(urls["localhost"])

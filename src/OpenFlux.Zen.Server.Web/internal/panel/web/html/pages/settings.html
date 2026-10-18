@@ -177,7 +177,8 @@
             <input id="setting-lan-subnets" type="text" class="form-control" spellcheck="false" placeholder="192.168.1.0/24, 10.8.0.0/24" />
             <p class="settings-helper" data-i18n="settings_lan_subnets_hint">Пустое поле — частные подсети сетевых интерфейсов. Можно указать свои частные подсети через запятую. Публичный HTTP всегда закрыт.</p>
           </div>
-          <p class="settings-helper" data-i18n="settings_domain_hint">Для внешнего доступа используйте HTTPS через домен. Полный URL укажите для уже настроенного reverse proxy.</p>
+          <p class="settings-helper" data-i18n="settings_domain_hint">Укажите домен и примените размещение: HTTPS настроится автоматически. DNS должен указывать на этот сервер, входящий TCP-порт 80 должен быть доступен. Полный URL используйте для уже настроенного reverse proxy.</p>
+          <p id="domain-tls-status" class="settings-helper" role="status" aria-live="polite" style="display: none;"></p>
           <div class="placement-actions">
             <label for="setting-panel-port" data-i18n="settings_panel_port">Порт панели</label>
             <input id="setting-panel-port" type="number" min="1" max="65535" class="form-control" oninput="updateDomainPreviewUrl()" />

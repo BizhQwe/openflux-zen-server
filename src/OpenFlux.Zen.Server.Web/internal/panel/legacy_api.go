@@ -61,12 +61,24 @@ func (s *Server) legacyRoute(w http.ResponseWriter, r *http.Request, route strin
 			Domain                                        string
 			PanelPort                                     int
 			LANSubnets                                    *string
+			DomainSetupID                                 string
 		}
 		if err := decode(r, &req); err != nil {
 			fail(w, err)
 			return true
 		}
+		if req.DomainSetupID != "" {
+			if err := s.completeDomainSetup(req.DomainSetupID); err != nil {
+				fail(w, err)
+			} else {
+				next := s.networkPlacement(r)
+				next["success"] = true
+				jsonResponse(w, 200, next)
+			}
+			return true
+		}
 		{
+			previous := settings
 			configuration.SetLAN(&settings, req.LANEnabled)
 			if req.DomainEnabled && !strings.Contains(req.Domain, "://") {
 				configuration.SetPublicListen(&settings, true)
@@ -85,9 +97,35 @@ func (s *Server) legacyRoute(w http.ResponseWriter, r *http.Request, route strin
 			settings.LocaltunnelEnabled = req.LocaltunnelEnabled
 			settings.DomainEnabled = req.DomainEnabled
 			settings.Domain = strings.TrimSpace(req.Domain)
-			if e := s.saveSettings(settings); e != nil {
+			if err := ValidateSettings(settings); err != nil {
+				fail(w, err)
+				return true
+			}
+			if settings.DomainEnabled && configuration.DirectDomainTLS(settings) {
+				if err := configuration.ValidateDomainTLSName(settings.Domain); err != nil {
+					fail(w, err)
+					return true
+				}
+				cert, key, err := configuration.FindDomainTLS(s.store.Dir, settings.Domain, settings.TLSCert, settings.TLSKey)
+				if err != nil {
+					if err := s.startDomainSetup(previous, settings); err != nil {
+						fail(w, err)
+					} else {
+						next := s.networkPlacement(r)
+						next["success"], next["pending"] = true, true
+						jsonResponse(w, http.StatusAccepted, next)
+					}
+					return true
+				}
+				settings.TLSCert, settings.TLSKey = cert, key
+			} else if settings.DomainEnabled && strings.Contains(settings.Domain, "://") {
+				// A full proxy URL does not enable TLS on the plaintext backend.
+				settings.TLSCert, settings.TLSKey = "", ""
+			}
+			if e := s.saveNetworkSettings(previous, settings); e != nil {
 				fail(w, e)
 			} else {
+				s.clearFinishedDomainSetup()
 				next := s.networkPlacement(r)
 				next["success"] = true
 				jsonResponse(w, 200, next)
@@ -154,9 +192,17 @@ func (s *Server) networkPlacement(r *http.Request) map[string]any {
 		localtunnelURL = strings.TrimSuffix(publication.URL, "/") + "/" + settings.SecretPath + "/"
 		publicURL = localtunnelURL
 	}
+	domainTLSState := "disabled"
+	if settings.DomainEnabled {
+		domainTLSState = "ready"
+		if configuration.DirectDomainTLS(settings) && (settings.TLSCert == "" || settings.TLSKey == "") {
+			domainTLSState = "needs_certificate"
+		}
+	}
 	return map[string]any{
 		"listen": settings.Listen, "panelPort": port, "panelScheme": scheme, "secretPath": settings.SecretPath,
 		"domainScheme": domainScheme, "requestScheme": requestScheme,
+		"domainTLSState": domainTLSState, "domainSetup": s.domainSetupStatus(),
 		"localhostEnabled": true, "lanEnabled": lanEnabled,
 		"lanAvailable": configuration.LANAvailable(settings), "lanSubnets": settings.LANSubnets, "lanAllowedSubnets": allowedSubnets,
 		"localtunnelEnabled": settings.LocaltunnelEnabled, "domainEnabled": settings.DomainEnabled,

@@ -159,6 +159,9 @@ async function loadSettings() {
 
 let localtunnelPollInterval = null;
 let networkPlacementInfo = null;
+let domainSetupPollInterval = null;
+let domainSetupPollBusy = false;
+let domainSetupPreviousNetwork = null;
 
 async function loadNetworkPlacementStatus() {
   try {
@@ -188,7 +191,11 @@ async function loadNetworkPlacementStatus() {
     if (checkDomain) checkDomain.checked = !!d.domainEnabled;
 
     const domInput = document.getElementById('setting-domain-input');
-    if (domInput) domInput.value = d.domain || '';
+    if (domInput) domInput.value = ['issuing', 'ready'].includes(d.domainSetup?.state) ? d.domainSetup.domain : (d.domain || '');
+    if (['issuing', 'ready'].includes(d.domainSetup?.state)) {
+      if (checkDomain) checkDomain.checked = true;
+      if (portInput && d.domainSetup.port) portInput.value = d.domainSetup.port;
+    }
 
     const urlLocalhost = document.getElementById('url-placement-localhost');
     if (urlLocalhost && d.localhostUrl) urlLocalhost.value = d.localhostUrl;
@@ -205,7 +212,10 @@ async function loadNetworkPlacementStatus() {
     }
 
     const urlDomain = document.getElementById('url-placement-domain');
-    if (urlDomain && d.domainUrl) urlDomain.value = d.domainUrl;
+    if (urlDomain) urlDomain.value = d.domainUrl || '';
+
+    updateDomainTLSStatus(d);
+    if (['issuing', 'ready'].includes(d.domainSetup?.state)) startDomainSetupPolling();
 
     updateLocaltunnelStatusUi(d);
     onPlacementOptionToggle();
@@ -308,29 +318,95 @@ function onPlacementOptionToggle() {
     if (checkDom && checkDom.checked) active.push('Domain');
     modeBadge.textContent = active.join(' + ');
   }
+  updateDomainPreviewUrl();
 }
 
 function updateDomainPreviewUrl() {
   const domInput = document.getElementById('setting-domain-input');
   const urlDomain = document.getElementById('url-placement-domain');
-  const secretInput = document.getElementById('setting-secret-path');
   if (!domInput || !urlDomain) return;
+  const info = networkPlacementInfo;
+  const unchanged = info?.domainEnabled && domInput.value.trim() === info.domain &&
+    String(document.getElementById('setting-panel-port')?.value) === String(info.panelPort);
+  urlDomain.value = unchanged ? (info.domainUrl || '') : '';
+  urlDomain.placeholder = t('domain_tls_apply');
+  const copy = document.querySelector('#placement-box-domain .placement-copy-btn');
+  if (copy) copy.disabled = !urlDomain.value;
+}
 
-  const dom = domInput.value.trim();
-  const secret = networkPlacementInfo?.secretPath || (secretInput ? secretInput.value.replace(/^\/+|\/+$/g, '') : window.location.pathname.split('/')[1]);
-  if (!dom) {
-    urlDomain.value = '';
-    return;
+function updateDomainTLSStatus(info) {
+  const status = document.getElementById('domain-tls-status');
+  const job = info?.domainSetup;
+  const busy = ['issuing', 'ready'].includes(job?.state);
+  const button = document.getElementById('btn-save-network-mode');
+  const spinner = document.getElementById('btn-save-network-spinner');
+  if (button) button.disabled = busy;
+  if (spinner) spinner.style.display = busy ? 'inline-block' : 'none';
+  if (!status) return;
+  status.style.display = (busy || job?.state === 'failed' || info?.domainEnabled) ? 'block' : 'none';
+  status.textContent = busy ? t('domain_tls_issuing') : job?.state === 'failed' ? (job.error || t('domain_tls_failed')) :
+    info?.domainTLSState === 'needs_certificate' ? t('domain_tls_apply') : t('domain_tls_ready');
+  status.style.color = job?.state === 'failed' ? 'var(--danger)' : '';
+}
+
+function stopDomainSetupPolling() {
+  if (domainSetupPollInterval) clearInterval(domainSetupPollInterval);
+  domainSetupPollInterval = null;
+}
+
+function startDomainSetupPolling() {
+  if (domainSetupPollInterval) return;
+  let attempts = 0;
+  domainSetupPollInterval = setInterval(async () => {
+    if (domainSetupPollBusy) return;
+    if (++attempts > 120) {
+      stopDomainSetupPolling();
+      updateDomainTLSStatus({domainSetup: {state: 'failed', error: t('domain_tls_timeout')}});
+      return;
+    }
+    domainSetupPollBusy = true;
+    try {
+      const response = await api('api/settings/network-placement');
+      if (!response.ok) return;
+      const info = await response.json();
+      updateDomainTLSStatus(info);
+      if (info.domainSetup?.state === 'ready') {
+        const applied = await api('api/settings/network-placement', {method: 'POST', body: JSON.stringify({domainSetupID: info.domainSetup.id})});
+        const result = await applied.json();
+        stopDomainSetupPolling();
+        if (!applied.ok || !result.success) {
+          updateDomainTLSStatus({domainSetup: {state: 'failed', error: result.message || t('domain_tls_failed')}});
+          return;
+        }
+        const previous = domainSetupPreviousNetwork || networkPlacementInfo;
+        networkPlacementInfo = result;
+        domainSetupPreviousNetwork = null;
+        if (redirectAfterPlacement(result, previous)) return;
+        await loadNetworkPlacementStatus();
+        toast(t('toast_network_mode_updated'), 'success');
+      } else if (!['issuing', 'ready'].includes(info.domainSetup?.state)) {
+        stopDomainSetupPolling();
+        networkPlacementInfo = info;
+        updateDomainPreviewUrl();
+      }
+    } catch (err) { console.error('HTTPS setup status unavailable', err); }
+    finally { domainSetupPollBusy = false; }
+  }, 2000);
+}
+
+function redirectAfterPlacement(nextInfo, previousInfo) {
+  const port = window.location.port || (window.location.protocol === 'https:' ? '443' : '80');
+  const direct = String(previousInfo?.panelPort) === port && previousInfo?.requestScheme + ':' === window.location.protocol;
+  if (!direct) return false;
+  const next = new URL(window.location.href);
+  next.port = nextInfo.panelPort;
+  if (nextInfo.domainUrl && !nextInfo.domain?.includes('://')) {
+    const domain = new URL(nextInfo.domainUrl);
+    if (domain.hostname === next.hostname) next.protocol = domain.protocol;
   }
-  try {
-    const explicit = dom.includes('://');
-    const scheme = networkPlacementInfo?.domainScheme || networkPlacementInfo?.panelScheme || window.location.protocol.slice(0, -1);
-    const url = new URL(explicit ? dom : `${scheme}://${dom}`);
-    if (!explicit && (url.hostname === 'localhost' || url.hostname.includes(':') || /^\d+\.\d+\.\d+\.\d+$/.test(url.hostname))) url.protocol = 'http:';
-    if (!explicit) url.port = document.getElementById('setting-panel-port')?.value || networkPlacementInfo?.panelPort || window.location.port;
-    url.pathname = `/${secret}/`;
-    urlDomain.value = url.toString();
-  } catch { urlDomain.value = ''; }
+  if (next.href === window.location.href) return false;
+  window.location.href = next.href;
+  return true;
 }
 
 async function copyPlacementUrl(elementId) {
@@ -379,18 +455,17 @@ async function saveNetworkPlacement() {
     const d = await res.json();
     if (res.ok && d.success) {
       const previousNetwork = networkPlacementInfo;
+      if (d.pending) {
+        domainSetupPreviousNetwork = previousNetwork;
+        updateDomainTLSStatus(d);
+        startDomainSetupPolling();
+        return;
+      }
       networkPlacementInfo = d;
       if (checkLan) checkLan.checked = !!d.lanEnabled;
       toast(t('toast_network_mode_updated'), 'success');
 
-      const previousPort = window.location.port || (window.location.protocol === 'https:' ? '443' : '80');
-      const direct = String(previousNetwork?.panelPort) === previousPort && previousNetwork?.requestScheme + ':' === window.location.protocol;
-      if (direct && String(d.panelPort) !== previousPort) {
-        const next = new URL(window.location.href);
-        next.port = d.panelPort;
-        window.location.href = next.toString();
-        return;
-      }
+      if (redirectAfterPlacement(d, previousNetwork)) return;
 
       if (d.sslDetectedDesc) {
         const isRu = (typeof currentLanguage !== 'undefined' ? currentLanguage : 'ru') === 'ru';
@@ -418,8 +493,10 @@ async function saveNetworkPlacement() {
   } catch (err) {
     toast(t('toast_network_mode_failed'), 'danger');
   } finally {
-    if (btn) btn.disabled = false;
-    if (spinner) spinner.style.display = 'none';
+    if (!domainSetupPollInterval) {
+      if (btn) btn.disabled = false;
+      if (spinner) spinner.style.display = 'none';
+    }
   }
 }
 

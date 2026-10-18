@@ -12,6 +12,7 @@ import (
 
 func TestPlacementAppliesListenerAndDoesNotFalselySaveBusyPort(t *testing.T) {
 	s, settings, password := testServer(t)
+	s.settings.TLSCert, s.settings.TLSKey = testDomainCertificate(t, "panel.example.test")
 	prefix := "/" + settings.SecretPath + "/"
 	login := request(t, s, "POST", prefix+"api/auth/login", map[string]string{"username": settings.Username, "password": password}, nil, "")
 	cookie := login.Result().Cookies()[0]
@@ -32,7 +33,7 @@ func TestPlacementAppliesListenerAndDoesNotFalselySaveBusyPort(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &data); err != nil {
 		t.Fatal(err)
 	}
-	if data["domainUrl"] != "http://panel.example.test:5443/"+settings.SecretPath+"/" || data["lanEnabled"] != false || applied != 1 {
+	if data["domainUrl"] != "https://panel.example.test:5443/"+settings.SecretPath+"/" || data["lanEnabled"] != false || applied != 1 {
 		t.Fatalf("placement: %s", w.Body.String())
 	}
 	before := s.Settings()
