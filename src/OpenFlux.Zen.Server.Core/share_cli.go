@@ -48,13 +48,17 @@ func shareConfig(specs []transportSpec, session bool, codec, secret, context, ho
 		case "oneme":
 			skipped = append(skipped, s.Name+": a MAX token belongs to one account; clients need their own")
 			continue
+		case "bitrix24":
+			skipped = append(skipped, s.Name+": clients need their own portal cookies, sessid and the same chat_id; configure them locally")
+			continue
+		case "mixed":
+			skipped = append(skipped, s.Name+": the official share-link reader does not support mixed; configure this group manually on a compatible client")
+			continue
 		case "cupsonline", "avito":
 			if r := rooms[s.Name]; r != nil {
-				if list := r.RoomList(); list != "" {
-					t.URL = list
-				}
+				t.URL = r.RoomList()
 			}
-			if t.URL == "" {
+			if t.URL == "" || t.URL == "http://#" {
 				skipped = append(skipped, s.Name+": no rooms yet; the link is printed again once they exist")
 				continue
 			}

@@ -345,6 +345,7 @@ func TestOriginalCoreInterop(t *testing.T) {
 	clientAddress := freeAddress(t)
 	if originalClient := os.Getenv("OPENFLUX_TEST_CLIENT_CORE"); originalClient != "" {
 		core = originalClient
+		assertOfficialLink(t, originalClient, v.ShareLink)
 	}
 	client := exec.Command(core, "--role=client", "--transport=direct", "--mode=l4", "--codec=batched", "--negotiate", "--inbound=socks5", "--socks5="+clientAddress, "--direct-dial="+exit.DirectListen, "--encryption-key-file="+filepath.Join(store.Dir, "keys", exit.ID+".key"), "--debug=0")
 	prepareProcess(client)

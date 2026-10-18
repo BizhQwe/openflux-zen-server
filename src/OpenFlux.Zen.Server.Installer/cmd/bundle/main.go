@@ -36,7 +36,7 @@ func main() {
 		h := sha256.Sum256(b)
 		hashes[name] = hex.EncodeToString(h[:])
 	}
-	manifest, e := json.Marshal(map[string]any{"version": "1.0.0", "os": *osName, "arch": *arch, "files": hashes})
+	manifest, e := json.Marshal(map[string]any{"version": "1.1.0", "os": *osName, "arch": *arch, "files": hashes})
 	if e != nil {
 		panic(e)
 	}

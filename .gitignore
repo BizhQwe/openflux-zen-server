@@ -25,6 +25,7 @@ tunnel.txt
 
 .idea/
 .vscode/
+.serena/
 *.swp
 *.swo
 

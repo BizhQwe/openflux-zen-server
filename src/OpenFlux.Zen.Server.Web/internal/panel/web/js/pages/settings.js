@@ -507,11 +507,11 @@ function renderCoreVersionInfo(info) {
 
   const curBadge = document.getElementById('core-current-version-badge');
   if (curBadge) {
-    curBadge.textContent = `OpenFlux: ${info.currentVersion || '0.7.3'}`;
+    curBadge.textContent = `OpenFlux: ${info.currentVersion || '0.13.0'}`;
   }
 
   const curVer = document.getElementById('core-current-version');
-  if (curVer) curVer.textContent = info.currentVersion || '0.7.3';
+  if (curVer) curVer.textContent = info.currentVersion || '0.13.0';
 
   const latVer = document.getElementById('core-latest-version');
   if (latVer) latVer.textContent = info.latestVersion || info.currentVersion || '—';

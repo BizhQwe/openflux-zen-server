@@ -14,7 +14,8 @@ require (
 	github.com/mdlayher/socket v0.5.0 // indirect
 	golang.org/x/crypto v0.56.0 // indirect
 	golang.org/x/net v0.57.0 // indirect
-	golang.org/x/sync v0.6.0 // indirect
+	golang.org/x/sync v0.22.0 // indirect
+	golang.org/x/text v0.41.0 // indirect
 )
 
 replace openflux.local/zen/panel => ../OpenFlux.Zen.Server.Web

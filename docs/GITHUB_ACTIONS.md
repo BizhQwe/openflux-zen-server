@@ -31,8 +31,8 @@ PHP нужен для тестов исходного ядра и не вход�
 Создайте и отправьте тег, например для текущей версии проекта:
 
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+git tag v1.1.0
+git push origin v1.1.0
 ```
 
 Push тега `v*` запускает проверки и сборку, затем создаёт GitHub Release. Тег должен указывать на коммит с workflow. Для будущих версий сначала обновите версию в исходниках: сам тег не меняет версию программы.
@@ -45,13 +45,20 @@ Push тега `v*` запускает проверки и сборку, зате
 
 ## Проверка упаковки локально
 
-После сборки всех платформ можно собрать набор файлов релиза без обращения к GitHub:
+Скрипт упаковки сам собирает все семь платформ и готовит файлы релиза без обращения к GitHub:
 
 ```bash
-sh scripts/build.sh --all
-sh scripts/package-release.sh dist
+sh scripts/package-release.sh
 cd dist
 sha256sum --check SHA256SUMS.txt
 ```
 
-На Windows установщики можно собрать командой `./scripts/build.ps1 -All`; для `package-release.sh` подойдёт Git Bash. Linux-файлам, скачанным вручную, перед запуском нужно выдать право на выполнение: `chmod +x <имя-файла>`.
+На Windows доступен эквивалент без Git Bash:
+
+```powershell
+.\scripts\package-release.ps1
+```
+
+Для готовых установщиков используйте `sh scripts/package-release.sh --skip-build release` или `.\scripts\package-release.ps1 -SkipBuild -ReleaseDir release`. Workflow использует этот режим после скачивания артефактов; повторная компиляция в задаче публикации не выполняется.
+
+Отдельные `sh scripts/build.sh` и `.\scripts\build.ps1` также собирают все платформы по умолчанию. Общий список — [scripts/targets.txt](../scripts/targets.txt); выбор конкретной платформы через аргумент `.sh` или `-Targets` в `.ps1` сохранён. Linux-файлам, скачанным вручную, перед запуском нужно выдать право на выполнение: `chmod +x <имя-файла>`.

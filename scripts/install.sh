@@ -84,7 +84,7 @@ fi
 INSTALLER_BIN="$TMP_DIR/openflux-zen-server-installer-$RID"
 REPO="${OPENFLUX_REPOSITORY:-BizhQwe/openflux-zen-server}"
 RELEASE_URL="https://github.com/$REPO/releases/latest/download/openflux-zen-server-installer-$RID"
-TAG_URL="https://github.com/$REPO/releases/download/v1.0.0/openflux-zen-server-installer-$RID"
+TAG_URL="https://github.com/$REPO/releases/download/v1.1.0/openflux-zen-server-installer-$RID"
 FALLBACK_URL="https://github.com/$REPO/releases/latest/download/openflux-zen-server-installer-$RID"
 
 echo ""

@@ -270,7 +270,8 @@ func main() {
 
 	role := flag.String("role", roleClient, "client | exit | bench-send | bench-sink")
 	inbound := flag.String("inbound", "", "tun | socks5 (client only; default: tun on macOS, socks5 elsewhere)")
-	transportType := flag.String("transport", "yandex", "Transport type (yandex, vyandex, oneme, cupsonline, mailru, telemost)")
+	transportType := flag.String("transport", "yandex", "Transport type (yandex, vyandex, boards, oneme, cupsonline, avito, mailru, telemost, bitrix24, mixed, direct, script)")
+	lanesFlag := flag.Int("lanes", 0, "Exit with no --url: run N carriers of this transport as lanes of one stripe, each creating its own rooms (cupsonline, avito); with --url, a comma-separated list of links is striped the same way")
 	mode := flag.String("mode", "", "Exit-node mode: l3 (default; Linux as root, or Windows as Administrator with WinDivert) or l4 (works everywhere)")
 
 	codec := flag.String("codec", codecBatched, "batched (default, zstd+coalescing) or legacy (per-packet LZ4)")
@@ -289,6 +290,7 @@ func main() {
 			"from --config), falling back to --transport. Only set this to override that derivation.")
 
 	flag.StringVar(&globalDocUrl, "url", "http://#", "Document URL. If u use Yandex.Docs transport")
+	urlFile := flag.String("url-file", "", "Read --url from this file, so the document URL stays out of the process list and shell history")
 	flag.StringVar(&maxToken, "maxToken", "", "MAX Web token. If u use MAX transport")
 	flag.StringVar(&maxUid, "maxUid", "", "MAX call user id. If u use MAX transport")
 	directDial := flag.String("direct-dial", "", "DirectTransport: exit address to dial (client). Requires --encryption-key-file")
@@ -304,6 +306,9 @@ func main() {
 	mailruURL := flag.String("mailru-url", "", "URL (weblink) for the mailru transport")
 	cupsonlineURL := flag.String("cupsonline-url", "", "URL for the cupsonline transport")
 	avitoURL := flag.String("avito-url", "", "URL for the avito transport")
+	bitrix24URL := flag.String("bitrix24-url", "", "Portal URL for the bitrix24 transport")
+	mixedURL := flag.String("mixed-url", "", "Typed links for a mixed stripe group")
+	transportOptionsFile := flag.String("transport-options-file", "", "Private JSON file with per-type carrier parameters (network, stripes, Bitrix24 authentication, script settings)")
 	avitoCookies := flag.String("avito-cookies", "", "Raw cookie string for code.avito.ru (or path to Netscape cookies.txt)")
 	onemeToken := flag.String("oneme-token", "", "MAX token for the oneme transport")
 	onemeUID := flag.String("oneme-uid", "", "MAX uid for the oneme transport")
@@ -322,6 +327,7 @@ func main() {
 		"Path to the Unix domain socket used by the mobile app to talk to the core. "+
 			"Empty = no IPC server.")
 	socksAddr := flag.String("socks5", ":1080", "SOCKS5 address")
+	upstreamProxy := flag.String("upstream-proxy", "", "Exit (l4): open TCP connections through this SOCKS5 proxy, e.g. 127.0.0.1:10808 or socks5://user:pass@host:port")
 	httpProxyAddr := flag.String("http-proxy", "", "Client: also serve an HTTP proxy (CONNECT and plain requests) on this address, through the same tunnel")
 	flag.StringVar(&localIP, "local-ip", "", "Egress IP for exit node (l3 mode only, scoped RST drop)")
 
@@ -345,7 +351,7 @@ func main() {
 	// usage message with axes, modifiers, and examples instead of a flat
 	// alphabetical list.
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, `OpenFlux вЂ” Network stack research tool. TCP tunnel with pluggable transports.
+		fmt.Fprintf(os.Stderr, `OpenFlux — Network stack research tool. TCP tunnel with pluggable transports.
 
 USAGE
   openflux --role=<role> --transport=<type> [OPTIONS]
@@ -365,6 +371,13 @@ TRANSPORT  (single-transport mode)
   -t, --transport=cupsonline   Cups.online interview rooms.
   -t, --transport=avito        code.avito.ru ShareDB rooms.
   -t, --transport=telemost     Yandex Telemost conference (--url <link>), striped over several participants.
+  -t, --transport=bitrix24     Bitrix24 portal chat (--url <portal>).
+  -t, --transport=mixed        Striped group of type:link entries in --url.
+      --lanes=<N>             Auto-create N cupsonline/avito carrier lanes.
+      --bitrix24-url=<URL>     Bitrix24 portal for a multi-transport session.
+      --mixed-url=<links>     Mixed stripe group for a multi-transport session.
+      --transport-options-file=<path>
+                               Private JSON carrier parameters by transport type.
   -t, --transport=mailru       Mail.ru Docs over WebSocket.
   -t, --transport=direct       Plain TCP to a self-hosted exit.
   -t, --transport=script       A signed JS (goja) transport. Session only
@@ -537,6 +550,13 @@ DEPRECATED (removed in v2)
 				*debug = 1
 			}
 		}
+		if v, ok := confValue(conf.Interface, "Bonding"); ok && confBool(v, false) {
+			log.Printf("Bonding = %s: bonding is no longer supported, the carriers fail over by priority", v)
+		}
+		// A node channel with .flux carriers keeps them current (node-install.sh writes it).
+		if v, ok := confValue(conf.Interface, "ScriptAutoUpdate"); ok && !setFlags["script-auto-update"] {
+			*scriptAutoUpdate = confBool(v, false)
+		}
 		if v, ok := confValue(conf.Interface, "Sensitive"); ok && !setFlags["sensitive"] && !setFlags["sensetive"] {
 			*sensitive = confBool(v, *sensitive)
 		}
@@ -584,6 +604,24 @@ DEPRECATED (removed in v2)
 					spec.Params["settings"] = settings
 				}
 			}
+			if n := t.Values["Network"]; n != "" {
+				if !validNetwork(n) {
+					log.Fatalf("--config: [Transport %s] Network = %q: cellular, wifi or ethernet", t.Name, n)
+				}
+				if spec.Params == nil {
+					spec.Params = map[string]interface{}{}
+				}
+				spec.Params["network"] = n
+			}
+			if spec.Type == "cupsonline" {
+				spec.Params = map[string]interface{}{"exit": isExit}
+			}
+			if n := confInt(t.Values["Lanes"], 0); n >= 2 {
+				if spec.Params == nil {
+					spec.Params = map[string]interface{}{}
+				}
+				spec.Params["lanes"] = n
+			}
 			confTransports = append(confTransports, spec)
 		}
 	}
@@ -629,6 +667,17 @@ DEPRECATED (removed in v2)
 	}
 
 	// Platform defaults. The recommended client path is utun on macOS and
+	if *urlFile != "" {
+		if globalDocUrl != "http://#" {
+			log.Fatal("--url-file and --url are exclusive")
+		}
+		u, err := readURLFile(*urlFile)
+		if err != nil {
+			log.Fatalf("--url-file: %v", err)
+		}
+		globalDocUrl = u
+	}
+
 	// SOCKS5 everywhere else (see README for details). Stream mode keeps
 	// SOCKS5 unless the full tunnel is asked for by name: it was a proxy
 	// first, and the apps' proxy profiles do not pass --inbound.
@@ -642,6 +691,25 @@ DEPRECATED (removed in v2)
 	}
 	if *mode == "" {
 		*mode = "l3"
+		// Only the l4 exit dials its own connections, so only it can use
+		// an upstream proxy.
+		if *role == roleExit && *upstreamProxy != "" {
+			*mode = "l4"
+		}
+	}
+	if *upstreamProxy != "" {
+		if *role != roleExit {
+			log.Fatal("--upstream-proxy applies to --role=exit only")
+		}
+		if *mode != "l4" {
+			log.Fatal("--upstream-proxy needs --mode=l4: an l3 exit forwards packets and dials nothing itself")
+		}
+		if err := tunnel.SetExitUpstream(*upstreamProxy); err != nil {
+			log.Fatalf("--upstream-proxy: %v", err)
+		}
+		if addr := tunnel.ExitUpstream(); addr != "" {
+			log.Printf("Exit TCP goes through SOCKS5 %s", addr)
+		}
 	}
 
 	if *codec != codecBatched && *codec != codecLegacy {
@@ -782,6 +850,8 @@ DEPRECATED (removed in v2)
 			"mailru":     *mailruURL,
 			"cupsonline": *cupsonlineURL,
 			"avito":      *avitoURL,
+			"bitrix24":   *bitrix24URL,
+			"mixed":      *mixedURL,
 		}
 		specs = buildTransportSpecs(specs, urls, nil)
 	} else if *transportsFlag != "" {
@@ -797,12 +867,15 @@ DEPRECATED (removed in v2)
 			"mailru":     *mailruURL,
 			"cupsonline": *cupsonlineURL,
 			"avito":      *avitoURL,
+			"bitrix24":   *bitrix24URL,
+			"mixed":      *mixedURL,
 		}
 		if globalDocUrl != "" && globalDocUrl != "http://#" && urls["yandex"] == "" {
 			urls["yandex"] = globalDocUrl
 		}
 		extra := map[string]map[string]interface{}{
-			"oneme": {"token": *onemeToken, "uid": *onemeUID, "exit": isExit},
+			"oneme":      {"token": *onemeToken, "uid": *onemeUID, "exit": isExit},
+			"cupsonline": {"exit": isExit},
 			"direct": {
 				"dial":    *directDial,
 				"listen":  *directListen,
@@ -835,6 +908,19 @@ DEPRECATED (removed in v2)
 				"path": *scriptPath, "pubkey": *scriptPubkey, "name": *scriptName,
 			}
 		}
+		if *transportType == "cupsonline" {
+			specs[0].Params = map[string]interface{}{"exit": isExit}
+		}
+		if *lanesFlag >= 2 {
+			if specs[0].Params == nil {
+				specs[0].Params = map[string]interface{}{}
+			}
+			specs[0].Params["lanes"] = *lanesFlag
+		}
+	}
+
+	if err := applyTransportOptions(specs, *transportOptionsFile); err != nil {
+		log.Fatalf("transport options: %v", err)
 	}
 
 	// Telemost's media runs over WebRTC's own UDP sockets, which neither the
@@ -899,19 +985,9 @@ DEPRECATED (removed in v2)
 	// sections in a .conf describe one just like --transports.
 	//
 	// A classic setup (--transport=X) with a key runs as a Session too,
-	// with classic compatibility: a client falls back to the classic
-	// layering while the exit does not answer the handshake and upgrades
-	// once it does; an exit serves classic clients and Session clients.
-	// Only --negotiate is strict. Without a key only classic is possible.
+	// with classic compatibility (see classicCompatible).
 	configuredSession := *negotiate || *transportsFlag != "" || len(confTransports) > 0
-	classicCompat := false
-	switch {
-	case *role != roleClient && *role != roleExit:
-	case !configuredSession && secret != "":
-		classicCompat = true
-	case configuredSession && !*negotiate && *role == roleClient && len(specs) == 1:
-		classicCompat = true
-	}
+	classicCompat := classicCompatible(*role, configuredSession, *negotiate, secret != "", len(specs))
 	if configuredSession || classicCompat {
 		if secret == "" {
 			log.Fatal("--transports/--negotiate/.conf transports require --encryption-key-file")
@@ -1022,13 +1098,11 @@ DEPRECATED (removed in v2)
 		// Session needs one), or a bench role.
 		// The types the classic path serves; the registry builds them.
 		switch *transportType {
-		case "boards", "vyandex", "yandex", "oneme", "cupsonline", "avito", "mailru", "telemost":
+		case "boards", "vyandex", "yandex", "oneme", "cupsonline", "avito", "mailru", "telemost", "bitrix24", "mixed":
 		default:
 			log.Fatalf("Unknown transport type: %s", *transportType)
 		}
-		inner, err := registry.New(*transportType, globalDocUrl,
-			map[string]interface{}{"token": maxToken, "uid": maxUid, "exit": isExit},
-			registry.Options{Base: config, IsExit: isExit, YandexCookiesFile: yandexCookiesFile, AvitoCookies: avitoCookiesStr})
+		inner, err := makeRawTransport(specs[0], config, isExit)
 		if err != nil {
 			log.Fatalf("%s: %v", *transportType, err)
 		}
@@ -1382,6 +1456,9 @@ func runClient(trans transport.Transport, inbound, socksAddr, httpProxyAddr stri
 		// for platforms without a tun client (see README).
 		log.Printf("Running as CLIENT (SOCKS5 on %s, legacy gVisor path)", socksAddr)
 		tun := tunnel.NewTCPTunnelMode(trans, false, exitMode)
+		if err := tun.Err(); err != nil {
+			log.Fatal(err)
+		}
 		if httpProxyAddr != "" {
 			ln, err := net.Listen("tcp", httpProxyAddr)
 			if err != nil {
@@ -1446,4 +1523,13 @@ func hasTelemost(specs []transportSpec) bool {
 		}
 	}
 	return false
+}
+
+// classicParams are the registry params of the single-transport path.
+func classicParams(token string, uid string, isExit bool, lanes int) map[string]interface{} {
+	p := map[string]interface{}{"token": token, "uid": uid, "exit": isExit}
+	if lanes >= 2 {
+		p["lanes"] = lanes
+	}
+	return p
 }

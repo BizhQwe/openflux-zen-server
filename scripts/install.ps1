@@ -34,7 +34,7 @@ $tempDir = $env:TEMP
 $installerExe = Join-Path $tempDir "openflux-zen-server-installer-$arch.exe"
 $repo = if ($env:OPENFLUX_REPOSITORY) { $env:OPENFLUX_REPOSITORY } else { "BizhQwe/openflux-zen-server" }
 $releaseUrl = "https://github.com/$repo/releases/latest/download/openflux-zen-server-installer-$arch.exe"
-$tagUrl = "https://github.com/$repo/releases/download/v1.0.0/openflux-zen-server-installer-$arch.exe"
+$tagUrl = "https://github.com/$repo/releases/download/v1.1.0/openflux-zen-server-installer-$arch.exe"
 $fallbackUrl = "https://github.com/$repo/releases/latest/download/openflux-zen-server-installer-$arch.exe"
 
 Write-Host ""

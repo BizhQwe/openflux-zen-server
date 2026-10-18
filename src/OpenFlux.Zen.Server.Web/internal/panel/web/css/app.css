@@ -1004,7 +1004,8 @@
     .transport-icon-direct { color: #34d399; }
     .transport-icon-cups { color: #fbbf24; }
     .transport-icon-avito { color: #a855f7; }
-    img[src$="transport-avito.png"] { border-radius: 22%; }
+    img[src$="transport-avito.png"], img[src$="transport-bitrix24.png"] { border-radius: 22%; }
+    .transport-icon-bitrix24 { color: #22c3ee; }
     .transport-icon-yandex { color: #f87171; }
     .transport-icon-vyandex { color: #fb923c; }
     .transport-icon-boards { color: #c084fc; }

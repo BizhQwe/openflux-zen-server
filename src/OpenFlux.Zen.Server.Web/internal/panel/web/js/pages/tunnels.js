@@ -542,6 +542,9 @@ function showTunnelConnect(id) {
   openQrModal(tItem.shareLink, tItem.name, id);
 }
 
+const AUTO_ROOM_TRANSPORTS = new Set(['cupsonline', 'avito']);
+const REQUIRED_URL_TRANSPORTS = new Set(['yandex', 'mailru', 'vyandex', 'boards', 'telemost', 'bitrix24', 'mixed']);
+
 function selectTransport(transportName) {
   const select = document.getElementById('tunnel-transport');
   if (select) {
@@ -593,7 +596,14 @@ function openTunnelModal(tunnel = null) {
   document.getElementById('tunnel-transport').value = tunnel ? tunnel.transport : 'yandex';
   document.getElementById('tunnel-mode').value = tunnel ? (tunnel.mode || 'l4') : 'l4';
   document.getElementById('tunnel-local-ip').value = tunnel ? (tunnel.localIp || '') : '';
-  document.getElementById('tunnel-url').value = tunnel ? (tunnel.url || tunnel.avitoUrl || tunnel.yandexUrl || tunnel.mailruUrl || '') : '';
+  const urlFields = { yandex: 'yandexUrl', vyandex: 'vyandexUrl', boards: 'boardsUrl', mailru: 'mailruUrl', cupsonline: 'cupsonlineUrl', avito: 'avitoUrl', telemost: 'telemostUrl', bitrix24: 'bitrix24Url', mixed: 'mixedUrl' };
+  document.getElementById('tunnel-url').value = tunnel ? (tunnel[urlFields[tunnel.transport]] || tunnel.url || '') : '';
+  document.getElementById('tunnel-bitrix24-cookies').value = tunnel?.bitrix24Cookies || '';
+  document.getElementById('tunnel-bitrix24-sessid').value = tunnel?.bitrix24Sessid || '';
+  document.getElementById('tunnel-bitrix24-chat-id').value = tunnel?.bitrix24ChatId || '';
+  document.getElementById('tunnel-lanes').value = tunnel?.lanes || 0;
+  document.getElementById('tunnel-upstream-proxy').value = tunnel?.upstreamProxy || '';
+  document.getElementById('tunnel-transport-options').value = tunnel?.transportOptions ? JSON.stringify(tunnel.transportOptions, null, 2) : '';
   document.getElementById('tunnel-maxtoken').value = tunnel ? (tunnel.maxToken || '') : '';
   const dlVal = tunnel ? (tunnel.directListen || '') : '';
   document.getElementById('tunnel-direct-listen').value = (dlVal && dlVal.includes(':')) ? dlVal : '0.0.0.0:8445';
@@ -654,6 +664,10 @@ function onTransportChange() {
   updateTransportGuideBox(transport);
 
   document.getElementById('group-oneme').style.display = transport === 'oneme' ? 'grid' : 'none';
+  const multiTypes = Array.from(document.querySelectorAll('.multi-transport-type')).map(select => select.value);
+  document.getElementById('group-bitrix24').style.display = (transport === 'bitrix24' || (transport === 'multi' && multiTypes.includes('bitrix24'))) ? 'block' : 'none';
+  document.getElementById('mixed-compatibility-help').style.display = (transport === 'mixed' || (transport === 'multi' && multiTypes.includes('mixed'))) ? 'block' : 'none';
+  document.getElementById('group-lanes').style.display = AUTO_ROOM_TRANSPORTS.has(transport) ? 'block' : 'none';
   // The exit listener is shared by a multi session. Keep it visible there;
   // the Direct card itself only describes that it uses this listener.
   const hasMultiDirect = transport === 'multi' && Array.from(document.querySelectorAll('.multi-transport-type')).some(select => select.value === 'direct');
@@ -674,7 +688,14 @@ function onTransportChange() {
 
   const urlLabel = document.getElementById('tunnel-url-label');
   const urlInput = document.getElementById('tunnel-url');
-  if (transport === 'telemost') {
+  urlInput.required = REQUIRED_URL_TRANSPORTS.has(transport);
+  if (transport === 'bitrix24') {
+    urlLabel.textContent = t('bitrix24_url');
+    urlInput.placeholder = 'https://portal.bitrix24.ru';
+  } else if (transport === 'mixed') {
+    urlLabel.textContent = t('mixed_links');
+    urlInput.placeholder = 'cupsonline: avito: mailru:https://cloud.mail.ru/public/...';
+  } else if (transport === 'telemost') {
     urlLabel.textContent = 'Ссылка на встречу Яндекс Телемост (--url)';
     urlInput.placeholder = 'https://telemost.yandex.ru/j/...';
   } else if (transport === 'boards') {
@@ -683,12 +704,9 @@ function onTransportChange() {
   } else if (transport === 'mailru') {
     urlLabel.textContent = 'Публичная ссылка Mail.ru (--url)';
     urlInput.placeholder = 'https://cloud.mail.ru/public/...';
-  } else if (transport === 'cupsonline') {
-    urlLabel.textContent = 'Список комнат base64 (--url, опционально)';
-    urlInput.placeholder = 'Оставьте пустым для автосоздания комнат';
-  } else if (transport === 'avito') {
-    urlLabel.textContent = 'URL комнаты code.avito.ru (--url)';
-    urlInput.placeholder = 'https://code.avito.ru/rooms/...';
+  } else if (AUTO_ROOM_TRANSPORTS.has(transport)) {
+    urlLabel.textContent = t('auto_room_url');
+    urlInput.placeholder = t('auto_room_placeholder');
   } else if (transport === 'vyandex') {
     urlLabel.textContent = 'URL документа Яндекс Волга (--url)';
     urlInput.placeholder = 'https://disk.yandex.ru/i/...';
@@ -704,6 +722,8 @@ function onTransportChange() {
 }
 
 const MULTI_TRANSPORT_TYPES = [
+  ['bitrix24', 'Bitrix24'],
+  ['mixed', 'Mixed / Striped'],
   ['script', 'Script / .flux'],
   ['direct', 'Direct TCP'],
   ['avito', 'Avito'],
@@ -758,14 +778,16 @@ function updateMultiTransportRow(row) {
   const value = row.querySelector('.multi-transport-value');
   const secondary = row.querySelector('.multi-transport-secondary');
   const placeholders = {
+    bitrix24: 'https://portal.bitrix24.ru',
+    mixed: 'cupsonline: avito: mailru:https://cloud.mail.ru/public/...',
     direct: 'Direct (exit слушает порт выше)',
-    avito: 'https://code.avito.ru/rooms/...',
+    avito: t('auto_room_multi_placeholder'),
     telemost: 'https://telemost.yandex.ru/j/...',
     yandex: 'https://disk.yandex.ru/i/...',
     vyandex: 'https://disk.yandex.ru/i/...',
     boards: 'https://boards.yandex.ru/p/...',
     mailru: 'https://cloud.mail.ru/public/...',
-    cupsonline: 'Авто (или ссылка на комнату)',
+    cupsonline: t('auto_room_multi_placeholder'),
     oneme: 'Токен MAX'
   };
   value.placeholder = placeholders[type] || 'URL документа';
@@ -807,6 +829,8 @@ function renderMultiTransportRows(tunnel) {
     mailru: tunnel?.mailruUrl || '', cupsonline: tunnel?.cupsonlineUrl || '',
     avito: tunnel?.avitoUrl || '',
     telemost: tunnel?.telemostUrl || '',
+    bitrix24: tunnel?.bitrix24Url || '',
+    mixed: tunnel?.mixedUrl || '',
     // DirectTransport is an exit listener in this panel; --direct-dial is a
     // client-only option and must not be copied into the multi editor.
     direct: '', oneme: tunnel?.onemeToken || tunnel?.maxToken || ''
@@ -853,14 +877,25 @@ async function saveTunnel() {
   const multiSecondary = (type) => multiRows.find(row => row.type === type)?.secondary || null;
   const multiHas = (type) => multiRows.some(row => row.type === type);
   const urlInput = document.getElementById('tunnel-url').value.trim();
+  let transportOptions;
+  try {
+    transportOptions = JSON.parse(document.getElementById('tunnel-transport-options').value || '{}');
+    if (!transportOptions || typeof transportOptions !== 'object' || Array.isArray(transportOptions) ||
+        Object.values(transportOptions).some(value => !value || typeof value !== 'object' || Array.isArray(value))) throw new Error();
+  } catch {
+    toast(t('carrier_options_invalid'), 'warning');
+    return;
+  }
 
   // Validate document / conference URL requirements
-  if (['yandex', 'mailru', 'vyandex', 'boards', 'telemost', 'avito'].includes(selectedTransport) && !urlInput) {
+  if (REQUIRED_URL_TRANSPORTS.has(selectedTransport) && !urlInput) {
     toast(currentLanguage === 'en' ? 'Please provide the connection URL' : 'Пожалуйста, укажите ссылку для подключения', 'warning');
     return;
   }
 
-  const savedUrlForTransport = selectedTransport === 'yandex' ? existing?.yandexUrl
+  const savedUrlForTransport = selectedTransport === 'bitrix24' ? existing?.bitrix24Url
+    : selectedTransport === 'mixed' ? existing?.mixedUrl
+    : selectedTransport === 'yandex' ? existing?.yandexUrl
     : selectedTransport === 'vyandex' ? existing?.vyandexUrl
       : selectedTransport === 'telemost' ? existing?.telemostUrl
         : selectedTransport === 'boards' ? existing?.boardsUrl
@@ -877,7 +912,8 @@ async function saveTunnel() {
     socks5Address: ':1080',
     // When switching from multi to a single carrier, carry its card URL into
     // the legacy --url field so the single session remains runnable.
-    url: urlInput || savedUrlForTransport || null,
+    // Clearing a room URL requests auto-creation, including on existing profiles.
+    url: urlInput || (AUTO_ROOM_TRANSPORTS.has(selectedTransport) ? null : savedUrlForTransport) || null,
     maxToken: selectedTransport === 'multi' ? multiValue('oneme') : (document.getElementById('tunnel-maxtoken').value.trim() || null),
     maxUid: selectedTransport === 'multi' ? multiSecondary('oneme') : (document.getElementById('tunnel-maxuid').value.trim() || null),
     directListen: (() => {
@@ -901,6 +937,14 @@ async function saveTunnel() {
     mailruUrl: selectedTransport === 'multi' ? multiValue('mailru') : (selectedTransport === 'mailru' ? urlInput : (existing?.mailruUrl || null)),
     cupsonlineUrl: selectedTransport === 'multi' ? multiValue('cupsonline') : (selectedTransport === 'cupsonline' ? urlInput : (existing?.cupsonlineUrl || null)),
     avitoUrl: selectedTransport === 'multi' ? multiValue('avito') : (selectedTransport === 'avito' ? urlInput : (existing?.avitoUrl || null)),
+    bitrix24Url: selectedTransport === 'multi' ? multiValue('bitrix24') : (selectedTransport === 'bitrix24' ? urlInput : (existing?.bitrix24Url || null)),
+    mixedUrl: selectedTransport === 'multi' ? multiValue('mixed') : (selectedTransport === 'mixed' ? urlInput : (existing?.mixedUrl || null)),
+    bitrix24Cookies: document.getElementById('tunnel-bitrix24-cookies').value.trim(),
+    bitrix24Sessid: document.getElementById('tunnel-bitrix24-sessid').value.trim(),
+    bitrix24ChatId: document.getElementById('tunnel-bitrix24-chat-id').value.trim(),
+    lanes: AUTO_ROOM_TRANSPORTS.has(selectedTransport) ? Number(document.getElementById('tunnel-lanes').value) : 0,
+    upstreamProxy: document.getElementById('tunnel-upstream-proxy').value.trim(),
+    transportOptions,
     onemeToken: selectedTransport === 'multi' ? multiValue('oneme') : (existing?.onemeToken || null),
     onemeUid: selectedTransport === 'multi' ? (multiSecondary('oneme') || null) : (existing?.onemeUid || null),
     codec: document.getElementById('tunnel-codec').value,

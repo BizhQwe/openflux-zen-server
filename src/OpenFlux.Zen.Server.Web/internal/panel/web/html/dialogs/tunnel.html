@@ -131,6 +131,24 @@
                   <span class="transport-card-sub">Телемост</span>
                 </div>
               </div>
+              <div class="transport-card" data-transport="bitrix24" onclick="selectTransport('bitrix24')">
+                <div class="transport-card-icon transport-icon-bitrix24">
+                  <img src="images/transport-bitrix24.png" alt="Bitrix24" width="28" height="28" />
+                </div>
+                <div class="transport-card-info">
+                  <span class="transport-card-title">Bitrix24</span>
+                  <span class="transport-card-sub" data-i18n="bitrix24_desc">Чат портала</span>
+                </div>
+              </div>
+              <div class="transport-card" data-transport="mixed" onclick="selectTransport('mixed')">
+                <div class="transport-card-icon transport-icon-multi">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h5l6 14h5M4 19h5L15 5h5"/></svg>
+                </div>
+                <div class="transport-card-info">
+                  <span class="transport-card-title">Mixed / Striped</span>
+                  <span class="transport-card-sub" data-i18n="mixed_desc">Объединение каналов</span>
+                </div>
+              </div>
               <div class="transport-card" data-transport="script" onclick="selectTransport('script')">
                 <div class="transport-card-icon transport-icon-script">
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
@@ -155,6 +173,8 @@
               <option value="vyandex">vyandex (Yandex Volga)</option>
               <option value="boards">boards (Yandex Boards)</option>
               <option value="oneme">oneme (MAX / OneMe)</option>
+              <option value="bitrix24">bitrix24 (Bitrix24)</option>
+              <option value="mixed">mixed (Striped)</option>
             </select>
           </div>
 
@@ -164,6 +184,26 @@
             <input type="text" id="tunnel-url" class="form-control" placeholder="https://disk.yandex.ru/i/..." />
             <div id="tunnel-url-warning" class="url-warning-alert" style="display: none;"></div>
           </div>
+
+          <div id="group-bitrix24" style="display: none;">
+            <div class="form-group">
+              <label for="tunnel-bitrix24-cookies" data-i18n="bitrix24_cookies">Cookies портала</label>
+              <input type="password" id="tunnel-bitrix24-cookies" class="form-control" autocomplete="off" />
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="tunnel-bitrix24-sessid">Sessid</label>
+                <input type="password" id="tunnel-bitrix24-sessid" class="form-control" autocomplete="off" />
+              </div>
+              <div class="form-group">
+                <label for="tunnel-bitrix24-chat-id" data-i18n="bitrix24_chat">ID общего чата</label>
+                <input type="text" id="tunnel-bitrix24-chat-id" class="form-control" placeholder="chat123" />
+              </div>
+            </div>
+            <p class="form-hint" data-i18n="bitrix24_help">У клиента должны быть свои cookies и sessid, а ID чата — тот же. Автоматическая ссылка подключения для Bitrix24 не создаётся.</p>
+          </div>
+
+          <p id="mixed-compatibility-help" class="form-hint" style="display: none;" data-i18n="mixed_compatibility_help">Mixed требует клиента с поддержкой группы Striped и ручной настройки. Официальный формат openflux:// v0.13.0 не поддерживает тип mixed; группа не включается в ссылку и QR-код.</p>
 
           <!-- OneMe Fields -->
           <div id="group-oneme" class="form-row" style="display: none;">
@@ -259,6 +299,21 @@
                   <label for="tunnel-session-context" data-i18n="modal_tunnel_context">KDF Контекст</label>
                   <input type="text" id="tunnel-session-context" class="form-control" placeholder="URL документа" />
                 </div>
+              </div>
+
+              <div class="form-row">
+                <div id="group-lanes" class="form-group">
+                  <label for="tunnel-lanes" data-i18n="carrier_lanes">Количество каналов (0 — авто)</label>
+                  <input type="number" id="tunnel-lanes" class="form-control" min="0" max="64" value="0" />
+                </div>
+                <div class="form-group">
+                  <label for="tunnel-upstream-proxy" data-i18n="upstream_proxy">Исходящий SOCKS5-прокси (L4)</label>
+                  <input type="text" id="tunnel-upstream-proxy" class="form-control" placeholder="127.0.0.1:10808" />
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="tunnel-transport-options" data-i18n="carrier_options">Дополнительные параметры транспортов (JSON)</label>
+                <textarea id="tunnel-transport-options" class="form-control" rows="4" spellcheck="false" placeholder='{"telemost":{"stripes":"auto","stripes_max":6},"mailru":{"network":"ethernet"}}'></textarea>
               </div>
 
               <div class="advanced-settings-checkbox">

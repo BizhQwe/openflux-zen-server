@@ -1,5 +1,6 @@
 src/OpenFlux.Zen.Server.Core/deploy/node-install.sh text eol=lf
 scripts/*.sh text eol=lf
+scripts/targets.txt text eol=lf
 .github/workflows/*.yml text eol=lf
 
 # Signed script-transport fixtures and their .sig files must stay exactly

@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"openflux.local/zen/panel/configuration"
 )
 
 func BuildArgs(t Tunnel, dir, socket string) ([]string, error) {
@@ -45,6 +47,8 @@ func BuildArgs(t Tunnel, dir, socket string) ([]string, error) {
 		add("mailru-url", t.MailruURL)
 		add("cupsonline-url", t.CupsonlineURL)
 		add("avito-url", t.AvitoURL)
+		add("bitrix24-url", t.Bitrix24URL)
+		add("mixed-url", t.MixedURL)
 		add("oneme-token", first(t.OnemeToken, t.MaxToken))
 		add("oneme-uid", first(t.OnemeUID, t.MaxUID))
 	} else {
@@ -64,6 +68,10 @@ func BuildArgs(t Tunnel, dir, socket string) ([]string, error) {
 			add("url", first(t.BoardsURL, t.URL))
 		case "avito":
 			add("url", first(t.AvitoURL, t.URL))
+		case "bitrix24":
+			add("url", first(t.Bitrix24URL, t.URL))
+		case "mixed":
+			add("url", first(t.MixedURL, t.URL))
 		case "oneme":
 			add("maxToken", first(t.OnemeToken, t.MaxToken))
 			add("maxUid", first(t.OnemeUID, t.MaxUID))
@@ -73,10 +81,43 @@ func BuildArgs(t Tunnel, dir, socket string) ([]string, error) {
 	}
 	add("avito-cookies", t.AvitoCookies)
 	add("local-ip", t.LocalIP)
+	add("upstream-proxy", t.UpstreamProxy)
+	if t.Lanes > 0 && t.Transport != "multi" {
+		add("lanes", strconv.Itoa(t.Lanes))
+	}
+	options := make(map[string]map[string]interface{}, len(t.TransportOptions))
+	for kind, params := range t.TransportOptions {
+		options[kind] = make(map[string]interface{}, len(params))
+		for key, value := range params {
+			options[kind][key] = value
+		}
+	}
+	if has("bitrix24") {
+		if options["bitrix24"] == nil {
+			options["bitrix24"] = make(map[string]interface{})
+		}
+		for key, value := range map[string]string{"cookies": t.Bitrix24Cookies, "sessid": t.Bitrix24Sessid, "chat_id": t.Bitrix24ChatID} {
+			if value != "" {
+				options["bitrix24"][key] = value
+			}
+		}
+	}
+	if len(options) > 0 {
+		path := filepath.Join(dir, "carrier-options", t.ID+".json")
+		if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+			return nil, err
+		}
+		if err := configuration.AtomicJSON(path, options); err != nil {
+			return nil, err
+		}
+		add("transport-options-file", path)
+	}
 	add("session-context", t.SessionContext)
 	add("max-packet-size", strconv.Itoa(t.MaxPacketSize))
 	add("yandex-cookies-file", t.YandexCookiesFile)
-	flag("negotiate", t.Negotiate || t.Transport == "multi" || has("direct") || has("script"))
+	// Multi starts a Session on its own. Keep the upstream classic fallback
+	// unless strict negotiation was requested or a Session-only carrier needs it.
+	flag("negotiate", t.Negotiate || has("direct") || has("script"))
 	if has("direct") {
 		add("direct-listen", first(t.DirectListen, "0.0.0.0:8445"))
 	}

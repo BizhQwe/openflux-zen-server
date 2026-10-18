@@ -234,7 +234,7 @@ func (m *Manager) Delete(id string) error {
 		m.tunnels[id] = old
 		return e
 	}
-	for _, path := range []string{filepath.Join(m.store.Dir, "keys", id+".key"), filepath.Join(m.store.Dir, "cookies", id+".json")} {
+	for _, path := range []string{filepath.Join(m.store.Dir, "keys", id+".key"), filepath.Join(m.store.Dir, "cookies", id+".json"), filepath.Join(m.store.Dir, "carrier-options", id+".json")} {
 		_ = os.Remove(path)
 	}
 	err := m.logs.Clear(id)

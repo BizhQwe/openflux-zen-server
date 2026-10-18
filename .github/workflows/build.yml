@@ -141,7 +141,7 @@ jobs:
           path: release
           merge-multiple: true
       - name: Prepare and verify release files
-        run: sh scripts/package-release.sh release
+        run: sh scripts/package-release.sh --skip-build release
       - name: Publish installers, bootstrap scripts and checksums
         shell: bash
         env:

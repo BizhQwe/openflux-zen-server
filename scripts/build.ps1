@@ -1,17 +1,18 @@
 param(
     [string]$Go = 'go',
-    [string[]]$Targets = @('windows-amd64'),
+    [string[]]$Targets = @(),
     [switch]$All,
     [switch]$Test
 )
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
-$allowed = @('windows-amd64','windows-arm64','windows-386','linux-amd64','linux-arm64','linux-386','linux-armv7')
-if ($All) { $Targets = $allowed }
+$allowed = @(Get-Content -LiteralPath (Join-Path $PSScriptRoot 'targets.txt') | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+if ($All -or $Targets.Count -eq 0) { $Targets = $allowed }
 foreach ($target in $Targets) { if ($target -notin $allowed) { throw "Unsupported target: $target" } }
 $previous = @{}
 foreach ($name in @('GOOS','GOARCH','GOARM','CGO_ENABLED')) { $previous[$name] = [Environment]::GetEnvironmentVariable($name,'Process') }
 Push-Location $projectRoot
+$bundlePath = Join-Path $projectRoot 'src\OpenFlux.Zen.Server.Installer\payload\bundle.zip'
 function Invoke-Go([string[]]$GoArgs) { & $Go @GoArgs; if ($LASTEXITCODE -ne 0) { throw "Go failed: $($GoArgs -join ' ')" } }
 try {
     $hostOS = (& $Go env GOHOSTOS).Trim()
@@ -19,7 +20,6 @@ try {
     if ($Test) { Invoke-Go @('test','./src/OpenFlux.Zen.Server.Core/...','./src/OpenFlux.Zen.Server.Web/...','./src/OpenFlux.Zen.Server.Installer/...','./src/OpenFlux.Zen.Server.Cli/...') }
     $dist = Join-Path $projectRoot 'dist'
     New-Item -ItemType Directory -Force -Path $dist | Out-Null
-    $bundlePath = Join-Path $projectRoot 'src\OpenFlux.Zen.Server.Installer\payload\bundle.zip'
     foreach ($target in $Targets) {
         $parts = $target.Split('-')
         $targetOS = $parts[0]
@@ -45,7 +45,15 @@ try {
         $env:GOARM = if ($targetArch -eq 'armv7') { '7' } else { '' }
         $installer = Join-Path $dist "openflux-zen-server-installer-$target$suffix"
         Invoke-Go @('build','-trimpath','-ldflags=-s -w','-o',$installer,'./src/OpenFlux.Zen.Server.Installer')
-        $checksumLine = (Get-FileHash -Algorithm SHA256 -LiteralPath $installer).Hash.ToLowerInvariant() + '  ' + (Split-Path -Leaf $installer) + "`n"
+        $hashStream = [IO.File]::OpenRead($installer)
+        $hasher = [Security.Cryptography.SHA256]::Create()
+        try {
+            $installerHash = [BitConverter]::ToString($hasher.ComputeHash($hashStream)).Replace('-', '').ToLowerInvariant()
+        } finally {
+            $hashStream.Dispose()
+            $hasher.Dispose()
+        }
+        $checksumLine = $installerHash + '  ' + (Split-Path -Leaf $installer) + "`n"
         [IO.File]::WriteAllText("$installer.sha256", $checksumLine, [Text.Encoding]::ASCII)
         Remove-Item -LiteralPath $bundlePath
         foreach ($oldName in @("openflux-core$suffix", "openflux-zen-server$suffix", "openflux$suffix")) {
@@ -54,6 +62,7 @@ try {
         }
     }
 } finally {
+    if (Test-Path -LiteralPath $bundlePath) { Remove-Item -LiteralPath $bundlePath }
     foreach ($name in $previous.Keys) { [Environment]::SetEnvironmentVariable($name,$previous[$name],'Process') }
     Pop-Location
 }

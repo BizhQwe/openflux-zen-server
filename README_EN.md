@@ -30,6 +30,8 @@ All components (**Core**, **Web**, **CLI**, and **Installer**) are written in Go
 
 ## Features
 
+The core is based on OpenFlux v0.13.0, with Bitrix24, Mixed/Striped groups, per-carrier lane/network settings and an outbound SOCKS5 proxy for L4. See the [migration report](docs/core-upgrade-v0.13.0.md) for the local patch inventory and compatibility notes.
+
 - 🚀 **Tunnel Management**: Create, configure, start, and stop server-side OpenFlux L3/L4 tunnels, supporting Multi configurations and multiple transport protocols.
 - 📊 **Real-Time Monitoring**: Live upload/download bandwidth graphs, traffic consumption stats, and host resource usage (CPU, RAM, Disk).
 - 📜 **Live Logs**: Built-in core and system log viewer with filtering and auto-scroll.
@@ -207,7 +209,8 @@ Web interface sources are located in `src/OpenFlux.Zen.Server.Web/internal/panel
 
 ## Building from Source
 
-Building requires **Go 1.24+** (recommended `1.26.6`).
+Building requires **Go 1.26.6+** (the version is specified in `go.work`).
+The `.sh` scripts require a POSIX shell and `sha256sum` (Linux / Git Bash); the `.ps1` versions work without Git Bash.
 
 Clone the repository:
 ```bash
@@ -228,14 +231,30 @@ powershell -ExecutionPolicy Bypass -File scripts\build.ps1 -Targets windows-amd6
 ### Build for All Target Platforms
 
 ```bash
-# Builds all Windows and Linux packages into dist/
-sh scripts/build.sh --all
+# With no arguments, builds all seven Windows and Linux targets into dist/
+sh scripts/build.sh
 
 # Or on Windows
-powershell -ExecutionPolicy Bypass -File scripts\build.ps1 -All
+powershell -ExecutionPolicy Bypass -File scripts\build.ps1
 ```
 
 Compiled binaries and self-extracting installer packages (`openflux-zen-server-installer-*`) with SHA-256 digests will be generated in `dist/`.
+
+All scripts share [scripts/targets.txt](scripts/targets.txt). The `--all` / `-All` switches remain supported; select a specific platform using the examples above.
+
+### Preparing a Release
+
+The command builds every platform, verifies individual SHA-256 files and creates `dist/SHA256SUMS.txt`:
+
+```bash
+sh scripts/package-release.sh
+```
+
+```powershell
+.\scripts\package-release.ps1
+```
+
+For existing builds, use `sh scripts/package-release.sh --skip-build dist` or `.\scripts\package-release.ps1 -SkipBuild -ReleaseDir dist`. To select another output directory, pass a positional argument to `.sh` or `-ReleaseDir` to `.ps1`; a normal run copies the complete installer set there. These scripts prepare local files without publishing to GitHub.
 
 ## License & Acknowledgments
 
