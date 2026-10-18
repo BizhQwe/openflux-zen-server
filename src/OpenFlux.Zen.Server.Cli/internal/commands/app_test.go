@@ -85,6 +85,23 @@ func TestCredentialsReadOnly(t *testing.T) {
 		t.Fatal("credentials changed settings, exposed the hash or lost the display password")
 	}
 }
+
+func TestCredentialsShowsDomainBeforeLocalhost(t *testing.T) {
+	a, dir, settings, _ := fixture(t)
+	settings.Domain, settings.DomainEnabled = "panel.example.test", true
+	settings.TLSCert, settings.TLSKey = "saved-cert", "saved-key"
+	if err := configuration.AtomicJSON(filepath.Join(dir, "data/settings.json"), settings); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Run([]string{"credentials", "--dir", dir, "--no-service", "--lang", "en"}); err != nil {
+		t.Fatal(err)
+	}
+	output := a.Out.(*bytes.Buffer).String()
+	domain, localhost := strings.Index(output, "Domain:"), strings.Index(output, "This PC (localhost):")
+	if domain < 0 || localhost < 0 || domain >= localhost {
+		t.Fatal("CLI did not put the configured domain before the local fallback")
+	}
+}
 func TestServiceCommandsAndPrivileges(t *testing.T) {
 	a, dir, _, _ := fixture(t)
 	f := &fakeService{status: platform.Status{Registered: true, Executable: platform.PanelPath(dir)}}

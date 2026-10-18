@@ -85,7 +85,11 @@ func (o installOptions) apply(s *configuration.Settings) error {
 		s.LocaltunnelEnabled = false
 		s.DomainEnabled = false
 		switch strings.ToLower(o.Mode) {
-		case "domain", "direct", "lan", "local":
+		case "domain", "direct":
+			configuration.SetLAN(s, false)
+			configuration.SetPublicListen(s, true)
+			s.DomainEnabled = strings.TrimSpace(s.Domain) != ""
+		case "lan", "local":
 			configuration.SetLAN(s, true)
 		case "localtunnel":
 			s.LocaltunnelEnabled = true

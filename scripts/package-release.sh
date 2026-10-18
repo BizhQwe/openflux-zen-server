@@ -66,10 +66,9 @@ if [ "$input_dir" != "$release_dir" ]; then
     done
 fi
 installer_count=$#
+# Remove bootstrap assets left by earlier packaging runs.
 for bootstrap in install.sh install.ps1; do
-    cp "scripts/$bootstrap" "$release_dir/$bootstrap"
-    (cd "$release_dir" && sha256sum "$bootstrap" > "$bootstrap.sha256")
-    set -- "$@" "$bootstrap"
+    rm -f -- "$release_dir/$bootstrap" "$release_dir/$bootstrap.sha256"
 done
 (cd "$release_dir" && sha256sum "$@" > SHA256SUMS.txt)
-echo "Release ready: $installer_count installers, bootstrap scripts, individual SHA-256 files and SHA256SUMS.txt in $release_dir."
+echo "Release ready: $installer_count installers, individual SHA-256 files and SHA256SUMS.txt in $release_dir."

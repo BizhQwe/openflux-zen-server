@@ -157,7 +157,7 @@ jobs:
           merge-multiple: true
       - name: Prepare and verify release files
         run: sh scripts/package-release.sh --skip-build release
-      - name: Publish installers, bootstrap scripts and checksums
+      - name: Publish installers and checksums
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -179,5 +179,14 @@ jobs:
             gh release create "$RELEASE_TAG" --verify-tag --draft --notes-file "docs/releases/$RELEASE_TAG.md" \
               --title "OpenFlux Zen Server $RELEASE_TAG"
           fi
-          gh release upload "$RELEASE_TAG" release/* --clobber
+          assets=(release/SHA256SUMS.txt)
+          while IFS= read -r target || [[ -n "$target" ]]; do
+            target="${target%$'\r'}"
+            [[ -n "$target" ]] || continue
+            suffix=''
+            if [[ "$target" == windows-* ]]; then suffix='.exe'; fi
+            asset="release/openflux-zen-server-installer-$target$suffix"
+            assets+=("$asset" "$asset.sha256")
+          done < scripts/targets.txt
+          gh release upload "$RELEASE_TAG" "${assets[@]}" --clobber
           gh release edit "$RELEASE_TAG" --draft=false "${release_flags[@]}"

@@ -23,7 +23,7 @@ func (a *App) panelURLs(s configuration.Settings) map[string]string {
 
 func (a *App) printURLs(s configuration.Settings) {
 	urls := a.panelURLs(s)
-	for _, kind := range []string{"lan", "localhost", "domain", "localtunnel"} {
+	for _, kind := range []string{"localtunnel", "domain", "lan", "localhost"} {
 		if value := urls[kind]; value != "" {
 			label := map[string]string{"lan": a.text("Вход по LAN / Wi-Fi:", "LAN / Wi-Fi:"), "localhost": a.text("Этот ПК (localhost):", "This PC (localhost):"), "domain": a.text("Домен:", "Domain:"), "localtunnel": "Localtunnel:"}[kind]
 			a.field(label, value)

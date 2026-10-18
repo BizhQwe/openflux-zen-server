@@ -56,6 +56,68 @@ func TestNoninteractiveUpdatePreservesSettings(t *testing.T) {
 		t.Fatal("redirected input received interactive questions")
 	}
 }
+
+func TestDomainSelectionDisablesLANAndKeepsPublicListener(t *testing.T) {
+	for _, mode := range []string{"domain", "direct"} {
+		t.Run(mode, func(t *testing.T) {
+			settings := wizardSettings()
+			settings.LANAccessMode = "on"
+			settings.LANSubnets = "10.0.0.0/8"
+			settings.LocaltunnelEnabled = true
+			settings.Domain = "panel.example.test"
+			settings.TLSCert, settings.TLSKey = "saved-cert", "saved-key"
+			opts := installOptions{ModeSet: true, Mode: mode, DomainSet: true, Domain: settings.Domain}
+			if err := opts.apply(&settings); err != nil {
+				t.Fatal(err)
+			}
+			if settings.LANAccessMode != "off" || configuration.LANEnabled(settings) || settings.LocaltunnelEnabled {
+				t.Fatal("domain selection enabled an additional publication mode")
+			}
+			if settings.Listen != "0.0.0.0:5000" || !settings.DomainEnabled || settings.TLSCert != "saved-cert" || settings.TLSKey != "saved-key" {
+				t.Fatal("domain listener or existing HTTPS settings changed")
+			}
+			if got, err := configuration.DomainURL(settings); err != nil || got != "https://panel.example.test:5000/zen-test-access/" {
+				t.Fatalf("domain URL: %q, %v", got, err)
+			}
+		})
+	}
+}
+
+func TestExistingDomainWizardKeepsSavedDomainWithoutEnablingLAN(t *testing.T) {
+	settings := wizardSettings()
+	settings.Domain, settings.DomainEnabled = "panel.example.test", true
+	settings.LANAccessMode = "on"
+	var output bytes.Buffer
+	u := &terminal.UI{In: bufio.NewReader(strings.NewReader("\n\n")), Out: &output, Interactive: true}
+	opts := installOptions{LanguageSet: true, NoService: true}
+	if err := opts.wizard(u, settings, false); err != nil {
+		t.Fatal(err)
+	}
+	if err := opts.apply(&settings); err != nil {
+		t.Fatal(err)
+	}
+	if opts.Mode != "domain" || settings.Domain != "panel.example.test" || !settings.DomainEnabled || settings.LANAccessMode != "off" || settings.Listen != "0.0.0.0:5000" {
+		t.Fatal("accepting the saved domain did not select direct access without LAN")
+	}
+	if !strings.Contains(output.String(), "[default: panel.example.test]") {
+		t.Fatal("saved domain was not used as the local default")
+	}
+}
+
+func TestExplicitDomainModeReusesSavedDomainWithoutDomainFlag(t *testing.T) {
+	for _, mode := range []string{"domain", "direct"} {
+		settings := wizardSettings()
+		settings.Domain, settings.DomainEnabled = "panel.example.test", true
+		settings.LANAccessMode = "on"
+		opts := installOptions{ModeSet: true, Mode: mode}
+		if err := opts.apply(&settings); err != nil {
+			t.Fatal(err)
+		}
+		if !settings.DomainEnabled || settings.Domain != "panel.example.test" || settings.LANAccessMode != "off" || settings.Listen != "0.0.0.0:5000" {
+			t.Fatalf("mode %s lost saved domain access", mode)
+		}
+	}
+}
 func TestInvalidWizardConfigurationAndPasswordOutput(t *testing.T) {
 	for _, opts := range []installOptions{{ModeSet: true, Mode: "invalid"}, {Port: -1}, {DomainSet: true, Domain: "https://panel.test/wrong/path"}} {
 		s := wizardSettings()
